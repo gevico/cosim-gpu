@@ -10,7 +10,7 @@
 适配器清单
 ----------
 
-仓库内置两类设备适配器，另有一个模板适配器用于声明自定义设备；host 侧只有一个 ``qemu-host`` 适配器。
+仓库内置两类设备适配器，另有一个模板适配器用于声明自定义设备；host 侧只有一个 ``qemu-vhost`` 适配器。
 
 .. list-table::
    :header-rows: 1
@@ -188,20 +188,20 @@ qemu-device
 
 渲染结果必须是非空参数数组；未定义变量会报错。探测顺序为日志标记，然后 socket。
 
-host 适配器契约
----------------
+vHost 适配器契约
+-----------------
 
-host kind 必须声明 ``role: host``、``model: qemu``，并提供 ``argv`` 或 ``command``；``max_devices`` 只对 host kind 生效（``qemu-host`` 为 64）。``qemu-host`` 的命令模板先为每个设备分配 PCIe root port，再挂载磁盘，最后追加 ``host.args``。
+vHost kind 必须声明 ``role: vhost``、``model: qemu``，并提供 ``argv`` 或 ``command``；``max_devices`` 只对 vHost kind 生效（``qemu-vhost`` 为 64）。``qemu-vhost`` 的命令模板先为每个设备分配 PCIe root port，再挂载磁盘，最后追加 ``vhost.args``。
 
-host 模板可用的上下文变量：
+vHost 模板可用的上下文变量：
 
 .. list-table::
    :header-rows: 1
 
    * - 变量
      - 含义
-   * - ``host``
-     - 校验后的 host 对象，含 ``machine``、``accel``、``cpus``、``args`` 等字段
+   * - ``vhost``
+     - 校验后的 vHost 对象，含 ``machine``、``accel``、``cpus``、``args`` 等字段
    * - ``machine``
      - 机器标识符
    * - ``pool``
@@ -211,7 +211,7 @@ host 模板可用的上下文变量：
    * - ``guest_ranges``
      - 客户机物理地址区间
    * - ``boot``
-     - payload 的直连启动配置，可为空
+     - vHost 的直连启动配置，可为空
    * - ``disks``
      - 渲染后的磁盘列表，含 ``path``、``format``、``readonly``、``bus``、``boot``
    * - ``devices``
@@ -219,16 +219,16 @@ host 模板可用的上下文变量：
    * - ``qmp`` / ``serial`` / ``serial_log``
      - QMP socket、串口 socket 与串口日志路径
    * - ``cmdline``
-     - payload ``boot.cmdline`` 与所有设备 ``guest_hints.cmdline`` 空格连接的结果
+     - vHost 的 ``cmdline`` 与所有设备 ``guest_hints.cmdline`` 空格连接的结果
    * - ``run_dir`` / ``node_dir``
-     - 会话运行目录与该 host 节点的工作目录
+     - 会话运行目录与该 vHost 节点的工作目录
 
-host 程序必须在前台运行、把资源使用者保留在自己的进程组中并保持继承的文件描述符打开；QEMU 的 ``-daemonize`` 会被拒绝。
+vHost 程序必须在前台运行、把资源使用者保留在自己的进程组中并保持继承的文件描述符打开；QEMU 的 ``-daemonize`` 会被拒绝。
 
 就绪探测与超时
 --------------
 
-每个进程启动后按顺序执行探测，全部通过即视为就绪；每项探测必须在 ``--ready-timeout`` （默认 120 秒）内成功。``serial.timeout`` 为串口标记单独指定 1 到 86400 秒的期限。设备先于 host 就绪，host 先于设备停止。
+每个进程启动后按顺序执行探测，全部通过即视为就绪；每项探测必须在 ``--ready-timeout`` （默认 120 秒）内成功。``serial.timeout`` 为串口标记单独指定 1 到 86400 秒的期限。设备先于 vHost 就绪，vHost 先于设备停止。
 
 .. list-table::
    :header-rows: 1
@@ -238,10 +238,10 @@ host 程序必须在前台运行、把资源使用者保留在自己的进程组
      - 使用方
    * - ``Log``
      - 进程标准输出日志包含指定标记
-     - 设备自定义命令；host 的可选 ``serial.wait_for``
+     - 设备自定义命令；vHost 的可选 ``serial.wait_for``
    * - ``Socket``
      - Unix socket 路径存在
-     - gem5 设备、模板设备、host 串口 socket
+     - gem5 设备、模板设备、vHost 串口 socket
    * - ``Qmp``
      - QMP 服务器完成 capabilities 协商
      - ``qemu-device`` 设备与 host
@@ -259,20 +259,20 @@ host 程序必须在前台运行、把资源使用者保留在自己的进程组
 
 - ``crates/cosim-topology/src/adapter/template.rs``：模板设备与命令渲染。
 
-- ``samples/devices/``：设备模板样例；``samples/hosts/qemu.yaml``：host 命令模板。
+- ``resources/devices/``：设备模板样例；``resources/vhosts/qemu.yaml``：host 命令模板。
 
 修改后运行：
 
 .. code-block:: bash
 
-   just run-cli plan samples/machines/qemu-device.yaml
-   just run-cli validate samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --assets
+   just run-topology resources/machines/qemu-device.yaml --dry-run
+   just run-cli validate resources/machines/single-gpu.yaml  --assets
    just check-cosim
 
 相关页面
 --------
 
-- 设备字段与 payload：:doc:`topology_schema`
+- 设备字段与 vHost：:doc:`topology_schema`
 
 - 客户机驱动参数：:doc:`guest_parameters`
 

@@ -9,25 +9,25 @@ host-only machine
 Overview
 --------
 
-``host-only`` is a device-less TCG board: one ``host-x86-tcg`` host starts paused, with no devices and no guest. It validates the session chain itself: the QEMU process, the memory pool, and QMP and serial management.
+``host-only`` is the legacy filename of a device-less TCG machine: one ``vhost-x86-tcg`` vHost starts paused, with no devices and no OS. It validates the session chain itself: the QEMU process, the memory pool, and QMP and serial management.
 
 Topology
 --------
 
 .. code-block:: yaml
 
-   # samples/machines/host-only.yaml
+   # resources/machines/host-only.yaml
    version: 1
-   imports: [hosts/qemu.yaml, hosts/host-x86-tcg.yaml]
+   imports: [vhosts/qemu.yaml, vhosts/vhost-x86-tcg.yaml]
    templates:
-     host-x86-node:
-       host: {use: host-x86-tcg}
+     vhost-x86-node:
+       vhost: {use: vhost-x86-tcg}
    machines:
-     - {id: m0, use: host-x86-node}
+     - {id: m0, use: vhost-x86-node}
 
 - Machine count: one (``m0``); there is a host only and no ``devices`` list.
-- ``host-x86-tcg`` inherits the Q35 machine and memory map from ``host-x86`` and overrides only memory, CPU, accelerator and the executable.
-- The host starts paused with ``-S -nodefaults``; there is no payload and no guest runs.
+- ``vhost-x86-tcg`` inherits the Q35 machine and memory map from ``vhost-x86`` and overrides only memory, CPU, accelerator and the executable.
+- The vHost starts paused with ``-S -nodefaults`` and has no image or kernel, so no guest OS runs.
 
 Hardware resources
 ------------------
@@ -40,13 +40,13 @@ Hardware resources
      - Source
    * - Machine
      - 1 (``m0``)
-     - ``samples/machines/host-only.yaml``
-   * - Host profile
-     - ``host-x86-tcg``: ``q35``, ``tcg``, ``qemu64`` CPU
-     - ``samples/hosts/host-x86-tcg.yaml``
+     - ``resources/machines/host-only.yaml``
+   * - vHost profile
+     - ``vhost-x86-tcg``: ``q35``, ``tcg``, ``qemu64`` CPU
+     - ``resources/vhosts/vhost-x86-tcg.yaml``
    * - Guest RAM
      - 64 MiB
-     - ``samples/hosts/host-x86-tcg.yaml``
+     - ``resources/vhosts/vhost-x86-tcg.yaml``
    * - vCPUs
      - 1
      - Same file
@@ -58,8 +58,8 @@ Hardware resources
      - Host RAM
    * - Executable
      - ``qemu-system-x86_64`` (looked up in ``PATH``)
-     - ``samples/hosts/host-x86-tcg.yaml``
-   * - Payload
+     - ``resources/vhosts/vhost-x86-tcg.yaml``
+   * - vHost
      - None
      - —
 
@@ -76,10 +76,10 @@ Running this machine
 .. code-block:: bash
 
    # Validate and preview only
-   just run-cli validate samples/machines/host-only.yaml
-   just run-cli plan samples/machines/host-only.yaml
+   just run-cli validate resources/machines/host-only.yaml
+   just run-topology resources/machines/host-only.yaml --dry-run
    # Run for one second and end the session (the host is paused)
-   just run-topology-dev samples/machines/host-only.yaml --run-for 1
+   just run-topology-dev resources/machines/host-only.yaml --run-for 1
 
 - ``--run-for`` starts counting after every process is ready, which suits this guest-less smoke run.
 - After the session, ``plan.json``, ``layout.json``, ``output.log`` and ``verdict.json`` remain, while the pool and sockets are removed.
@@ -103,9 +103,9 @@ Limitations
 Related pages
 -------------
 
-- Host profiles: :doc:`../hosts/index`
+- vHost profiles: :doc:`../hosts/index`
 - Machine catalog: :doc:`index`
 - qemu-device board: :doc:`qemu_device`
 - Multi-machine variant: :doc:`../multi_machine`
 - Session lifecycle: :ref:`launcher-session-lifecycle`
-- Sources: ``samples/machines/host-only.yaml``, ``samples/hosts/host-x86-tcg.yaml``
+- Sources: ``resources/machines/host-only.yaml``, ``resources/vhosts/vhost-x86-tcg.yaml``

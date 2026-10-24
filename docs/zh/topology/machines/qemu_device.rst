@@ -16,23 +16,23 @@ qemu-device 机器
 
 .. code-block:: yaml
 
-   # samples/machines/qemu-device.yaml
+   # resources/machines/qemu-device.yaml
    version: 1
    imports:
-     - hosts/qemu.yaml
-     - hosts/host-x86-tcg.yaml
+     - vhosts/qemu.yaml
+     - vhosts/vhost-x86-tcg.yaml
      - devices/pci/qemu-edu.yaml
    machines:
      - id: m0
-       host:
-         use: host-x86-tcg
+       vhost:
+         use: vhost-x86-tcg
          runtime: {binary: build/qemu/qemu-system-x86_64}
      devices:
        - {use: qemu-edu}
 
 - 机器数量：1（``m0``\ ）；主机覆盖 ``runtime.binary``\ ，改用子模块构建的 QEMU。
 - 设备使用默认标识符 ``qemu-edu-0``\ ，没有私有内存区域。
-- 主机以 ``-S -nodefaults`` 暂停启动，没有 payload。
+- vHost 以 ``-S -nodefaults`` 暂停启动，且没有镜像或内核。
 
 硬件资源
 --------
@@ -45,16 +45,16 @@ qemu-device 机器
      - 来源
    * - 机器
      - 1 台（``m0``\ ）
-     - ``samples/machines/qemu-device.yaml``
-   * - 主机配置
-     - ``host-x86-tcg``\ ：``q35``\ 、``tcg``\ 、``qemu64`` CPU
-     - ``samples/hosts/host-x86-tcg.yaml``
+     - ``resources/machines/qemu-device.yaml``
+   * - vHost 配置
+     - ``vhost-x86-tcg``\ ：``q35``\ 、``tcg``\ 、``qemu64`` CPU
+     - ``resources/vhosts/vhost-x86-tcg.yaml``
    * - 客户机 RAM
      - 64 MiB，1 vCPU
      - 同上
    * - 设备
      - 1 × ``qemu-edu``\ ：``args.device`` 为 ``{driver: edu}``
-     - ``samples/devices/pci/qemu-edu.yaml``
+     - ``resources/devices/pci/qemu-edu.yaml``
    * - 内存池
      - 64 MiB（设备没有私有区域）
      - 主机 RAM
@@ -64,7 +64,7 @@ qemu-device 机器
    * - socket
      - 主机 QMP 与串口；设备 vfio-user socket 与 QMP
      - 会话布局
-   * - Payload
+   * - vHost
      - 无
      - —
 
@@ -101,10 +101,10 @@ qemu-device 机器
    # 先构建带 vfio-user 支持的 QEMU
    just build-qemu
    # 校验与预览
-   just run-cli validate samples/machines/qemu-device.yaml --assets
-   just run-cli plan samples/machines/qemu-device.yaml
+   just run-cli validate resources/machines/qemu-device.yaml --assets
+   just run-topology resources/machines/qemu-device.yaml --dry-run
    # 冒烟运行，2 秒后结束
-   just run-topology-dev samples/machines/qemu-device.yaml --run-for 2
+   just run-topology-dev resources/machines/qemu-device.yaml --run-for 2
 
 - 设备进程先启动并进入监听；主机在设备就绪后才启动。
 - 关闭时主机先停止，设备在最后一个租约释放后退出。
@@ -130,8 +130,8 @@ qemu-device 机器
 --------
 
 - 设备目录：:doc:`../devices/index`
-- 主机配置：:doc:`../hosts/index`
+- vHost 配置：:doc:`../hosts/index`
 - 机器目录：:doc:`index`
 - 第 4 章：:ref:`sim-qemu-device-models`\ ，:ref:`sim-qemu-vhost`
 - 适配器契约：:ref:`ref-device-adapters`
-- 源码：``samples/machines/qemu-device.yaml``\ 、``samples/devices/pci/qemu-edu.yaml``
+- 源码：``resources/machines/qemu-device.yaml``\ 、``resources/devices/pci/qemu-edu.yaml``

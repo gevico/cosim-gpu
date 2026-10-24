@@ -29,33 +29,13 @@ pub(crate) struct Document {
     pub(crate) machines: Vec<Value>,
 }
 
-/// A payload document, kept separate from machine hardware.
-#[derive(Debug, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct PayloadDocument {
-    pub(crate) version: u32,
-    pub(crate) image: Option<PayloadImage>,
-    #[serde(default)]
-    pub(crate) boot: Boot,
-    #[serde(default)]
-    pub(crate) disks: Vec<Disk>,
-    #[serde(default)]
-    pub(crate) snapshot: bool,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct PayloadImage {
-    pub(crate) recipe: String,
-}
-
-/// A reusable machine, host or device fragment.
+/// A reusable machine, vHost or device fragment.
 #[expect(dead_code, reason = "the type only describes the document schema")]
 #[derive(JsonSchema)]
 #[serde(untagged)]
 enum Template {
     Machine(Box<Machine>),
-    Host(Box<Host>),
+    Vhost(Box<Vhost>),
     Device(Box<Device>),
 }
 
@@ -79,7 +59,7 @@ pub(crate) struct Machine {
     #[serde(default, rename = "use")]
     pub(crate) template: Option<String>,
     pub(crate) count: Option<usize>,
-    pub(crate) host: Option<Host>,
+    pub(crate) vhost: Option<Vhost>,
     #[serde(default)]
     pub(crate) devices: Vec<Device>,
     pub(crate) placement: Option<Placement>,
@@ -104,7 +84,7 @@ pub(crate) struct Runtime {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct Host {
+pub(crate) struct Vhost {
     #[expect(dead_code, reason = "template references are expanded before decoding")]
     #[serde(default, rename = "use")]
     pub(crate) template: Option<String>,
@@ -126,21 +106,23 @@ pub(crate) struct Host {
     pub(crate) serial: Serial,
     #[serde(default)]
     pub(crate) args: Vec<String>,
-}
-
-#[derive(Debug, Default, Deserialize, JsonSchema, Serialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct Boot {
+    pub(crate) image: Option<String>,
     pub(crate) kernel: Option<PathBuf>,
     pub(crate) initrd: Option<PathBuf>,
     pub(crate) cmdline: Option<String>,
+    #[serde(default)]
+    pub(crate) root_bus: DiskBus,
+    #[serde(default)]
+    pub(crate) disks: Vec<Disk>,
+    #[serde(default)]
+    pub(crate) snapshot: bool,
 }
 
 #[derive(Debug, Default, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Serial {
     pub(crate) wait_for: Option<String>,
-    /// Seconds allowed for `wait_for`, measured from host start.
+    /// Seconds allowed for `wait_for`, measured from vHost start.
     pub(crate) timeout: Option<u64>,
 }
 

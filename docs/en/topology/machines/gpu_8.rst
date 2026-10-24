@@ -9,22 +9,22 @@ gpu-8 machine
 Overview
 --------
 
-``gpu-8`` is a single-machine, multi-GPU board: one ``host-x86`` host with eight gem5 MI300X devices of 8 GiB VRAM each, sharing a 96 GiB memory pool. It shows the process fan-out and pool capacity arithmetic of one machine.
+``gpu-8`` is a single-machine, multi-GPU board: one ``vhost-x86`` host with eight gem5 MI300X devices of 8 GiB VRAM each, sharing a 96 GiB memory pool. It shows the process fan-out and pool capacity arithmetic of one machine.
 
 Topology
 --------
 
 .. code-block:: yaml
 
-   # samples/machines/gpu-8.yaml
+   # resources/machines/gpu-8.yaml
    version: 1
    imports:
-     - hosts/qemu.yaml
+     - vhosts/qemu.yaml
      - devices/gpu/mi300x.yaml
    templates:
      node8:
-       host:
-         use: host-x86
+       vhost:
+         use: vhost-x86
          memory: 32G
          cpus: 16
        devices:
@@ -50,16 +50,16 @@ Hardware resources
      - Source
    * - Machine
      - 1 (``m0``)
-     - ``samples/machines/gpu-8.yaml``
-   * - Host profile
-     - ``host-x86``: ``q35``, ``kvm``, 16 vCPU
-     - ``samples/hosts/qemu.yaml``
+     - ``resources/machines/gpu-8.yaml``
+   * - vHost profile
+     - ``vhost-x86``: ``q35``, ``kvm``, 16 vCPU
+     - ``resources/vhosts/qemu.yaml``
    * - Guest RAM
      - 32 GiB
      - ``gpu-8.yaml``
    * - Devices
      - 8 × ``mi300x``, 8 GiB VRAM and 40 CU each
-     - ``samples/devices/gpu/mi300x.yaml``
+     - ``resources/devices/gpu/mi300x.yaml``
    * - Memory pool
      - 96 GiB = 32 GiB RAM + 64 GiB VRAM
      - ``crates/cosim-topology/src/layout.rs``
@@ -81,7 +81,7 @@ Software stack
      - Description
    * - Guest OS
      - Ubuntu 24.04.2 LTS, kernel 6.8.0-124-generic
-     - Payload optional; the board itself describes hardware only
+     - vHost optional; the board itself describes hardware only
    * - GPU driver
      - ``amdgpu`` with fixed parameters
      - ``ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2``
@@ -89,7 +89,7 @@ Software stack
      - 8 independent gem5 MI300X processes
      - One GPU per process (``--num-gpus=1``)
    * - Guest initialization
-     - ``cosim-gpu-setup.service``
+     - ``cosim-gpu-initialize.service``
      - Writes the ROM with ``dd`` and runs ``modprobe`` for each simulated device
 
 Running this machine
@@ -98,13 +98,13 @@ Running this machine
 .. code-block:: bash
 
    # Validate and preview the layout of the 96 GiB pool
-   just run-cli validate samples/machines/gpu-8.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --assets
-   just run-cli plan samples/machines/gpu-8.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-cli validate resources/machines/gpu-8.yaml  --assets
+   just run-topology resources/machines/gpu-8.yaml --dry-run
    # Start a session
-   just run-topology samples/machines/gpu-8.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-topology resources/machines/gpu-8.yaml
 
 - The pool directory needs 96 GiB of free space; on Linux it defaults to a directory under ``/dev/shm``.
-- Shutdown follows the single-machine flow: devices stop after the host exits; see :ref:`launcher-session-lifecycle`.
+- Shutdown follows the single-machine flow: devices stop after the vHost exits; see :ref:`launcher-session-lifecycle`.
 
 Verification
 ------------
@@ -125,9 +125,9 @@ Related pages
 -------------
 
 - Single-machine topology and pool arithmetic: :doc:`../single_machine`
-- Host profiles: :doc:`../hosts/index`
+- vHost profiles: :doc:`../hosts/index`
 - Device catalog: :doc:`../devices/index`
-- Payloads: :doc:`../payloads/index`
+- vHost: :ref:`ref-topology-schema`
 - Machine catalog: :doc:`index`
 - Chapter 4: :ref:`sim-gem5-model`, :ref:`sim-gem5-multi-gpu`
-- Sources: ``samples/machines/gpu-8.yaml``, ``samples/devices/gpu/mi300x.yaml``
+- Sources: ``resources/machines/gpu-8.yaml``, ``resources/devices/gpu/mi300x.yaml``

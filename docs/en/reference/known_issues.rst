@@ -33,8 +33,8 @@ Locate the smallest check for a symptom first, then read the full entry below.
      - gem5 is not connected or has crashed
    * - ``insmod`` fails
      - kernel release and DKMS module do not match
-   * - ``cosim-gpu-setup.service`` fails
-     - ``journalctl -u cosim-gpu-setup``
+   * - ``cosim-gpu-initialize.service`` fails
+     - ``journalctl -u cosim-gpu-initialize``
    * - BAR layout probe returns -12
      - check the BAR region descriptors exported by ``MI300XVfioUser``
 
@@ -56,7 +56,7 @@ Entry numbers match the historical issue numbers for cross-referencing.
    * - Root cause
      - All five BIOS discovery methods fail under cosim. The driver logs ``Unable to locate a BIOS ROM`` and continues, and the RAS initialization path calls the parser even when ``atom_context`` is empty.
    * - Fix
-     - Write the ROM before ``modprobe``; the command is in the VGA ROM section of :doc:`guest_parameters`. ``cosim-gpu-setup.service`` does this automatically.
+     - Write the ROM before ``modprobe``; the command is in the VGA ROM section of :doc:`guest_parameters`. ``cosim-gpu-initialize.service`` does this automatically.
 
 4.2 PSP / SMU firmware load failure
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

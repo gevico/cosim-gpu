@@ -36,7 +36,7 @@ Component versions
    * - GPU model
      - MI300X, gfx942, PCI ``0x1002`` and ``0x74a0``
      - fixed
-     - ``samples/devices/gpu/mi300x.yaml``
+     - ``resources/devices/gpu/mi300x.yaml``
    * - Coherence protocol
      - ``GPU_VIPER``
      - fixed
@@ -93,7 +93,7 @@ Images and containers
      - development container image; also the default gem5 container image of the legacy shell launcher
      - ``just dev-image`` from ``scripts/host/Dockerfile.dev`` (Ubuntu 24.04, third_party/gem5/QEMU build dependencies, Rust, QEMU, ``qemu-img``)
    * - ``ghcr.io/third_party/gem5/gpu-fs:latest``
-     - build image for guest GPU test programs; default of ``GPU_APP_BUILD_IMAGE`` for ``just build-gpu-tests`` and ``scripts/host/run_mi300x_fs.sh``
+     - build image for guest GPU test programs; default of ``GPU_APP_BUILD_IMAGE`` for ``just build-gpu-tests`` and ``just build-gpu-app``
      - external image; override with ``GPU_APP_BUILD_IMAGE``
    * - Guest kernel and disk
      - ``build/rocm-local-installed/kernel`` and ``build/rocm-local-installed/disk``
@@ -112,11 +112,11 @@ The repository contains exactly one guest image recipe, with the following ident
    * - Item
      - Value
    * - Recipe identifier
-     - ``vhost-ubuntu-24.04-x86_64-rocm7_0``
+     - ``ubuntu/24.04/x86_64/rocm/7.0``
    * - Role and architecture
      - ``vhost``, ``x86_64``
    * - Directory
-     - ``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/``
+     - ``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/``
    * - Build entry points
      - ``build.sh``; template ``image.pkr.hcl``; provisioning ``provision.yml``
    * - Artifacts
@@ -156,9 +156,9 @@ Version information comes from these files; update this page when upgrading:
 
 - ``Cargo.toml``: minimum Rust version.
 
-- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/recipe.toml``: guest OS and kernel.
+- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/recipe.toml``: guest OS and kernel.
 
-- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/provision.yml``, ``build.sh`` and ``image.pkr.hcl``: ROCm, PyTorch channel, ROM and build-tool versions.
+- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/provision.yml``, ``build.sh`` and ``image.pkr.hcl``: ROCm, PyTorch channel, ROM and build-tool versions.
 
 Related pages
 -------------

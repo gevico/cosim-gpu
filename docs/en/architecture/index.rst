@@ -60,7 +60,7 @@ Relation to the other chapters
    * - QEMU and gem5
      - QEMU vhost/device model and gem5 MI300X model details
    * - Topology and hardware support
-     - Machine catalog, host/device/payload and writing YAML
+     - Machine catalog, host/device/vHost and writing YAML
 
 Related pages
 -------------

@@ -30,7 +30,7 @@ Rust 工作区
    * - ``crates/cosim-cli/src/main.rs``
      - Clap 子命令、信号升级、标准输入生命线、事件输出和 verdict 行。
    * - ``crates/cosim-topology/src/raw.rs``\ 、``model.rs``\ 、``size.rs``
-     - 解码后的输入类型、校验后的类型（``Topology``\ 、``Machine``\ 、``Host``\ 、``Device``\ 、``Disk``\ ）和 ``ByteSize``\ 。
+     - 解码后的输入类型、校验后的类型（``Topology``\ 、``Machine``\ 、``Vhost``\ 、``Device``\ 、``Disk``\ ）和 ``ByteSize``\ 。
    * - ``crates/cosim-topology/src/loader.rs``\ 、``resolve.rs``
      - 导入、合并键、模板继承、工作区相对资源路径、数量展开和校验。
    * - ``crates/cosim-topology/src/adapter/``
@@ -47,16 +47,16 @@ Rust 工作区
 公开接口
 ---------
 
-- ``cosim-topology``\ 公开 ``load``\ 、``graph``\ 和 ``schema``\ ；校验后的类型根据 ``DeviceContext``\ 和 ``HostContext``\ 渲染启动参数。
+- ``cosim-topology``\ 公开 ``load``\ 、``graph``\ 和 ``schema``\ ；校验后的类型根据 ``DeviceContext``\ 和 ``VhostContext``\ 渲染启动参数。
 - ``cosim-runtime``\ 公开 ``plan``\ 、``run``\ 、``clean``\ 、``check_assets``\ 、``RunOptions``\ 、``Shutdown``\ 和 ``Event``\ 。
-- ``Plan``\ 记录程序、参数、环境、依赖、就绪探测、共享内存区域、磁盘目标和锁文件路径，``cosim plan``\ 打印的就是它。
+- ``Plan``\ 记录程序、参数、环境、依赖、就绪探测、共享内存区域、磁盘目标和锁文件路径，``cosim run --dry-run``\ 打印的就是它。
 
 扩展点：适配器与命令模板
 -------------------------
 
 - 设备适配器由 ``Adapter``\ 枚举表达：``gem5-mi300x``\ 运行一个进程内一个 GPU，``qemu-device``\ 导出 QEMU 功能设备，模板适配器按 YAML 渲染命令。
 - 就绪条件由 ``Probe``\ 表达：日志标记、Unix socket 存在和 QMP 协商；适配器按顺序返回这些探测。
-- host kind 通过 YAML ``command``\ 模板渲染 QEMU 参数；``kinds``\ 中 ``role: device``\ 的 kind 提供 ``argv``\ 或 ``command``\ ，并需要 ``ready_log``\ 。
+- vHost kind 通过 YAML ``command``\ 模板渲染 QEMU 参数；``kinds``\ 中 ``role: device``\ 的 kind 提供 ``argv``\ 或 ``command``\ ，并需要 ``ready_log``\ 。
 - ``runtime.argv``\ 或 ``runtime.command``\ 可以替换任何设备适配器生成的命令，但必须自己保证就绪探测和资源约定。
 - ``gem5-mi300x``\ 要求 ``config``\ 、恰好一个大小为 2 的幂的 ``vram``\ 区域，以及匹配 MI300X 的 PCI 元数据；``num_compute_units``\ 的范围是 1 到 1024，默认 40。
 - ``qemu-device``\ 要求 ``args.device.driver``\ ，``id``\ 默认为 ``device0``\ ，不接受私有内存区域，并需要 ``runtime.binary``\ 。
@@ -64,9 +64,9 @@ Rust 工作区
 接入新模型的步骤
 -----------------
 
-1. 在 ``samples/devices/``\ 中添加模板，声明 ``kind``\ 、``config``\ 或 ``runtime``\ 、内存区域和 PCI 元数据。
+1. 在 ``resources/devices/``\ 中添加模板，声明 ``kind``\ 、``config``\ 或 ``runtime``\ 、内存区域和 PCI 元数据。
 2. 选择内置适配器，或在 ``kinds``\ 中声明 ``role: device``\ 的模板 kind 并提供命令与 ``ready_log``\ 。
-3. 在 ``samples/machines/``\ 中添加引用该模板的机器样例，并运行 ``cosim validate``\ 与 ``cosim plan``\ 检查渲染结果。
+3. 在 ``resources/machines/``\ 中添加引用该模板的机器样例，并运行 ``cosim validate``\ 与 ``cosim run --dry-run``\ 检查渲染结果。
 4. 如果模型需要新的就绪方式或参数语义，修改 ``crates/cosim-topology/src/adapter/``\ 并补充 Rust 测试。
 
 依赖与安全规则

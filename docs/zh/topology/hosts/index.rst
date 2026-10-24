@@ -1,24 +1,24 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 
-.. _topo-hosts:
+.. _topo-vhosts:
 
-主机配置
-========
+vHost 配置
+==========
 
-每台机器有一个 QEMU 主机进程。主机模板把 YAML 字段渲染成 QEMU 命令行，绑定内存池，并暴露 QMP 与串口。本页说明主机在拓扑中的位置、字段、随仓库提供的 4 个 profile，以及 QEMU 命令契约、内存映射与串口就绪。完整字段表见 :ref:`ref-topology-schema`\ ，适配器实现位于 ``crates/cosim-topology/src/adapter/mod.rs``\ 。
+每台机器有一个 QEMU vHost 进程。vHost 模板把 YAML 字段渲染成 QEMU 命令行，绑定内存池，并暴露 QMP 与串口。本页说明 vHost 在拓扑中的位置、字段、随仓库提供的 4 个 profile，以及 QEMU 命令契约、内存映射与串口就绪。完整字段表见 :ref:`ref-topology-schema`\ ，适配器实现位于 ``crates/cosim-topology/src/adapter/mod.rs``\ 。
 
-主机在拓扑中的位置
-------------------
+vHost 在拓扑中的位置
+---------------------
 
-- 一台机器恰好一个主机；主机 kind 必须是 ``model: qemu`` 的 host kind，仓库只提供 ``qemu-host``\ 。
-- ``samples/hosts/qemu.yaml`` 声明 ``qemu-host``\ ：命令模板用 MiniJinja 渲染，绑定内存池，提供 QMP 与串口，先为每个设备在槽位 ``0x10`` 到 ``0x17`` 分配独立 PCIe root port（8 个 function），再由 QEMU 把磁盘放到剩余槽位。
+- 一台机器恰好一个 vHost；其 kind 必须使用 ``model: qemu``，仓库只提供 ``qemu-vhost``\ 。
+- ``resources/vhosts/qemu.yaml`` 声明 ``qemu-vhost``\ ：命令模板用 MiniJinja 渲染，绑定内存池，提供 QMP 与串口，先为每个设备在槽位 ``0x10`` 到 ``0x17`` 分配独立 PCIe root port（8 个 function），再由 QEMU 把磁盘放到剩余槽位。
 - kind 声明 ``max_devices: 64``\ ；一台机器的设备数量不能超过该值。
-- 主机必须在全部本机设备就绪并交出租约后才能启动；主机关闭后设备才停止。
-- 主机程序必须在前台运行、把资源使用者保留在自己的进程组中并保持继承的文件描述符打开；QEMU ``-daemonize`` 会被拒绝。
+- vHost 必须在全部本机设备就绪并交出租约后才能启动；vHost 关闭后设备才停止。
+- vHost 程序必须在前台运行、把资源使用者保留在自己的进程组中并保持继承的文件描述符打开；QEMU ``-daemonize`` 会被拒绝。
 
-主机字段
---------
+vHost 字段
+----------
 
 .. list-table::
    :header-rows: 1
@@ -30,7 +30,7 @@
    * - ``kind``
      - string
      - 无
-     - 必须解析为 ``model: qemu`` 的 host kind
+     - 必须解析为 ``model: qemu`` 的 vHost kind
    * - ``runtime.binary``
      - path 或名称
      - 无
@@ -87,72 +87,75 @@
 内置 profile
 ------------
 
-4 个 profile 定义在 ``samples/hosts/`` 中，机器通过 ``use`` 选择。
+4 个 profile 定义在 ``resources/vhosts/`` 中，机器通过 ``use`` 选择。
 
-.. _topo-host-x86:
+.. _topo-vhost-x86:
 
-host-x86
-~~~~~~~~
+vhost-x86
+~~~~~~~~~
 
 - ``q35``\ 、``kvm``\ 、``host`` CPU、8 GiB RAM、4 vCPU；二进制为 ``build/qemu/qemu-system-x86_64``\ 。
 - ``memory_map`` 描述 x86_64 PCI 空洞：RAM 不小于 2.75 GiB 时，4 GiB 以下保留 2 GiB，其余放到 4 GiB 以上。
 - x86_64 KVM 客户机板卡默认使用该 profile。
 
-.. _topo-host-arm:
+.. _topo-vhost-arm:
 
-host-arm
-~~~~~~~~
+vhost-arm
+~~~~~~~~~
 
 - ``virt,gic-version=3``\ 、``kvm``\ 、``host`` CPU、8 GiB RAM、4 vCPU；二进制为 ``build/qemu/qemu-system-aarch64``\ 。
 - ``memory_map`` 把 RAM 放在 1 GiB。
-- 没有样例直接使用该 KVM profile；它只作为 ``host-arm-tcg`` 的基础模板。
+- 没有样例直接使用该 KVM profile；它只作为 ``vhost-arm-tcg`` 的基础模板。
 
-.. _topo-host-x86-tcg:
+.. _topo-vhost-x86-tcg:
 
-host-x86-tcg
-~~~~~~~~~~~~
+vhost-x86-tcg
+~~~~~~~~~~~~~
 
-- 继承 ``host-x86``\ ，覆盖为 ``tcg``\ 、``qemu64``\ 、64 MiB RAM、1 vCPU。
+- 继承 ``vhost-x86``\ ，覆盖为 ``tcg``\ 、``qemu64``\ 、64 MiB RAM、1 vCPU。
 - 二进制写裸名 ``qemu-system-x86_64``\ ，生成计划时从 ``PATH`` 查找。
-- ``args`` 为 ``[-S, -nodefaults]``\ ，主机启动后保持暂停，用于无客户机的会话测试。
+- ``args`` 为 ``[-S, -nodefaults]``\ ，vHost 启动后保持暂停，用于不启动操作系统的会话测试。
 
-.. _topo-host-arm-tcg:
+.. _topo-vhost-arm-tcg:
 
-host-arm-tcg
-~~~~~~~~~~~~
+vhost-arm-tcg
+~~~~~~~~~~~~~
 
-- 继承 ``host-arm``\ ，覆盖为 ``tcg``\ 、``cortex-a72``\ 、64 MiB RAM、1 vCPU。
+- 继承 ``vhost-arm``\ ，覆盖为 ``tcg``\ 、``cortex-a72``\ 、64 MiB RAM、1 vCPU。
 - 二进制写裸名 ``qemu-system-aarch64``\ ；``args`` 为 ``[-S, -nodefaults]``\ 。
 - AArch64 样例与架构相关会话测试使用该 profile。
 
 QEMU 命令契约
 -------------
 
-主机 kind 用命令模板生成 QEMU 参数，模板上下文包括 ``host``\ 、``machine``\ 、``pool``\ 、``ram``\ 、``guest_ranges``\ 、``boot``\ 、``disks``\ 、``devices``\ 、``qmp``\ 、``serial``\ 、``serial_log``\ 、``cmdline``\ 、``run_dir`` 与 ``node_dir``\ 。从 ``samples/hosts/qemu.yaml`` 渲染出的主要片段：
+vHost kind 用命令模板生成 QEMU 参数，模板上下文包括 ``vhost``\ 、``machine``\ 、
+``pool``\ 、``ram``\ 、``guest_ranges``\ 、``boot``\ 、``disks``\ 、``devices``\ 、
+``qmp``\ 、``serial``\ 、``serial_log``\ 、``cmdline``\ 、``run_dir`` 与 ``node_dir``\ 。
 
 - ``-machine <machine>,memory-backend=ram``\ 、``-accel``\ 、``-m``\ 、``-smp``\ ；
 - ``memory-backend-file``\ （``share=on``\ ，offset 为客户机 RAM 偏移）绑定内存池；
 - QMP Unix socket；串口 chardev 加 logfile；
-- 可选 ``-cpu``\ 、``-display``\ 、``-monitor``\ 、``-append``\ ；payload 含 ``boot.kernel`` 时加 ``-kernel`` 与 ``-initrd``\ ；``no_reboot`` 为真时加 ``-no-reboot``\ ；
+- 可选 ``-cpu``\ 、``-display``\ 、``-monitor``\ 、``-append``\ ；vHost 含 ``kernel`` 时加 ``-kernel`` 与 ``-initrd``\ ；``no_reboot`` 为真时加 ``-no-reboot``\ ；
 - 每个设备一个 ``pcie-root-port`` 和一个 ``vfio-user-pci`` 客户端（存在 ``pci.rom`` 时带 ``romfile``\ ）；
 - 有 SCSI 磁盘时加 ``virtio-scsi-pci``\ ；磁盘先渲染为 ``-blockdev`` 的 file 与 format 节点，再按 ``bus`` 映射为 ``virtio-blk-pci``\ 、``nvme``\ 、``scsi-hd`` 或 ``ide-hd``\ ，启动盘加 ``bootindex=1``\ ；
-- 最后追加 ``host.args``\ 。
+- 最后追加 ``vhost.args``\ 。
 
 就绪探测按顺序进行：串口 socket 存在、QMP 协商成功、可选的 ``serial.wait_for`` 日志标记。模板中的未定义值会报错，而不是渲染为空。
 
 内存映射
 --------
 
-- ``memory_map`` 是 MiniJinja 模板，接收 ``host`` 与 ``ram.size``\ ，渲染出 1 到 64 个有序、互不重叠、正好覆盖 ``memory`` 的 ``{start, size}`` 区间。
+- ``memory_map`` 是 MiniJinja 模板，接收 ``vhost`` 与 ``ram.size``\ ，渲染出 1 到
+  64 个有序、互不重叠、正好覆盖 ``memory`` 的 ``{start, size}`` 区间。
 - 机器含 gem5 MI300X 设备时必须提供 ``memory_map``\ ；只有 QEMU 设备时不需要。
 - QEMU 通过 ``memory-backend-file`` 映射客户机 RAM；gem5 收到 ``--host-memory-ranges`` 与 ``--shared-pool``\ ，映射同一个内存池文件。地址空间细节见 :ref:`arch-memory-model`\ 。
 
 串口与就绪时限
 --------------
 
-- ``serial.wait_for`` 增加串口就绪标记；``serial.timeout`` 以秒为单位限制该标记，从主机启动时开始计时，要求同时设置 ``wait_for``\ 。
+- ``serial.wait_for`` 增加串口就绪标记；``serial.timeout`` 以秒为单位限制该标记，从 vHost 启动时开始计时，要求同时设置 ``wait_for``\ 。
 - 未设置 ``serial.timeout`` 时使用会话的 ``--ready-timeout``\ （默认 120 秒）。
-- 主机以状态 0 退出时结束本机；其他退出、探测失败或取消会结束整个会话。
+- vHost 以状态 0 退出时结束本机；其他退出、探测失败或取消会结束整个会话。
 
 相关页面
 --------
@@ -163,4 +166,4 @@ QEMU 命令契约
 - 参考：:ref:`ref-topology-schema`
 - 第 4 章：:ref:`sim-qemu-vhost`
 - 生命周期：:ref:`launcher-session-lifecycle`
-- 源码：``samples/hosts/qemu.yaml``\ 、``samples/hosts/host-x86-tcg.yaml``\ 、``samples/hosts/host-arm-tcg.yaml``
+- 源码：``resources/vhosts/qemu.yaml``\ 、``resources/vhosts/vhost-x86-tcg.yaml``\ 、``resources/vhosts/vhost-arm-tcg.yaml``

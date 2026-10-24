@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, ensure};
 use cosim_topology::{
-    ByteSize, DeviceContext, DeviceModel, Disk, DiskFormat, DiskMode, HostContext, HostDevice,
-    HostDisk, Identifier, Launch, Machine, MemoryLayout, Payload, Probe, Program, Topology,
+    ByteSize, DeviceContext, DeviceModel, Disk, DiskFormat, DiskMode, Identifier, Launch, Machine,
+    MemoryLayout, Probe, Program, Topology, VhostContext, VhostDevice, VhostDisk,
 };
 use nix::unistd::{self, AccessFlags};
 use serde::Serialize;
@@ -28,8 +28,6 @@ const SOCKET_PATH_LIMIT: usize = if cfg!(target_os = "linux") { 108 } else { 104
 pub struct Plan {
     /// Topology document the plan was built from.
     pub source: PathBuf,
-    /// Optional payload document applied to every machine.
-    pub payload: Option<Payload>,
     /// Host facts used for planning.
     pub env: ExecEnv,
     /// Session directories.
@@ -58,7 +56,7 @@ pub struct MachinePlan {
     pub guest_hints: Vec<String>,
 }
 
-/// A disk source and the file its host opens.
+/// A disk source and the file its vHost opens.
 #[non_exhaustive]
 #[derive(Clone, Debug, Serialize)]
 pub struct DiskPlan {
@@ -68,7 +66,7 @@ pub struct DiskPlan {
     pub source: PathBuf,
     /// Format of the source image.
     pub source_format: DiskFormat,
-    /// How the host opens the source.
+    /// How the vHost opens the source.
     pub mode: DiskMode,
     /// Size of a source image created when it is missing.
     pub create: Option<ByteSize>,
@@ -86,15 +84,15 @@ pub struct DiskPlan {
 pub enum NodeRole {
     /// A device process.
     Device,
-    /// The QEMU host process.
-    Host,
+    /// The QEMU vHost process.
+    Vhost,
 }
 
 /// A resolved process.
 #[non_exhaustive]
 #[derive(Clone, Debug, Serialize)]
 pub struct ProcessPlan {
-    /// Process identifier, `<machine>.<device>` or `<machine>.host`.
+    /// Process identifier, `<machine>.<device>` or `<machine>.vhost`.
     pub id: String,
     /// Index of the owning machine.
     pub machine: usize,
@@ -120,14 +118,8 @@ pub struct ProcessPlan {
 
 /// Resolves commands, paths and executables without creating files or
 /// starting processes.
-pub fn plan(
-    topology: &Topology,
-    payload: Option<&Payload>,
-    env: &ExecEnv,
-    layout: &SessionLayout,
-) -> Result<Plan> {
+pub fn plan(topology: &Topology, env: &ExecEnv, layout: &SessionLayout) -> Result<Plan> {
     SessionLayout::check_identifiers(topology)?;
-    cosim_topology::validate_payload(topology, payload)?;
     // Lock files outlive sessions, so they cannot live in a directory that a
     // session removes.
     ensure!(
@@ -139,13 +131,12 @@ pub fn plan(
     let mut machines = Vec::with_capacity(topology.machines.len());
     let mut processes = Vec::new();
     for (index, machine) in topology.machines.iter().enumerate() {
-        let planned = plan_machine(index, machine, payload, env, layout, &mut processes)
+        let planned = plan_machine(index, machine, env, layout, &mut processes)
             .with_context(|| format!("machine {}", machine.id))?;
         machines.push(planned);
     }
     Ok(Plan {
         source: topology.source.clone(),
-        payload: payload.cloned(),
         env: env.clone(),
         layout: layout.clone(),
         machines,
@@ -156,15 +147,14 @@ pub fn plan(
 fn plan_machine(
     index: usize,
     machine: &Machine,
-    payload: Option<&Payload>,
     env: &ExecEnv,
     layout: &SessionLayout,
     processes: &mut Vec<ProcessPlan>,
 ) -> Result<MachinePlan> {
     let memory = machine.memory_layout(env.page_size)?;
     let pool = layout.pool(&machine.id);
-    let payload_disks = payload.map_or(&[][..], |payload| payload.disks.as_slice());
-    let disks = payload_disks
+    let vhost_disks = machine.vhost.disks.as_slice();
+    let disks = vhost_disks
         .iter()
         .map(|disk| disk_plan(disk, &machine.id, layout))
         .collect::<Result<Vec<_>>>()?;
@@ -202,12 +192,12 @@ fn plan_machine(
         )?);
         sockets.push(socket);
     }
-    let directory = layout.host_dir(&machine.id);
-    let qmp = layout.host_qmp(&machine.id);
-    let serial = layout.host_serial(&machine.id);
+    let directory = layout.vhost_dir(&machine.id);
+    let qmp = layout.vhost_qmp(&machine.id);
+    let serial = layout.vhost_serial(&machine.id);
     let serial_log = layout.serial_log(&machine.id);
     let output_log = SessionLayout::output_log(&directory);
-    let context = HostContext {
+    let context = VhostContext {
         machine,
         layout: &memory,
         pool: &pool,
@@ -216,11 +206,11 @@ fn plan_machine(
         serial_log: &serial_log,
         node_dir: &directory,
         run_dir: &layout.run_dir,
-        boot: payload.and_then(|payload| payload.boot.as_ref()),
+        boot: machine.vhost.boot.as_ref(),
         disks: disks
             .iter()
-            .zip(payload_disks)
-            .map(|(plan, disk)| HostDisk {
+            .zip(vhost_disks)
+            .map(|(plan, disk)| VhostDisk {
                 disk,
                 path: &plan.target,
                 format: plan.target_format,
@@ -231,16 +221,16 @@ fn plan_machine(
             .devices
             .iter()
             .zip(&sockets)
-            .map(|(device, socket)| HostDevice { device, socket })
+            .map(|(device, socket)| VhostDevice { device, socket })
             .collect(),
     };
-    let launch = machine.host.launch(&context)?;
+    let launch = machine.vhost.launch(&context)?;
     processes.push(process(
         ProcessSpec {
-            id: format!("{}.host", machine.id),
+            id: format!("{}.vhost", machine.id),
             machine: index,
-            role: NodeRole::Host,
-            program: &machine.host.program,
+            role: NodeRole::Vhost,
+            program: &machine.vhost.program,
             qemu: true,
             launch,
             directory,

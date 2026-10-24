@@ -19,10 +19,40 @@ from resources.images.toolchain import ANSIBLE_CORE_VERSION, PACKER_VERSION
 
 
 WORKSPACE = Path(__file__).resolve().parents[2]
-RECIPE_ID = "ubuntu/24.04/x86_64/rocm7_0"
+RECIPE_ID = "ubuntu/24.04/x86_64/rocm/7.0"
 
 
 class ReusableImageInputTests(unittest.TestCase):
+    def test_recipe_sources_exclude_deleted_worktree_files(self):
+        source_recipe = load_recipe(WORKSPACE, RECIPE_ID)
+        with tempfile.TemporaryDirectory() as name:
+            workspace = Path(name)
+            relative_recipe = Path("resources/images/recipes") / RECIPE_ID
+            recipe_directory = workspace / relative_recipe
+            recipe_directory.parent.mkdir(parents=True)
+            shutil.copytree(source_recipe.directory, recipe_directory)
+            deleted = recipe_directory / "deleted-input.txt"
+            deleted.write_text("tracked then deleted\n", encoding="utf-8")
+            subprocess.run(
+                ["git", "init", "--quiet"], cwd=workspace, check=True
+            )
+            subprocess.run(
+                ["git", "add", str(relative_recipe)],
+                cwd=workspace,
+                check=True,
+            )
+            deleted.unlink()
+            recipe = load_recipe(workspace, RECIPE_ID)
+
+            sources = recipe_source_files(workspace, recipe)
+
+            self.assertTrue(sources)
+            self.assertNotIn(deleted, [path for _, path in sources])
+            for _, path in sources:
+                self.assertTrue(
+                    path.is_file(), f"missing recipe source: {path}"
+                )
+
     def test_untracked_recipe_files_are_staged_but_ignored_files_are_not(self):
         source_recipe = load_recipe(WORKSPACE, RECIPE_ID)
         with tempfile.TemporaryDirectory() as name:
@@ -72,12 +102,9 @@ class ReusableImageInputTests(unittest.TestCase):
                 (staged.directory / "ignored-input.txt").exists()
             )
             self.assertTrue(staged.playbook_file.is_file())
-            self.assertTrue(staged.tasks_file.is_file())
             self.assertEqual(
-                staged.inputs["run_gem5_app"].parent, staged.directory / "files"
-            )
-            self.assertEqual(
-                staged.inputs["mi300_rom"], recipe.inputs["mi300_rom"]
+                staged.provision_files["mi300_rom"],
+                recipe.provision_files["mi300_rom"],
             )
 
     def test_removed_recipe_file_invalidates_a_previous_bundle(self):

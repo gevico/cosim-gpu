@@ -54,7 +54,7 @@ Log Locations
      - gem5 standard output and standard error, including debug output and warnings.
    * - ``.cosim/<name>/m0/mi300x-0/m5out/``
      - gem5 statistics and output directory.
-   * - ``.cosim/<name>/m0/host/serial.log``
+   * - ``.cosim/<name>/m0/vhost/serial.log``
      - Guest serial log for observing driver-side behavior.
    * - ``.cosim/<name>/verdict.json``
      - Session result; read it first to decide which component failed.
@@ -95,12 +95,11 @@ Common Model Problems
 Debugging Workflow
 -------------------
 
-1. Run ``cosim plan`` first to confirm the rendered gem5 arguments, socket, pool offsets and VRAM size.
+1. Run ``cosim run --dry-run`` first to confirm the rendered gem5 arguments, socket, pool offsets and VRAM size.
 2. Enable one dimension of flags in ``args.gem5_debug_flags``, rerun and inspect ``output.log``.
 3. Read ``verdict.json`` to identify the failing process, then narrow down layer by layer: ``MI300XCosim`` for protocol, ``AMDGPUDevice`` for registers, ``PM4PacketProcessor`` and ``SDMAEngine`` for commands.
 4. Run ``just test-gem5-mi300x`` for the QEMU-free model self-test that checks pool ownership and the GPU_VIPER protocol.
 5. After changing the model, rebuild incrementally with ``just build-gem5 1`` and rerun the session.
-6. To reproduce without QEMU, use standalone gem5 full-system simulation (see :ref:`appendix-standalone-gem5`).
 
 Common Commands
 ----------------
@@ -108,7 +107,7 @@ Common Commands
 .. code-block:: bash
 
    # Rerun the session with the development build
-   just run-topology-dev samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-topology-dev resources/machines/single-gpu.yaml
    # Filter protocol, address translation and fatal errors
    grep -E "MI300XCosim|GART|panic|unimplemented" .cosim/<name>/m0/mi300x-0/output.log
    # QEMU-free model self-test (pool ownership and GPU_VIPER)

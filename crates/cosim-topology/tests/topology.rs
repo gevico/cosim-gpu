@@ -5,18 +5,17 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use cosim_topology::{
-    Adapter, DeviceContext, DiskFormat, DiskMode, HostContext, HostDevice, HostDisk, Machine,
-    PageSize, Payload, Probe, Topology, load_payload_with_workspace, load_with_workspace,
-    validate_payload,
+    Adapter, DeviceContext, DiskFormat, DiskMode, Machine, PageSize, Probe, Topology, VhostContext,
+    VhostDevice, VhostDisk, load_with_workspace,
 };
 use serde_json::json;
 
-/// A host kind, a device kind and a host template shared by test documents.
+/// A vHost kind, a device kind and a vHost template shared by test documents.
 const BASE: &str = r#"
 version: 1
 kinds:
-  host:
-    role: host
+  vhost:
+    role: vhost
     model: qemu
     max_devices: 4
     argv: ["-m", "{{ ram.size }}"]
@@ -25,7 +24,7 @@ kinds:
     model: qemu
     command: '{{ [config, socket, regions.buffer.offset | string, args.mode] | tojson }}'
 templates:
-  base: {kind: host, runtime: {binary: qemu}, memory: 64M, cpus: 1, accel: tcg, machine: q35}
+  base: {kind: vhost, runtime: {binary: qemu}, memory: 64M, cpus: 1, accel: tcg, machine: q35}
 "#;
 
 fn write(root: &Path, path: &str, text: &str) -> PathBuf {
@@ -45,15 +44,10 @@ fn document(root: &Path, body: &str) -> PathBuf {
     )
 }
 
-fn payload(root: &Path, body: &str) -> Result<Payload> {
-    let source = write(root, "payload.yaml", &format!("version: 1\n{body}\n"));
-    load_payload_with_workspace(&source, root)
-}
-
-/// Loads a document whose single machine uses the base host.
-fn machine(root: &Path, host: &str, devices: &str) -> Result<Topology> {
+/// Loads a document whose single machine uses the base vHost.
+fn machine(root: &Path, vhost: &str, devices: &str) -> Result<Topology> {
     let body =
-        format!("machines:\n  - id: m\n    host: {{use: base{host}}}\n    devices: {devices}\n");
+        format!("machines:\n  - id: m\n    vhost: {{use: base{vhost}}}\n    devices: {devices}\n");
     load_with_workspace(&document(root, &body), root, root)
 }
 
@@ -61,8 +55,8 @@ fn failure(result: Result<impl std::fmt::Debug>) -> String {
     format!("{:#}", result.expect_err("the input must be rejected"))
 }
 
-fn samples() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../samples")
+fn resources() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../resources")
 }
 
 fn page() -> PageSize {
@@ -79,9 +73,9 @@ fn tempdir() -> (tempfile::TempDir, PathBuf) {
 #[test]
 fn workspace_paths_resolve_from_explicit_root_for_host_and_device_assets() {
     let (_directory, workspace) = tempdir();
-    let samples = workspace.join("samples");
+    let resources = workspace.join("resources");
     let source = document(
-        &samples,
+        &resources,
         r#"
 templates:
   workspace-device:
@@ -92,36 +86,27 @@ templates:
     pci: {rom: third_party/gem5-resources/device.rom}
 machines:
   - id: m
-    host:
+    vhost:
       use: base
       runtime: {binary: build/qemu/qemu-system-x86_64}
+      kernel: third_party/gem5-resources/vmlinux
+      initrd: third_party/gem5-resources/initrd
+      disks:
+        - {id: root, backing: third_party/gem5-resources/root.raw, format: raw}
     devices:
       - {use: workspace-device}
 "#,
     );
-    let payload_source = write(
-        &samples,
-        "payloads/ubuntu.yaml",
-        r#"version: 1
-boot:
-  kernel: third_party/gem5-resources/vmlinux
-  initrd: third_party/gem5-resources/initrd
-disks:
-  - {id: root, backing: third_party/gem5-resources/root.raw, format: raw}
-"#,
-    );
-
-    let topology = load_with_workspace(&source, &samples, &workspace).unwrap();
-    let payload = load_payload_with_workspace(&payload_source, &workspace).unwrap();
+    let topology = load_with_workspace(&source, &resources, &workspace).unwrap();
     let machine = &topology.machines[0];
     assert_eq!(
-        machine.host.program.binary,
+        machine.vhost.program.binary,
         workspace
             .join("build/qemu/qemu-system-x86_64")
             .to_string_lossy()
             .into_owned()
     );
-    let boot = payload.boot.as_ref().unwrap();
+    let boot = machine.vhost.boot.as_ref().unwrap();
     assert_eq!(
         boot.kernel,
         workspace.join("third_party/gem5-resources/vmlinux")
@@ -131,7 +116,7 @@ disks:
         Some(workspace.join("third_party/gem5-resources/initrd"))
     );
     assert_eq!(
-        payload.disks[0].source,
+        machine.vhost.disks[0].source,
         workspace.join("third_party/gem5-resources/root.raw")
     );
     let device = &machine.devices[0];
@@ -162,19 +147,19 @@ disks:
 #[test]
 fn workspace_paths_reject_parent_directory_traversal() {
     let (_directory, workspace) = tempdir();
-    let samples = workspace.join("samples");
+    let resources = workspace.join("resources");
     let source = document(
-        &samples,
+        &resources,
         r#"
 machines:
   - id: m
-    host:
+    vhost:
       use: base
       runtime: {binary: ../outside/qemu}
 "#,
     );
 
-    let error = load_with_workspace(&source, &samples, &workspace).unwrap_err();
+    let error = load_with_workspace(&source, &resources, &workspace).unwrap_err();
     assert!(
         format!("{error:#}")
             .contains("workspace-relative paths must not contain parent-directory traversal")
@@ -184,19 +169,19 @@ machines:
 #[test]
 fn workspace_paths_reject_environment_interpolation() {
     let (_directory, workspace) = tempdir();
-    let samples = workspace.join("samples");
+    let resources = workspace.join("resources");
     let source = document(
-        &samples,
+        &resources,
         r#"
 machines:
   - id: m
-    host:
+    vhost:
       use: base
       runtime: {binary: "${COSIM_WORKSPACE}/build/qemu/qemu-system-x86_64"}
 "#,
     );
 
-    let error = load_with_workspace(&source, &samples, &workspace).unwrap_err();
+    let error = load_with_workspace(&source, &resources, &workspace).unwrap_err();
     assert!(format!("{error:#}").contains("without COSIM_WORKSPACE interpolation"));
 }
 
@@ -228,7 +213,11 @@ templates:
 imports: [lib/base.yaml, lib/devices/model.yaml]
 templates:
   node:
-    host: {use: base}
+    vhost:
+      use: base
+      kernel: images/vmlinux
+      cmdline: console=ttyS0
+      disks: [{id: root, backing: images/root.raw, format: raw}]
     devices:
       - {use: accel, count: 2, args: {list: [3]}, runtime: {env: {EXTRA: "1"}}}
       - {use: accel, id: solo, pci: {rom: images/override.rom}}
@@ -236,17 +225,7 @@ machines:
   - {id: n, use: node, count: 3}
 "#,
     );
-    let payload_source = write(
-        root,
-        "lib/payload.yaml",
-        r#"version: 1
-boot: {kernel: images/vmlinux, cmdline: console=ttyS0}
-disks: [{id: root, backing: images/root.raw, format: raw}]
-"#,
-    );
-
     let topology = load_with_workspace(&source, root, root).unwrap();
-    let payload = load_payload_with_workspace(&payload_source, root).unwrap();
     let ids = topology
         .machines
         .iter()
@@ -284,10 +263,10 @@ disks: [{id: root, backing: images/root.raw, format: raw}]
         machine.devices[2].pci.rom.as_deref(),
         Some(root.join("images/override.rom").as_path())
     );
-    assert_eq!(machine.host.program.binary, "qemu");
-    let boot = payload.boot.as_ref().unwrap();
+    assert_eq!(machine.vhost.program.binary, "qemu");
+    let boot = machine.vhost.boot.as_ref().unwrap();
     assert_eq!(boot.kernel, root.join("images/vmlinux"));
-    let disk = &payload.disks[0];
+    let disk = &machine.vhost.disks[0];
     assert_eq!(disk.source, root.join("images/root.raw"));
     assert_eq!(
         (disk.format, disk.mode),
@@ -296,27 +275,27 @@ disks: [{id: root, backing: images/root.raw, format: raw}]
 }
 
 #[test]
-fn a_machine_can_replace_the_host_template_of_its_template() {
+fn a_machine_can_replace_the_vhost_template_of_its_template() {
     let (_directory, root) = tempdir();
     write(
         &root,
         "lib/other.yaml",
-        "version: 1\ntemplates:\n  other: {kind: host, runtime: {binary: other-qemu}, \
+        "version: 1\ntemplates:\n  other: {kind: vhost, runtime: {binary: other-qemu}, \
          memory: 128M, cpus: 2, accel: kvm, machine: virt}\n",
     );
     let source = write(
         &root,
         "topology.yaml",
         "version: 1\nimports: [lib/base.yaml, lib/other.yaml]\ntemplates:\n  \
-         node: {host: {use: base, memory: 32M}}\nmachines:\n  \
-         - {id: m, use: node, host: {use: other}}\n",
+         node: {vhost: {use: base, memory: 32M}}\nmachines:\n  \
+         - {id: m, use: node, vhost: {use: other}}\n",
     );
     write(&root, "lib/base.yaml", BASE);
     let topology = cosim_topology::load(&source, &root).unwrap();
-    let host = &topology.machines[0].host;
-    assert_eq!(host.program.binary, "other-qemu");
-    assert_eq!((host.machine.as_str(), host.cpus.get()), ("virt", 2));
-    assert_eq!(host.memory.bytes(), 32 << 20);
+    let vhost = &topology.machines[0].vhost;
+    assert_eq!(vhost.program.binary, "other-qemu");
+    assert_eq!((vhost.machine.as_str(), vhost.cpus.get()), ("virt", 2));
+    assert_eq!(vhost.memory.bytes(), 32 << 20);
 }
 
 #[test]
@@ -360,10 +339,10 @@ fn import_and_template_errors_name_their_cause() {
     write(root, "machines/m.yaml", "version: 1\n");
     write(
         root,
-        "hosts/h.yaml",
+        "vhosts/h.yaml",
         "version: 1\nimports: [machines/m.yaml]\n",
     );
-    let layering = failure(cosim_topology::load(&root.join("hosts/h.yaml"), root));
+    let layering = failure(cosim_topology::load(&root.join("vhosts/h.yaml"), root));
     assert!(layering.contains("invalid import direction"), "{layering}");
 
     write(
@@ -384,7 +363,7 @@ fn import_and_template_errors_name_their_cause() {
     let diamond = write(
         root,
         "shared/top.yaml",
-        "version: 1\nimports: [left.yaml, right.yaml, ../lib/base.yaml]\nmachines:\n  - {id: m, host: {use: base}}\n",
+        "version: 1\nimports: [left.yaml, right.yaml, ../lib/base.yaml]\nmachines:\n  - {id: m, vhost: {use: base}}\n",
     );
     write(root, "lib/base.yaml", BASE);
     cosim_topology::load(&diamond, root).expect("a shared import is loaded once");
@@ -395,7 +374,6 @@ fn validation_rejects_inconsistent_declarations() {
     let cases = [
         (", extra: 1", "[]", "unknown field `extra`"),
         (", boot: {kernel: image}", "[]", "unknown field `boot`"),
-        (", disks: []", "[]", "unknown field `disks`"),
         (
             ", serial: {timeout: 5}",
             "[]",
@@ -446,7 +424,7 @@ fn validation_rejects_inconsistent_declarations() {
         (
             "",
             "[{kind: gem5-mi300x, config: c, memory_regions: [{name: vram, size: 1G}]}]",
-            "requires host.memory_map",
+            "requires vhost.memory_map",
         ),
         (
             ", memory_map: '[]'",
@@ -462,22 +440,22 @@ fn validation_rejects_inconsistent_declarations() {
         (
             "",
             "[{kind: model, count: 5, ready_log: up, runtime: {binary: m}}]",
-            "exceeds 4 devices allowed by host kind host",
+            "exceeds 4 devices allowed by vhost kind vhost",
         ),
         ("", "[{kind: missing}]", "unknown device kind missing"),
     ];
-    for (host, devices, expected) in cases {
+    for (vhost, devices, expected) in cases {
         let root = tempfile::tempdir().unwrap();
-        let message = failure(machine(root.path(), host, devices));
+        let message = failure(machine(root.path(), vhost, devices));
         assert!(
             message.contains(expected),
-            "host {host:?} devices {devices:?}: {message}"
+            "vhost {vhost:?} devices {devices:?}: {message}"
         );
     }
 }
 
 #[test]
-fn payload_validation_rejects_inconsistent_declarations() {
+fn vhost_validation_rejects_inconsistent_declarations() {
     let cases = [
         (
             "disks: [{id: d, path: a, backing: b}]",
@@ -503,122 +481,105 @@ fn payload_validation_rejects_inconsistent_declarations() {
             "disks: [{id: d, path: a, format: vmdk}]",
             "unknown variant `vmdk`",
         ),
-        ("boot: {cmdline: quiet}", "require boot.kernel"),
+        ("cmdline: quiet", "require vhost.kernel or vhost.image"),
     ];
     for (fields, expected) in cases {
         let root = tempfile::tempdir().unwrap();
-        let error = failure(payload(root.path(), fields));
-        assert!(error.contains(expected), "payload {fields:?}: {error}");
+        let error = failure(machine(root.path(), &format!(", {fields}"), "[]"));
+        assert!(error.contains(expected), "vhost {fields:?}: {error}");
     }
 }
 
 #[test]
-fn payload_guest_hints_require_a_kernel_boot() {
+fn guest_hints_require_a_vhost_kernel_or_image() {
     let root = tempfile::tempdir().unwrap();
-    let topology = machine(
+    let error = failure(machine(
         root.path(),
         "",
         "[{kind: model, ready_log: up, runtime: {binary: m}, guest_hints: {cmdline: quiet}}]",
-    )
-    .unwrap();
-    let payload = payload(root.path(), "").unwrap();
-    let error = failure(validate_payload(&topology, Some(&payload)));
-    assert!(error.contains("guest_hints.cmdline requires payload boot.kernel"));
-}
-
-#[test]
-fn guest_hints_require_a_payload_with_kernel_boot() {
-    let root = tempfile::tempdir().unwrap();
-    let topology = machine(
-        root.path(),
-        "",
-        "[{kind: model, ready_log: up, runtime: {binary: m}, guest_hints: {cmdline: quiet}}]",
-    )
-    .unwrap();
-    let error = failure(validate_payload(&topology, None));
-    assert!(error.contains("guest_hints.cmdline requires payload boot.kernel"));
+    ));
+    assert!(error.contains("guest_hints.cmdline requires vhost.image or vhost.kernel"));
 }
 
 #[test]
 fn image_recipe_materializes_a_kernel_and_immutable_root_disk() {
     let root = tempfile::tempdir().unwrap();
-    let mut payload = payload(root.path(), "image: {recipe: ubuntu/24.04/x86_64/rocm7_0}").unwrap();
-    let kernel = root
-        .path()
-        .join("build/images/ubuntu/24.04/x86_64/rocm7_0/kernel");
-    let disk = root
-        .path()
-        .join("build/images/ubuntu/24.04/x86_64/rocm7_0/disk");
-    cosim_topology::materialize_image_recipe(
-        &mut payload,
-        Some(kernel.clone()),
-        disk.clone(),
-        "root",
-        DiskFormat::Qcow2,
-        cosim_topology::DiskBus::Virtio,
-        Some("console=ttyS0 root=/dev/vda1 rw".to_owned()),
+    let mut topology = machine(
+        root.path(),
+        ", image: ubuntu/24.04/x86_64/rocm/7.0, cmdline: console=ttyS0 root=/dev/vda1 rw",
+        "[]",
     )
     .unwrap();
-    assert_eq!(payload.boot.as_ref().unwrap().kernel, kernel);
+    let kernel = root
+        .path()
+        .join("build/images/ubuntu/24.04/x86_64/rocm/7.0/kernel");
+    let disk = root
+        .path()
+        .join("build/images/ubuntu/24.04/x86_64/rocm/7.0/disk");
+    let vhost = &mut topology.machines[0].vhost;
+    cosim_topology::materialize_image_recipe(
+        vhost,
+        Some(kernel.clone()),
+        disk.clone(),
+        DiskFormat::Qcow2,
+    )
+    .unwrap();
+    assert_eq!(vhost.boot.as_ref().unwrap().kernel, kernel);
     assert_eq!(
-        payload.boot.as_ref().unwrap().cmdline.as_deref(),
+        vhost.boot.as_ref().unwrap().cmdline.as_deref(),
         Some("console=ttyS0 root=/dev/vda1 rw")
     );
-    assert_eq!(payload.disks.len(), 1);
-    assert_eq!(payload.disks[0].id.as_str(), "root");
-    assert_eq!(payload.disks[0].source, disk);
-    assert_eq!(payload.disks[0].mode, DiskMode::Overlay);
-    assert!(payload.disks[0].boot);
+    assert_eq!(vhost.disks.len(), 1);
+    assert_eq!(vhost.disks[0].id.as_str(), "root");
+    assert_eq!(vhost.disks[0].source, disk);
+    assert_eq!(vhost.disks[0].mode, DiskMode::Overlay);
+    assert!(vhost.disks[0].boot);
 }
 
 #[test]
-fn payload_rejects_the_removed_image_profile_selector() {
+fn vhost_image_is_a_recipe_path_not_an_object() {
     let root = tempfile::tempdir().unwrap();
-    let error = failure(payload(
+    let error = failure(machine(
         root.path(),
-        "image: {profile: ubuntu/24.04/x86_64/rocm7_0}",
+        ", image: {recipe: ubuntu/24.04/x86_64/rocm/7.0}",
+        "[]",
     ));
-    assert!(
-        error.contains("profile") && error.contains("recipe"),
-        "{error}"
-    );
+    assert!(error.contains("invalid type"), "{error}");
 }
 
 #[test]
 fn image_recipe_rejects_disk_ids_that_differ_only_by_ascii_case() {
     let root = tempfile::tempdir().unwrap();
-    let mut payload = payload(
+    let mut topology = machine(
         root.path(),
-        "image: {recipe: ubuntu/24.04/x86_64/rocm7_0}\ndisks: [{id: ROOT, path: existing.qcow2}]",
+        ", image: ubuntu/24.04/x86_64/rocm/7.0, disks: [{id: ROOT, path: existing.qcow2}]",
+        "[]",
     )
     .unwrap();
     let error = cosim_topology::materialize_image_recipe(
-        &mut payload,
+        &mut topology.machines[0].vhost,
         None,
         root.path()
-            .join("build/images/ubuntu/24.04/x86_64/rocm7_0/disk"),
-        "root",
+            .join("build/images/ubuntu/24.04/x86_64/rocm/7.0/disk"),
         DiskFormat::Qcow2,
-        cosim_topology::DiskBus::Virtio,
-        None,
     )
     .unwrap_err()
     .to_string();
 
-    assert!(error.contains("conflicts with a payload disk"), "{error}");
+    assert!(error.contains("conflicts with vhost disk root"), "{error}");
 }
 
 #[test]
 fn disk_modes_follow_access_and_snapshot_declarations() {
     let root = tempfile::tempdir().unwrap();
-    let topology = machine(root.path(), "", "[]").unwrap();
-    let first_payload = payload(
+    let topology = machine(
         root.path(),
-        r#"snapshot: false
-disks: [{id: base, backing: a}, {id: plain, path: b}, {id: ro, path: c, readonly: true}, {id: rw, path: d, readonly: false, shared: false}, {id: new, path: e, create: true, size: 1M, readonly: false, shared: false}]"#,
+        ", snapshot: false, disks: [{id: base, backing: a}, {id: plain, path: b}, {id: ro, path: c, readonly: true}, {id: rw, path: d, readonly: false, shared: false}, {id: new, path: e, create: true, size: 1M, readonly: false, shared: false}]",
+        "[]",
     )
     .unwrap();
-    let modes = first_payload
+    let modes = topology.machines[0]
+        .vhost
         .disks
         .iter()
         .map(|disk| (disk.id.as_str(), disk.mode))
@@ -633,16 +594,14 @@ disks: [{id: base, backing: a}, {id: plain, path: b}, {id: ro, path: c, readonly
             ("new", DiskMode::Direct),
         ]
     );
-    validate_payload(&topology, Some(&first_payload)).unwrap();
     let root = tempfile::tempdir().unwrap();
-    let topology = machine(root.path(), "", "[]").unwrap();
-    let payload = payload(
+    let topology = machine(
         root.path(),
-        "snapshot: true\ndisks: [{id: rw, path: d, readonly: false, shared: false}]",
+        ", snapshot: true, disks: [{id: rw, path: d, readonly: false, shared: false}]",
+        "[]",
     )
     .unwrap();
-    validate_payload(&topology, Some(&payload)).unwrap();
-    assert_eq!(payload.disks[0].mode, DiskMode::Overlay);
+    assert_eq!(topology.machines[0].vhost.disks[0].mode, DiskMode::Overlay);
 }
 
 #[test]
@@ -650,38 +609,20 @@ fn shared_images_reject_direct_writers_and_conflicting_creation() {
     let root = tempfile::tempdir().unwrap();
     let direct = document(
         root.path(),
-        "machines:\n  - id: m\n    count: 2\n    host: {use: base}\n",
+        "machines:\n  - id: m\n    count: 2\n    vhost: {use: base, disks: [{id: d, path: /images/a, readonly: false, shared: false}]}\n",
     );
-    let topology = cosim_topology::load(&direct, root.path()).unwrap();
-    let direct_payload = payload(
-        root.path(),
-        "disks: [{id: d, path: /images/a, readonly: false, shared: false}]",
-    )
-    .unwrap();
-    let message = failure(validate_payload(&topology, Some(&direct_payload)));
+    let message = failure(cosim_topology::load(&direct, root.path()));
     assert!(message.contains("written directly"), "{message}");
     let readers = document(
         root.path(),
-        "machines:\n  - id: m\n    count: 2\n    host: {use: base}\n",
+        "machines:\n  - id: m\n    count: 2\n    vhost: {use: base, disks: [{id: d, path: /images/a, readonly: true}]}\n",
     );
-    let topology = cosim_topology::load(&readers, root.path()).unwrap();
-    let readers_payload = payload(
-        root.path(),
-        "disks: [{id: d, path: /images/a, readonly: true}]",
-    )
-    .unwrap();
-    validate_payload(&topology, Some(&readers_payload)).expect("readers may share an image");
+    cosim_topology::load(&readers, root.path()).expect("readers may share an image");
     let creators = document(
         root.path(),
-        "machines:\n  - id: a\n    host: {use: base}\n  - id: b\n    host: {use: base}\n",
+        "machines:\n  - id: a\n    vhost: {use: base, disks: [{id: d1, path: /images/n, create: true, size: 1M, readonly: true}]}\n  - id: b\n    vhost: {use: base, disks: [{id: d2, path: /images/n, create: true, size: 2M, readonly: true}]}\n",
     );
-    let topology = cosim_topology::load(&creators, root.path()).unwrap();
-    let creators_payload = payload(
-        root.path(),
-        "disks: [{id: d1, path: /images/n, create: true, size: 1M, readonly: true}, {id: d2, path: /images/n, create: true, size: 2M, readonly: true}]",
-    )
-    .unwrap();
-    let message = failure(validate_payload(&topology, Some(&creators_payload)));
+    let message = failure(cosim_topology::load(&creators, root.path()));
     assert!(message.contains("conflicting creation"), "{message}");
 }
 
@@ -733,7 +674,7 @@ fn machine_overflow(root: &Path) -> Topology {
 #[test]
 fn guest_memory_maps_split_platform_holes_and_reject_invalid_ranges() {
     let topology =
-        cosim_topology::load(&samples().join("machines/gpu-8.yaml"), &samples()).unwrap();
+        cosim_topology::load(&resources().join("machines/gpu-8.yaml"), &resources()).unwrap();
     let layout = topology.machines[0].memory_layout(page()).unwrap();
     let ranges = layout
         .guest_ranges
@@ -741,8 +682,11 @@ fn guest_memory_maps_split_platform_holes_and_reject_invalid_ranges() {
         .map(|range| (range.start, range.size, range.offset))
         .collect::<Vec<_>>();
     assert_eq!(ranges, [(0, 2 << 30, 0), (4 << 30, 30 << 30, 2 << 30)]);
-    let topology =
-        cosim_topology::load(&samples().join("machines/gem5-aarch64.yaml"), &samples()).unwrap();
+    let topology = cosim_topology::load(
+        &resources().join("machines/gem5-aarch64.yaml"),
+        &resources(),
+    )
+    .unwrap();
     let layout = topology.machines[0].memory_layout(page()).unwrap();
     assert_eq!(layout.guest_ranges[0].start, 1 << 30);
 
@@ -753,10 +697,10 @@ fn guest_memory_maps_split_platform_holes_and_reject_invalid_ranges() {
         ),
         (
             r#"'[{"start": 0, "size": "32M"}]'"#,
-            "cover exactly host.memory",
+            "cover exactly vhost.memory",
         ),
         (r#"'[{"start": 1, "size": "64M"}]'"#, "page size"),
-        ("'{{ missing }}'", "render host.memory_map"),
+        ("'{{ missing }}'", "render vhost.memory_map"),
     ] {
         let root = tempfile::tempdir().unwrap();
         let topology = machine(root.path(), &format!(", memory_map: {map}"), "[]").unwrap();
@@ -792,8 +736,11 @@ impl Paths {
 
 #[test]
 fn builtin_adapters_render_pool_offsets_and_readiness() {
-    let topology =
-        cosim_topology::load(&samples().join("machines/mixed-models.yaml"), &samples()).unwrap();
+    let topology = cosim_topology::load(
+        &resources().join("machines/mixed-models.yaml"),
+        &resources(),
+    )
+    .unwrap();
     let machine = &topology.machines[0];
     let layout = machine.memory_layout(page()).unwrap();
     let paths = Paths::new();
@@ -922,28 +869,20 @@ fn template_devices_receive_region_offsets_and_configuration() {
 }
 
 #[test]
-fn sample_host_template_attaches_devices_behind_root_ports() {
-    let sample_root = samples();
-    let workspace = fs::canonicalize(sample_root.parent().unwrap()).unwrap();
-    let topology = cosim_topology::load(
-        &sample_root.join("machines/mixed-models.yaml"),
-        &sample_root,
+fn resource_vhost_template_attaches_devices_behind_root_ports() {
+    let resource_root = resources();
+    let workspace = fs::canonicalize(resource_root.parent().unwrap()).unwrap();
+    let mut topology = cosim_topology::load(
+        &resource_root.join("machines/mixed-models.yaml"),
+        &resource_root,
     )
     .unwrap();
-    let mut payload = load_payload_with_workspace(
-        &sample_root.join("payloads/ubuntu-rocm7_0.yaml"),
-        &workspace,
-    )
-    .unwrap();
-    let image_dir = workspace.join("build/images/ubuntu/24.04/x86_64/rocm7_0");
+    let image_dir = workspace.join("build/images/ubuntu/24.04/x86_64/rocm/7.0");
     cosim_topology::materialize_image_recipe(
-        &mut payload,
+        &mut topology.machines[0].vhost,
         Some(image_dir.join("kernel")),
         image_dir.join("disk"),
-        "root",
         DiskFormat::Qcow2,
-        cosim_topology::DiskBus::Virtio,
-        Some("console=ttyS0 root=/dev/vda1 rw nokaslr modprobe.blacklist=amdgpu".to_owned()),
     )
     .unwrap();
     let machine = &topology.machines[0];
@@ -954,22 +893,22 @@ fn sample_host_template_attaches_devices_behind_root_ports() {
         .iter()
         .map(|device| paths.device(machine, device.id.as_str())[0].clone())
         .collect::<Vec<_>>();
-    let host_dir = paths.run.join("m0/host");
+    let vhost_dir = paths.run.join("m0/vhost");
     let overlay = paths.run.join("m0/root.qcow2");
-    let disk = &payload.disks[0];
+    let disk = &machine.vhost.disks[0];
     let launch = machine
-        .host
-        .launch(&HostContext {
+        .vhost
+        .launch(&VhostContext {
             machine,
             layout: &layout,
             pool: &paths.pool,
             qmp: &paths.run.join("m0/qmp.sock"),
             serial: &paths.run.join("m0/serial.sock"),
-            serial_log: &host_dir.join("serial.log"),
-            node_dir: &host_dir,
+            serial_log: &vhost_dir.join("serial.log"),
+            node_dir: &vhost_dir,
             run_dir: &paths.run,
-            boot: payload.boot.as_ref(),
-            disks: vec![HostDisk {
+            boot: machine.vhost.boot.as_ref(),
+            disks: vec![VhostDisk {
                 disk,
                 path: &overlay,
                 format: DiskFormat::Qcow2,
@@ -979,7 +918,7 @@ fn sample_host_template_attaches_devices_behind_root_ports() {
                 .devices
                 .iter()
                 .zip(&sockets)
-                .map(|(device, socket)| HostDevice { device, socket })
+                .map(|(device, socket)| VhostDevice { device, socket })
                 .collect(),
         })
         .unwrap();
@@ -1010,7 +949,7 @@ fn sample_host_template_attaches_devices_behind_root_ports() {
         .collect::<Vec<_>>();
     assert_eq!(clients[3], (json!("rp3"), json!(sockets[3])));
     let kernel = launch.argv.iter().position(|arg| arg == "-kernel").unwrap();
-    assert!(launch.argv[kernel + 1].ends_with("build/images/ubuntu/24.04/x86_64/rocm7_0/kernel"));
+    assert!(launch.argv[kernel + 1].ends_with("build/images/ubuntu/24.04/x86_64/rocm/7.0/kernel"));
     let append = launch.argv.iter().position(|arg| arg == "-append").unwrap();
     assert!(launch.argv[append + 1].starts_with("console=ttyS0"));
     let blockdev = launch
@@ -1023,11 +962,11 @@ fn sample_host_template_attaches_devices_behind_root_ports() {
 }
 
 #[test]
-fn repository_samples_render_every_process() {
+fn repository_resources_render_every_process() {
     for directory in ["machines", "clusters"] {
-        for entry in fs::read_dir(samples().join(directory)).unwrap() {
+        for entry in fs::read_dir(resources().join(directory)).unwrap() {
             let path = entry.unwrap().path();
-            let topology = cosim_topology::load(&path, &samples())
+            let topology = cosim_topology::load(&path, &resources())
                 .unwrap_or_else(|error| panic!("{}: {error:#}", path.display()));
             for machine in &topology.machines {
                 let layout = machine.memory_layout(page()).unwrap();
@@ -1049,17 +988,17 @@ fn repository_samples_render_every_process() {
                         .unwrap_or_else(|error| panic!("{}: {error:#}", path.display()));
                     sockets.push(socket);
                 }
-                let host_dir = paths.run.join("host");
+                let vhost_dir = paths.run.join("vhost");
                 machine
-                    .host
-                    .launch(&HostContext {
+                    .vhost
+                    .launch(&VhostContext {
                         machine,
                         layout: &layout,
                         pool: &paths.pool,
                         qmp: &paths.run.join("qmp.sock"),
                         serial: &paths.run.join("serial.sock"),
-                        serial_log: &host_dir.join("serial.log"),
-                        node_dir: &host_dir,
+                        serial_log: &vhost_dir.join("serial.log"),
+                        node_dir: &vhost_dir,
                         run_dir: &paths.run,
                         boot: None,
                         disks: Vec::new(),
@@ -1067,7 +1006,7 @@ fn repository_samples_render_every_process() {
                             .devices
                             .iter()
                             .zip(&sockets)
-                            .map(|(device, socket)| HostDevice { device, socket })
+                            .map(|(device, socket)| VhostDevice { device, socket })
                             .collect(),
                     })
                     .unwrap_or_else(|error| panic!("{}: {error:#}", path.display()));

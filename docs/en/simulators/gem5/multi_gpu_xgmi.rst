@@ -24,7 +24,7 @@ Two Run Modes
      - Each GPU has its own ``AMDGPUDevice``, Shader and vfio-user bridge; all GPUs share one Ruby cache hierarchy; shared memory uses ``/dev/shm/mi300x-vram-{i}`` names instead of a pool file.
 
 - ``--shared-pool`` and multiple GPUs are mutually exclusive: with ``--shared-pool``, ``--num-gpus`` must be 1.
-- To use multiple GPUs on one machine in YAML, declare multiple devices (for example ``count: 8``); the launcher starts one process per GPU. ``samples/machines/gpu-8.yaml`` is such a machine.
+- To use multiple GPUs on one machine in YAML, declare multiple devices (for example ``count: 8``); the launcher starts one process per GPU. ``resources/machines/gpu-8.yaml`` is such a machine.
 - Multiple GPUs in one process exist only in the vfio-user backend; there is no XGMI link between two gem5 processes.
 
 The XGMI Model
@@ -97,7 +97,7 @@ Sources
 - XGMI bridge: ``third_party/gem5/src/dev/amdgpu/xgmi_bridge.{cc,hh}`` and ``XGMIBridge.py``.
 - Transport interface: ``third_party/gem5/src/dev/amdgpu/xgmi_transport.hh``.
 - SST configurations: ``configs/sst/``.
-- Machine sample: ``samples/machines/gpu-8.yaml``.
+- Machine sample: ``resources/machines/gpu-8.yaml``.
 
 Related Pages
 --------------

@@ -54,7 +54,7 @@
      - gem5 标准输出与标准错误，包含调试输出和警告。
    * - ``.cosim/<name>/m0/mi300x-0/m5out/``
      - gem5 统计与输出目录。
-   * - ``.cosim/<name>/m0/host/serial.log``
+   * - ``.cosim/<name>/m0/vhost/serial.log``
      - 客户机串口日志，用于观察驱动侧行为。
    * - ``.cosim/<name>/verdict.json``
      - 会话级结果，先看它判断失败发生在哪个组件。
@@ -95,12 +95,11 @@
 调试工作流
 -----------
 
-1. 先用 ``cosim plan``\ 确认渲染出的 gem5 参数、socket、pool 偏移和 VRAM 大小符合预期。
+1. 先用 ``cosim run --dry-run``\ 确认渲染出的 gem5 参数、socket、pool 偏移和 VRAM 大小符合预期。
 2. 在设备 ``args.gem5_debug_flags``\ 中只打开一个维度的标志，重跑并观察 ``output.log``\ 。
 3. 先看 ``verdict.json``\ 判断失败在哪个进程；再按 ``MI300XCosim``\ （协议）、``AMDGPUDevice``\ （寄存器）、``PM4PacketProcessor``\ / ``SDMAEngine``\ （命令）逐层缩小范围。
 4. 用 ``just test-gem5-mi300x``\ 运行不依赖 QEMU 的模型自测，确认 pool 所有权与 GPU_VIPER 协议本身正常。
 5. 修改模型后先做增量构建 ``just build-gem5 1``\ ，再重跑会话。
-6. 需要在没有 QEMU 的情况下复现时，使用独立 gem5 全系统仿真（见 :ref:`appendix-standalone-gem5`\ ）。
 
 常用命令
 ---------
@@ -108,7 +107,7 @@
 .. code-block:: bash
 
    # 使用开发构建重跑会话
-   just run-topology-dev samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-topology-dev resources/machines/single-gpu.yaml
    # 过滤协议、地址翻译和致命错误
    grep -E "MI300XCosim|GART|panic|unimplemented" .cosim/<name>/m0/mi300x-0/output.log
    # 不依赖 QEMU 的模型自测（pool 所有权与 GPU_VIPER）

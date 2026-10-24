@@ -25,7 +25,7 @@
        Q --- P
        H --> Guest[Linux 客户机与 ROCm]
 
-launcher 读取拓扑与 payload，生成执行计划并监督进程；模拟器只在计划给出的
+launcher 读取拓扑与 vHost，生成执行计划并监督进程；模拟器只在计划给出的
 路径、参数与内存区域上运行。
 
 组件职责
@@ -103,7 +103,7 @@ host QEMU 使用内置的 ``vfio-user-pci`` 客户端，设备侧由 gem5 的
 
 - **共享内存池**：每台机器一个文件，客户机内存在前，设备区域按对齐追加；
   布局写入 ``layout.json``，见 :doc:`memory_model`。
-- **磁盘**：payload 声明内核与磁盘；会话为每台机器创建 overlay 或直接使用
+- **磁盘**：vHost 声明内核与磁盘；会话为每台机器创建 overlay 或直接使用
   指定镜像。
 - **进程监督**：每个进程在独立进程组中启动，设备先于 host 启动，host 先于
   设备停止；细节见 :doc:`execution_flow`。
@@ -128,8 +128,8 @@ host QEMU 使用内置的 ``vfio-user-pci`` 客户端，设备侧由 gem5 的
      - PM4、SDMA、中断、GPU VM 与 vfio-user 服务端
    * - ``third_party/qemu/hw/remote/vfio-user-obj.c``
      - QEMU device server 接口
-   * - ``samples/``
-     - host、device、machine 与 payload 样例
+   * - ``resources/``
+     - 镜像配方，以及并列的 vHost、设备、机器和集群配置目录
 
 相关页面
 --------

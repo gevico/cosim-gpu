@@ -31,8 +31,8 @@ Device kinds
      - Extension point with a custom ``argv`` or ``command``; no repository sample uses it yet
      - :ref:`ref-device-adapters`
 
-- ``samples/devices/gpu/mi300x.yaml`` provides the ``mi300x`` and ``mi300x-aarch64`` templates; the latter overrides only the gem5 binary.
-- ``samples/devices/pci/qemu-edu.yaml`` provides the ``qemu-edu`` and ``qemu-edu-aarch64`` templates; the former needs a QEMU built with vfio-user support.
+- ``resources/devices/gpu/mi300x.yaml`` provides the ``mi300x`` and ``mi300x-aarch64`` templates; the latter overrides only the gem5 binary.
+- ``resources/devices/pci/qemu-edu.yaml`` provides the ``qemu-edu`` and ``qemu-edu-aarch64`` templates; the former needs a QEMU built with vfio-user support.
 
 Device fields
 -------------
@@ -72,7 +72,7 @@ Device fields
      - Adapter-specific arguments, see :ref:`ref-device-adapters`
    * - ``guest_hints``
      - no
-     - modprobe parameters and cmdline hints; cmdline requires a payload with boot.kernel
+     - modprobe parameters and cmdline hints; cmdline requires a vHost image or kernel
    * - ``pci.rom``
      - no
      - Host-side option ROM, exposed as the vfio-user client romfile
@@ -105,7 +105,7 @@ Related pages
 -------------
 
 - Machine catalog: :doc:`../machines/index`
-- Host profiles: :doc:`../hosts/index`
+- vHost profiles: :doc:`../hosts/index`
 - Writing topologies: :doc:`../write_topology`
 - Adapter contract: :ref:`ref-device-adapters`
-- Sources: ``samples/devices/gpu/mi300x.yaml``, ``samples/devices/pci/qemu-edu.yaml``, ``crates/cosim-topology/src/adapter/``
+- Sources: ``resources/devices/gpu/mi300x.yaml``, ``resources/devices/pci/qemu-edu.yaml``, ``crates/cosim-topology/src/adapter/``

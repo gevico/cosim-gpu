@@ -49,7 +49,10 @@ def verify_bundle(
             "image manifest disk format does not match its recipe"
         )
     files = manifest.get("files")
-    expected_files = {"disk", *(output.name for output in recipe.outputs)}
+    expected_files = {
+        "disk",
+        *(result_file.name for result_file in recipe.result_files),
+    }
     if not isinstance(files, dict) or set(files) != expected_files:
         raise ImageError("image manifest does not describe its disk")
     for name in sorted(files, key=lambda item: (item == "disk", item)):
@@ -88,8 +91,8 @@ def verify_bundle(
             [str(qemu_img), "check", "-q", "-f", "qcow2", str(disk)],
             check=True,
         )
-    if recipe.kernel_artifact:
-        kernel = directory / recipe.kernel_artifact
+    if recipe.kernel_file:
+        kernel = directory / recipe.kernel_file
         readelf = shutil.which("readelf")
         if readelf is None:
             raise ImageError("readelf is required to verify the recipe kernel")
@@ -179,7 +182,7 @@ def write_manifest(
     fingerprint: dict,
     products: Path,
 ) -> dict:
-    names = {"disk", *(output.name for output in recipe.outputs)}
+    names = {"disk", *(item.name for item in recipe.result_files)}
     files = {
         name: {
             "sha256": sha256_file(products / name),

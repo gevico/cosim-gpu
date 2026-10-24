@@ -9,7 +9,7 @@ use minijinja::{Environment, UndefinedBehavior};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::model::{Host, Identifier, Machine};
+use crate::model::{Identifier, Machine, Vhost};
 use crate::size::ByteSize;
 
 /// Memory page size of the system that maps the pool.
@@ -85,7 +85,7 @@ pub struct MemoryLayout {
     pub ram: Region,
     /// Device-private regions following guest RAM.
     pub devices: Vec<DeviceRegions>,
-    /// Guest physical RAM ranges; empty without `host.memory_map`.
+    /// Guest physical RAM ranges; empty without `vhost.memory_map`.
     pub guest_ranges: Vec<GuestRange>,
 }
 
@@ -106,7 +106,7 @@ impl Machine {
     /// least one page.
     pub fn memory_layout(&self, page_size: PageSize) -> Result<MemoryLayout> {
         let mut pool = PoolBuilder { page_size, size: 0 };
-        let ram = pool.region("guest_ram", self.host.memory, self.host.memory_align)?;
+        let ram = pool.region("guest_ram", self.vhost.memory, self.vhost.memory_align)?;
         let mut devices = Vec::with_capacity(self.devices.len());
         for device in &self.devices {
             let regions = device
@@ -120,7 +120,7 @@ impl Machine {
                 regions,
             });
         }
-        let guest_ranges = guest_ranges(&self.host, ram.size, page_size)?;
+        let guest_ranges = guest_ranges(&self.vhost, ram.size, page_size)?;
         Ok(MemoryLayout {
             size: pool.size,
             ram,
@@ -175,20 +175,20 @@ struct GuestRangeInput {
     size: ByteSize,
 }
 
-fn guest_ranges(host: &Host, ram_size: u64, page_size: PageSize) -> Result<Vec<GuestRange>> {
-    let Some(template) = &host.memory_map else {
+fn guest_ranges(vhost: &Vhost, ram_size: u64, page_size: PageSize) -> Result<Vec<GuestRange>> {
+    let Some(template) = &vhost.memory_map else {
         return Ok(Vec::new());
     };
     let mut environment = Environment::new();
     environment.set_undefined_behavior(UndefinedBehavior::Strict);
     let rendered = environment
-        .render_str(template, json!({"host": host, "ram": {"size": ram_size}}))
-        .context("render host.memory_map")?;
+        .render_str(template, json!({"vhost": vhost, "ram": {"size": ram_size}}))
+        .context("render vhost.memory_map")?;
     let inputs: Vec<GuestRangeInput> = serde_json::from_str(&rendered)
-        .context("host.memory_map must render a JSON array of start/size ranges")?;
+        .context("vhost.memory_map must render a JSON array of start/size ranges")?;
     ensure!(
         !inputs.is_empty() && inputs.len() <= 64,
-        "host.memory_map requires 1..64 ranges"
+        "vhost.memory_map requires 1..64 ranges"
     );
     let page = page_size.bytes();
     let mut ranges = Vec::with_capacity(inputs.len());
@@ -219,7 +219,7 @@ fn guest_ranges(host: &Host, ram_size: u64, page_size: PageSize) -> Result<Vec<G
     }
     ensure!(
         offset == ram_size,
-        "host.memory_map ranges must cover exactly host.memory"
+        "vhost.memory_map ranges must cover exactly vhost.memory"
     );
     Ok(ranges)
 }

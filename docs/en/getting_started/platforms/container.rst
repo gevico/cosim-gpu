@@ -70,8 +70,8 @@ Working inside the container
 
    just dev-shell                                  # one-off interactive shell
    COSIM_ENV=container just build-cosim            # build the launcher in the container
-   just run-cli plan samples/machines/single-gpu.yaml
-   just run-topology samples/machines/host-only.yaml --run-for 1
+   just run-topology resources/machines/single-gpu.yaml --dry-run
+   just run-topology resources/machines/host-only.yaml --run-for 1
 
 ``just run-topology`` and ``just run-cli`` themselves also use ``dev.sh``;
 with ``COSIM_ENV=container``, ``cosim run`` executes inside the container.

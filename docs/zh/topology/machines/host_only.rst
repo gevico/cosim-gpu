@@ -9,25 +9,25 @@ host-only 机器
 概述
 ----
 
-``host-only`` 是无设备的 TCG 板卡：一台 ``host-x86-tcg`` 主机以暂停状态启动，不带设备，也不启动客户机。它用来验证 QEMU 进程、内存池、QMP 与串口管理这条会话链路本身。
+``host-only`` 是无设备的 TCG 板卡：一台 ``vhost-x86-tcg`` 主机以暂停状态启动，不带设备，也不启动客户机。它用来验证 QEMU 进程、内存池、QMP 与串口管理这条会话链路本身。
 
 拓扑
 ----
 
 .. code-block:: yaml
 
-   # samples/machines/host-only.yaml
+   # resources/machines/host-only.yaml
    version: 1
-   imports: [hosts/qemu.yaml, hosts/host-x86-tcg.yaml]
+   imports: [vhosts/qemu.yaml, vhosts/vhost-x86-tcg.yaml]
    templates:
-     host-x86-node:
-       host: {use: host-x86-tcg}
+     vhost-x86-node:
+       vhost: {use: vhost-x86-tcg}
    machines:
-     - {id: m0, use: host-x86-node}
+     - {id: m0, use: vhost-x86-node}
 
 - 机器数量：1（``m0``\ ）；只有主机，没有 ``devices`` 列表。
-- ``host-x86-tcg`` 继承 ``host-x86`` 的 Q35 machine 与内存映射，只改内存、CPU、加速器与可执行文件。
-- 主机以 ``-S -nodefaults`` 暂停启动；没有 payload，客户机不会运行。
+- ``vhost-x86-tcg`` 继承 ``vhost-x86`` 的 Q35 machine 与内存映射，只改内存、CPU、加速器与可执行文件。
+- vHost 以 ``-S -nodefaults`` 暂停启动，且没有镜像或内核，因此不会运行客户机系统。
 
 硬件资源
 --------
@@ -40,13 +40,13 @@ host-only 机器
      - 来源
    * - 机器
      - 1 台（``m0``\ ）
-     - ``samples/machines/host-only.yaml``
-   * - 主机配置
-     - ``host-x86-tcg``\ ：``q35``\ 、``tcg``\ 、``qemu64`` CPU
-     - ``samples/hosts/host-x86-tcg.yaml``
+     - ``resources/machines/host-only.yaml``
+   * - vHost 配置
+     - ``vhost-x86-tcg``\ ：``q35``\ 、``tcg``\ 、``qemu64`` CPU
+     - ``resources/vhosts/vhost-x86-tcg.yaml``
    * - 客户机 RAM
      - 64 MiB
-     - ``samples/hosts/host-x86-tcg.yaml``
+     - ``resources/vhosts/vhost-x86-tcg.yaml``
    * - vCPU
      - 1
      - 同上
@@ -58,8 +58,8 @@ host-only 机器
      - 主机 RAM
    * - 可执行文件
      - ``qemu-system-x86_64``\ （从 ``PATH`` 查找）
-     - ``samples/hosts/host-x86-tcg.yaml``
-   * - Payload
+     - ``resources/vhosts/vhost-x86-tcg.yaml``
+   * - vHost
      - 无
      - —
 
@@ -76,10 +76,10 @@ host-only 机器
 .. code-block:: bash
 
    # 只校验与预览
-   just run-cli validate samples/machines/host-only.yaml
-   just run-cli plan samples/machines/host-only.yaml
+   just run-cli validate resources/machines/host-only.yaml
+   just run-topology resources/machines/host-only.yaml --dry-run
    # 运行 1 秒后结束会话（主机处于暂停状态）
-   just run-topology-dev samples/machines/host-only.yaml --run-for 1
+   just run-topology-dev resources/machines/host-only.yaml --run-for 1
 
 - ``--run-for`` 在全部进程就绪后开始计时，适合这种无客户机的冒烟运行。
 - 会话结束后保留 ``plan.json``\ 、``layout.json``\ 、``output.log`` 与 ``verdict.json``\ ，内存池与 socket 被删除。
@@ -103,9 +103,9 @@ host-only 机器
 相关页面
 --------
 
-- 主机配置：:doc:`../hosts/index`
+- vHost 配置：:doc:`../hosts/index`
 - 机器目录：:doc:`index`
 - qemu-device 板卡：:doc:`qemu_device`
 - 多机版本：:doc:`../multi_machine`
 - 会话生命周期：:ref:`launcher-session-lifecycle`
-- 源码：``samples/machines/host-only.yaml``\ 、``samples/hosts/host-x86-tcg.yaml``
+- 源码：``resources/machines/host-only.yaml``\ 、``resources/vhosts/vhost-x86-tcg.yaml``

@@ -13,34 +13,29 @@
 
 拓扑（topology）
   描述若干台机器的 YAML 文档，包含 ``version``、``imports``、
-  ``templates``、``kinds`` 和 ``machines`` 字段。拓扑只描述硬件与
-  组合关系，客户机启动和存储输入由 payload 提供。
+  ``templates``、``kinds`` 和 ``machines`` 字段。
 
 机器（machine）
-  一个 ``host``、挂在它上面的全部 ``device`` 以及一个共享内存池组成的
+  一个 ``vhost``、挂在它上面的全部 ``device`` 以及一个共享内存池组成的
   运行单元。拓扑中的 ``machines`` 列表经 ``count`` 展开后得到具体的机器
   实例，例如 ``m0`` 到 ``m3``。
 
-host
-  运行客户机 Linux 的 QEMU 进程。host 由 host 模板声明，负责 CPU、内存、PCIe
-  枚举、QMP 和串口端点，并作为 vfio-user 客户端连接设备。
+vHost
+  运行客户机 Linux 的 QEMU 进程。vHost 由 vHost 模板声明，负责 CPU、内存、PCIe
+  枚举、QMP 和串口端点，并作为 vfio-user 客户端连接设备。客户机操作系统只是
+  QEMU 内部运行的 Linux，不是拓扑对象或额外的配置层。
 
 device
-  以原生进程运行、通过 vfio-user 向所属机器的 host 提供 PCI 设备的进程。设备由
+  以原生进程运行、通过 vfio-user 向所属机器的 vHost 提供 PCI 设备的进程。设备由
   ``gem5-mi300x`` 或 ``qemu-device`` 适配器启动，MI300X 适配器为每个
   进程启动一个 GPU。
-
-payload
-  描述客户机启动与存储输入的 YAML 文档，可包含 ``boot``、``disks`` 和
-  ``snapshot`` 字段。运行时通过 ``--payload`` 选择，一个 payload 应用于
-  拓扑中的每台机器。
 
 会话（session）
   ``cosim run`` 创建的资源树：运行目录、共享内存池目录、全部进程、锁、磁盘
   overlay 以及日志。会话以临时名称准备、一次性发布，结束后写入 verdict。
 
 执行计划（plan）
-  ``cosim plan`` 输出的完整执行描述，记录程序、参数、环境、依赖、就绪探测、
+  ``cosim run --dry-run`` 输出的完整执行描述，记录程序、参数、环境、依赖、就绪探测、
   内存区域、磁盘目标和锁文件路径；``cosim run`` 直接消费该计划。
 
 内存池（pool）
@@ -59,7 +54,7 @@ verdict
 ----------
 
 vfio-user
-  在 Unix socket 之上导出 PCI 设备的协议。host 侧由 QEMU 的
+  在 Unix socket 之上导出 PCI 设备的协议。vHost 侧由 QEMU 的
   ``vfio-user-pci`` 客户端使用，设备侧由 libvfio-user（gem5 的
   ``MI300XVfioUser``，或 QEMU 的 ``x-vfio-user-server``）提供服务。
 
@@ -69,7 +64,7 @@ BAR
   512 KiB MMIO 寄存器。
 
 MSI-X
-  PCI 中断机制。设备通过 IRQ eventfd 通知 host，host 再把中断注入客户机。
+  PCI 中断机制。设备通过 IRQ eventfd 通知 vHost，vHost 再把中断注入客户机。
 
 DMA 映射
   vfio-user 的 DMA_MAP 操作，携带文件描述符和文件偏移，让设备访问客户机内存。
@@ -90,7 +85,7 @@ SDMA
 
 IH
   Interrupt Handler。设备把中断记录写入共享内存中的 IH 记录，更新写指针，再通过
-  IRQ eventfd 通知 host。
+  IRQ eventfd 通知 vHost。
 
 gfx942
   MI300X 的 GPU 架构标识，``rocminfo`` 以该名称报告 agent；HIP 编译使用
@@ -104,12 +99,8 @@ gem5
   组件，通过 vfio-user 把 GPU 提供给 QEMU 客户机。
 
 QEMU
-  功能仿真与虚拟化组件。作为 host 时运行客户机 Linux；作为 device model 时通过
+  功能仿真与虚拟化组件。作为 vHost 时运行客户机 Linux；作为 device model 时通过
   ``x-remote`` 和 ``x-vfio-user-server`` 提供 PCI 设备。
-
-m5
-  gem5 提供的客户机工具，用于 readfile 注入、退出仿真等伪指令；独立全系统仿真用它
-  自动加载驱动并结束测试。
 
 StubWorkload
   gem5 联合仿真配置中使用的工作负载，使设备模型在没有完整 CPU 负载的情况下执行。
@@ -123,7 +114,7 @@ XGMI
   行为；YAML 适配器为每个进程启动一个 GPU。
 
 cluster
-  多台机器组成的拓扑组合，``samples/clusters/`` 中的样例通过
+  多台机器组成的拓扑组合，``resources/clusters/`` 中的样例通过
   ``count`` 展开机器数量。cluster 是拓扑组合，不是机器目录中的单个 machine。
 
 adapter

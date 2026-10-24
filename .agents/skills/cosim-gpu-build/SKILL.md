@@ -1,6 +1,6 @@
 ---
 name: cosim-gpu-build
-description: Use when building gem5, QEMU or m5, or checking their build inputs and binary provenance. Use the top-level just recipes.
+description: Use when building gem5 or QEMU, or checking their build inputs and binary provenance. Use the top-level just recipes.
 ---
 
 # Cosim Build
@@ -15,13 +15,11 @@ directory.
 just dev-image
 just build-gem5
 just build-qemu
-just build-m5 x86
 ```
 
-Use `just build-m5` without an argument to select the Host ABI. Pass `x86` for
-the ROCm vHost image recipe. `just build-gem5 1` limits gem5 compilation to one
-job when linking runs out of memory. The recipes select the Host or development
-container through `COSIM_ENV`.
+`just build-gem5 1` limits gem5 compilation to one job when linking runs out of
+memory. The recipes select the Host or development container through
+`COSIM_ENV`.
 
 ## Source and output paths
 
@@ -29,7 +27,6 @@ container through `COSIM_ENV`.
 |-----------|--------|---------------|
 | gem5 | `third_party/gem5/` | `build/gem5/<host-architecture>/VEGA_X86/gem5.opt` |
 | QEMU | `third_party/qemu/` | `build/qemu/qemu-system-<host-architecture>` |
-| m5 | `third_party/gem5/util/m5/` | `build/m5/<abi>/out/m5` |
 
 `GEM5_BUILD_DIR` can select another output directory under the repository's
 `build/`. It does not select a different gem5 source tree. Inspect the selected

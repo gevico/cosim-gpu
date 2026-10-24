@@ -9,29 +9,29 @@ single-gpu 机器
 概述
 ----
 
-``single-gpu`` 是标准单 GPU 客户机板卡：一台机器、一个 ``host-x86`` QEMU 主机和一个 gem5 MI300X 设备，共享一个 24 GiB 内存池。快速开始教程第一次会话使用的就是这个组合。
+``single-gpu`` 是标准单 GPU 机器：一个 ``vhost-x86-rocm`` vHost 和一个 gem5 MI300X 设备，共享一个 24 GiB 内存池。快速开始教程第一次会话使用的就是这个组合。
 
 拓扑
 ----
 
 .. code-block:: yaml
 
-   # samples/machines/single-gpu.yaml
+   # resources/machines/single-gpu.yaml
    version: 1
    imports:
-     - hosts/qemu.yaml
+     - vhosts/qemu.yaml
      - devices/gpu/mi300x.yaml
    templates:
      node1:
-       host: {use: host-x86}
+       vhost: {use: vhost-x86-rocm}
        devices:
          - {use: mi300x}
    machines:
      - {id: m0, use: node1}
 
-- 机器数量：1（``m0``\ ）；主机与设备都来自导入的模板。
-- ``node1`` 把默认 ``host-x86`` 与默认 ``mi300x`` 组合起来；样例没有覆盖任何字段。
-- 运行时可另外用 ``--payload`` 选择 ``ubuntu-rocm7_0``\ ，payload 不在拓扑文档中。
+- 机器数量：1（``m0``\ ）；vHost 与设备都来自导入的模板。
+- ``node1`` 把 ``vhost-x86-rocm`` 与默认 ``mi300x`` 组合起来；样例没有覆盖任何字段。
+- ``vhost-x86-rocm`` 模板直接选择 ``ubuntu/24.04/x86_64/rocm/7.0``。
 
 硬件资源
 --------
@@ -44,22 +44,22 @@ single-gpu 机器
      - 来源
    * - 机器
      - 1 台（``m0``\ ）
-     - ``samples/machines/single-gpu.yaml``
-   * - 主机配置
-     - ``host-x86``\ ：``q35``\ 、``kvm``\ 、``host`` CPU、4 vCPU
-     - ``samples/hosts/qemu.yaml``
+     - ``resources/machines/single-gpu.yaml``
+   * - vHost 配置
+     - ``vhost-x86``\ ：``q35``\ 、``kvm``\ 、``host`` CPU、4 vCPU
+     - ``resources/vhosts/qemu.yaml``
    * - 客户机 RAM
      - 8 GiB；x86_64 PCI 空洞由 ``memory_map`` 渲染
-     - ``samples/hosts/qemu.yaml``
+     - ``resources/vhosts/qemu.yaml``
    * - 设备
      - 1 × ``mi300x``\ ：16 GiB VRAM、40 CU
-     - ``samples/devices/gpu/mi300x.yaml``
+     - ``resources/devices/gpu/mi300x.yaml``
    * - 内存池
      - 24 GiB = 8 GiB RAM + 16 GiB VRAM
      - ``crates/cosim-topology/src/layout.rs``
    * - PCIe 拓扑
      - 每个设备一个 ``pcie-root-port``\ （槽位从 ``0x10`` 起），可选 option ROM
-     - ``samples/hosts/qemu.yaml``
+     - ``resources/vhosts/qemu.yaml``
    * - 可执行文件
      - QEMU ``build/qemu/qemu-system-x86_64``\ ；gem5 ``build/gem5/x86_64/VEGA_X86/gem5.opt``
      - 两个模板
@@ -75,7 +75,7 @@ single-gpu 机器
      - 说明
    * - 客户机 OS
      - Ubuntu 24.04.2 LTS，内核 6.8.0-124-generic
-     - 由 payload 直接内核启动
+     - 由 vHost 直接内核启动
    * - GPU 驱动
      - ``amdgpu``\ ，固定参数
      - ``ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2``
@@ -86,7 +86,7 @@ single-gpu 机器
      - gem5 MI300X（``MI300XVfioUser``\ ）
      - PM4、SDMA、CU 等部分行为；模型细节见第 4 章
    * - 客户机初始化
-     - ``cosim-gpu-setup.service``
+     - ``cosim-gpu-initialize.service``
      - 启动后执行 ROM ``dd`` 并加载 ``amdgpu``
 
 运行该机器
@@ -95,14 +95,14 @@ single-gpu 机器
 .. code-block:: bash
 
    # 只校验与预览
-   just run-cli validate samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --assets
-   just run-cli plan samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-cli validate resources/machines/single-gpu.yaml  --assets
+   just run-topology resources/machines/single-gpu.yaml --dry-run
    # 启动会话
-   just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-topology resources/machines/single-gpu.yaml
 
 - 串口控制台、登录与关闭流程见 :ref:`gs-first-session`\ 。
 - 主机以状态 0 退出时结束本机；SIGINT 或 SIGTERM 触发有序关闭。
-- ``--assets`` 会检查 QEMU、gem5、payload 内核与磁盘等文件是否存在。
+- ``--assets`` 会检查 QEMU、gem5、vHost 内核与磁盘等文件是否存在。
 
 验证
 ----
@@ -124,10 +124,10 @@ single-gpu 机器
 相关页面
 --------
 
-- 主机配置：:doc:`../hosts/index`
+- vHost 配置：:doc:`../hosts/index`
 - 设备目录：:doc:`../devices/index`
-- Payload：:doc:`../payloads/index`
+- vHost：:ref:`ref-topology-schema`
 - 机器目录：:doc:`index`
 - 参考：:ref:`ref-topology-schema`\ 、:ref:`ref-device-adapters`
 - 第 4 章：:ref:`sim-gem5-pci`\ 、:ref:`sim-gem5-model`\ 、:ref:`sim-guest-driver`
-- 源码：``samples/machines/single-gpu.yaml``\ 、``samples/devices/gpu/mi300x.yaml``
+- 源码：``resources/machines/single-gpu.yaml``\ 、``resources/devices/gpu/mi300x.yaml``

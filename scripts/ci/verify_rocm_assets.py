@@ -13,7 +13,7 @@ from resources.images.errors import ImageError
 from resources.images.recipe import load_recipe
 
 
-RECIPE = "ubuntu/24.04/x86_64/rocm7_0"
+RECIPE = "ubuntu/24.04/x86_64/rocm/7.0"
 
 
 def check(output: Path) -> None:

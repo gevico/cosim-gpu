@@ -16,23 +16,23 @@ Topology
 
 .. code-block:: yaml
 
-   # samples/machines/qemu-device.yaml
+   # resources/machines/qemu-device.yaml
    version: 1
    imports:
-     - hosts/qemu.yaml
-     - hosts/host-x86-tcg.yaml
+     - vhosts/qemu.yaml
+     - vhosts/vhost-x86-tcg.yaml
      - devices/pci/qemu-edu.yaml
    machines:
      - id: m0
-       host:
-         use: host-x86-tcg
+       vhost:
+         use: vhost-x86-tcg
          runtime: {binary: build/qemu/qemu-system-x86_64}
      devices:
        - {use: qemu-edu}
 
 - Machine count: one (``m0``); the host overrides ``runtime.binary`` to use the QEMU built from the submodule.
 - The device gets the default identifier ``qemu-edu-0`` and has no private memory region.
-- The host starts paused with ``-S -nodefaults``; there is no payload.
+- The vHost starts paused with ``-S -nodefaults`` and has no image or kernel.
 
 Hardware resources
 ------------------
@@ -45,16 +45,16 @@ Hardware resources
      - Source
    * - Machine
      - 1 (``m0``)
-     - ``samples/machines/qemu-device.yaml``
-   * - Host profile
-     - ``host-x86-tcg``: ``q35``, ``tcg``, ``qemu64`` CPU
-     - ``samples/hosts/host-x86-tcg.yaml``
+     - ``resources/machines/qemu-device.yaml``
+   * - vHost profile
+     - ``vhost-x86-tcg``: ``q35``, ``tcg``, ``qemu64`` CPU
+     - ``resources/vhosts/vhost-x86-tcg.yaml``
    * - Guest RAM
      - 64 MiB, 1 vCPU
      - Same file
    * - Device
      - 1 × ``qemu-edu`` with ``args.device`` set to ``{driver: edu}``
-     - ``samples/devices/pci/qemu-edu.yaml``
+     - ``resources/devices/pci/qemu-edu.yaml``
    * - Memory pool
      - 64 MiB (the device has no private region)
      - Host RAM
@@ -64,7 +64,7 @@ Hardware resources
    * - Sockets
      - Host QMP and serial; device vfio-user socket and QMP
      - Session layout
-   * - Payload
+   * - vHost
      - None
      - —
 
@@ -101,12 +101,12 @@ Running this machine
    # Build QEMU with vfio-user support first
    just build-qemu
    # Validate and preview
-   just run-cli validate samples/machines/qemu-device.yaml --assets
-   just run-cli plan samples/machines/qemu-device.yaml
+   just run-cli validate resources/machines/qemu-device.yaml --assets
+   just run-topology resources/machines/qemu-device.yaml --dry-run
    # Smoke run for two seconds
-   just run-topology-dev samples/machines/qemu-device.yaml --run-for 2
+   just run-topology-dev resources/machines/qemu-device.yaml --run-for 2
 
-- The device process starts first and begins listening; the host starts only after the device is ready.
+- The device process starts first and begins listening; the vHost starts only after the device is ready.
 - On shutdown the host stops first, and the device exits after its last lease is released.
 - The vfio-user interface details are in :ref:`arch-vfio-user` and the lifecycle in :ref:`launcher-session-lifecycle`.
 
@@ -130,8 +130,8 @@ Related pages
 -------------
 
 - Device catalog: :doc:`../devices/index`
-- Host profiles: :doc:`../hosts/index`
+- vHost profiles: :doc:`../hosts/index`
 - Machine catalog: :doc:`index`
 - Chapter 4: :ref:`sim-qemu-device-models`, :ref:`sim-qemu-vhost`
 - Adapter contract: :ref:`ref-device-adapters`
-- Sources: ``samples/machines/qemu-device.yaml``, ``samples/devices/pci/qemu-edu.yaml``
+- Sources: ``resources/machines/qemu-device.yaml``, ``resources/devices/pci/qemu-edu.yaml``

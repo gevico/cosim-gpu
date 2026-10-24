@@ -60,7 +60,7 @@ just dev-image        # Non-Linux Hosts, or set COSIM_ENV=container
 
 # Build the toolchain and x86_64 vHost image on the Host with KVM
 just build-all
-just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+just run-topology resources/machines/single-gpu.yaml
 ~~~
 
 The first image build uses the selected vHost recipe under
@@ -69,15 +69,15 @@ The first image build uses the selected vHost recipe under
 building or starting processes:
 
 ~~~bash
-just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --dry-run
+just run-topology resources/machines/single-gpu.yaml --dry-run
 ~~~
 
 ### Sample topologies
 
-- <code>samples/machines/single-gpu.yaml</code> — start a single-GPU vHost.
-- <code>samples/machines/mixed-models.yaml</code> — combine gem5 and QEMU Device Models.
-- <code>samples/machines/gpu-8.yaml</code> — inspect an eight-GPU machine with a 96 GiB memory pool.
-- <code>samples/machines/host-only-aarch64.yaml</code> — check an ARM64 vHost without a Device Model.
+- <code>resources/machines/single-gpu.yaml</code> — start a single-GPU vHost.
+- <code>resources/machines/mixed-models.yaml</code> — combine gem5 and QEMU Device Models.
+- <code>resources/machines/gpu-8.yaml</code> — inspect an eight-GPU machine with a 96 GiB memory pool.
+- <code>resources/machines/host-only-aarch64.yaml</code> — check an ARM64 vHost without a Device Model.
 
 <details>
 <summary>Example: one machine with gem5 and QEMU devices</summary>
@@ -85,19 +85,19 @@ just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ub
 ~~~yaml
 version: 1
 imports:
-  - hosts/qemu.yaml
+  - vhosts/qemu.yaml
   - devices/gpu/mi300x.yaml
   - devices/pci/qemu-edu.yaml
 machines:
   - id: m0
-    host: {use: host-x86, memory: 32G}
+    vhost: {use: vhost-x86-rocm, memory: 32G}
     devices:
       - {use: mi300x, count: 2}
       - {use: qemu-edu}
 ~~~
 
-Pass `--payload samples/payloads/ubuntu-rocm7_0.yaml` to `just run-topology` to attach the
-vHost OS kernel and disk inputs. Build outputs are stored under `build/`.
+The selected vHost profile includes its image recipe and boot inputs. Build
+outputs are stored under `build/`.
 
 The QEMU Device Model example serves the real <code>edu</code> PCI model through
 <code>x-vfio-user-server</code> from the QEMU built by <code>just build-qemu</code>.
@@ -108,8 +108,8 @@ The QEMU Device Model example serves the real <code>edu</code> PCI model through
 
 ### Launcher and configuration tools
 
-Use Rust 1.95+, Cargo and just for the launcher. Build recipes for QEMU, gem5,
-m5, topology runs and Rust checks use <code>scripts/host/dev.sh</code>. On
+Use Rust 1.95+, Cargo and just for the launcher. QEMU and gem5 builds, topology
+runs and Rust checks use <code>scripts/host/dev.sh</code>. On
 non-Linux Hosts or with <code>COSIM_ENV=container</code>, they use a temporary
 container from <code>scripts/host/Dockerfile.dev</code>. vHost image and HIP builds, plus
 <code>just run-launch</code> and <code>just test-gpu</code>, use their own Docker workflows.
@@ -142,7 +142,10 @@ container from <code>scripts/host/Dockerfile.dev</code>. vHost image and HIP bui
 - **Simulation models:** <code>third_party/gem5/</code>,
   <code>third_party/qemu/</code> and <code>configs/sst/</code>.
 - **GPU workloads and vHost firmware inputs:** <code>third_party/gem5-resources/</code>.
-- **Project tools:** <code>samples/</code>, <code>scripts/</code>,
+- **Machine configurations:** <code>resources/vhosts/</code>, <code>resources/devices/</code>,
+  <code>resources/machines/</code> and <code>resources/clusters/</code>.
+- **Example programs:** <code>samples/</code> is reserved for programs run after a vHost boots.
+- **Project tools:** <code>scripts/</code>,
   <code>justfile</code> and <code>.agents/</code>.
 - **vHost image recipes:** <code>resources/images/recipes/</code> with
   Packer/QEMU metadata, Ansible playbooks and OS-specific files.

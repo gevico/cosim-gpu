@@ -18,38 +18,12 @@ const MAX_DEPTH: usize = 64;
 
 /// Loads a topology document with its imports and validates the result.
 ///
-/// Imports resolve against the importing file, then against `samples`.
+/// Imports resolve against the importing file, then against `resources`.
 /// Relative resource paths resolve against the configured workspace root.
 /// Only the top-level document contributes runnable machines.
-pub fn load(path: &Path, samples: &Path) -> Result<Topology> {
+pub fn load(path: &Path, resources: &Path) -> Result<Topology> {
     let workspace = workspace_root()?;
-    load_with_workspace(path, samples, &workspace)
-}
-
-/// Loads a standalone boot and disk payload document.
-pub fn load_payload(path: &Path) -> Result<crate::model::Payload> {
-    let workspace = workspace_root()?;
-    load_payload_with_workspace(path, &workspace)
-}
-
-/// Loads a payload document with an explicit workspace root for its paths.
-pub fn load_payload_with_workspace(path: &Path, workspace: &Path) -> Result<crate::model::Payload> {
-    let workspace = fs::canonicalize(workspace)
-        .with_context(|| format!("resolve workspace {}", workspace.display()))?;
-    let source =
-        fs::canonicalize(path).with_context(|| format!("open payload {}", path.display()))?;
-    let text = fs::read_to_string(&source)
-        .with_context(|| format!("read payload {}", source.display()))?;
-    let mut yaml: serde_yaml_ng::Value =
-        serde_yaml_ng::from_str(&text).with_context(|| source.display().to_string())?;
-    yaml.apply_merge()
-        .with_context(|| format!("{}: YAML merge", source.display()))?;
-    let mut value: Value =
-        serde_yaml_ng::from_value(yaml).with_context(|| source.display().to_string())?;
-    resolve_paths(&mut value, &workspace)?;
-    let payload: raw::PayloadDocument =
-        serde_json::from_value(value).with_context(|| source.display().to_string())?;
-    resolve::payload(payload, source).with_context(|| path.display().to_string())
+    load_with_workspace(path, resources, &workspace)
 }
 
 fn workspace_root() -> Result<PathBuf> {
@@ -64,12 +38,12 @@ fn workspace_root() -> Result<PathBuf> {
 
 /// Loads a topology with an explicit workspace root for path-valued fields.
 /// Relative resource paths resolve from this directory.
-pub fn load_with_workspace(path: &Path, samples: &Path, workspace: &Path) -> Result<Topology> {
+pub fn load_with_workspace(path: &Path, resources: &Path, workspace: &Path) -> Result<Topology> {
     let workspace = fs::canonicalize(workspace)
         .with_context(|| format!("resolve workspace {}", workspace.display()))?;
     let source = fs::canonicalize(path).with_context(|| format!("open {}", path.display()))?;
     let mut loader = Loader {
-        samples: std::path::absolute(samples)?,
+        resources: std::path::absolute(resources)?,
         workspace,
         active: Vec::new(),
         loaded: BTreeSet::new(),
@@ -101,7 +75,7 @@ struct Definition {
 }
 
 struct Loader {
-    samples: PathBuf,
+    resources: PathBuf,
     workspace: PathBuf,
     active: Vec<PathBuf>,
     loaded: BTreeSet<PathBuf>,
@@ -192,7 +166,7 @@ impl Loader {
         Ok(document)
     }
 
-    /// Finds an import and checks the sample directory layering.
+    /// Finds an import and checks the resource directory layering.
     fn locate(&self, importer: &Path, directory: &Path, name: &str) -> Result<PathBuf> {
         let relative = name.strip_suffix("#templates").unwrap_or(name);
         ensure!(
@@ -203,18 +177,18 @@ impl Loader {
         let candidate = if candidate.exists() {
             candidate
         } else {
-            self.samples.join(relative)
+            self.resources.join(relative)
         };
         let imported = fs::canonicalize(&candidate)
             .with_context(|| format!("{} imports {name}", importer.display()))?;
-        let root = fs::canonicalize(&self.samples).unwrap_or_else(|_| self.samples.clone());
+        let root = fs::canonicalize(&self.resources).unwrap_or_else(|_| self.resources.clone());
         let layer = |path: &Path| -> Option<String> {
             let first = path.strip_prefix(&root).ok()?.components().next()?;
             Some(first.as_os_str().to_string_lossy().into_owned())
         };
         let allowed = match layer(importer).as_deref() {
-            Some("hosts" | "devices") => false,
-            Some("machines") => matches!(layer(&imported).as_deref(), Some("hosts" | "devices")),
+            Some("vhosts" | "devices") => false,
+            Some("machines") => matches!(layer(&imported).as_deref(), Some("vhosts" | "devices")),
             Some("clusters") => matches!(layer(&imported).as_deref(), Some("machines")),
             _ => true,
         };
@@ -227,15 +201,17 @@ impl Loader {
         Ok(imported)
     }
 
-    /// Expands a machine, then its host and devices, recording each device
+    /// Expands a machine, then its vHost and devices, recording each device
     /// reference name.
     ///
-    /// The machine-level merge completes before the host's own `use` chain is
-    /// expanded, so a machine can replace the host template of its template.
+    /// The machine-level merge completes before the vHost's own `use` chain is
+    /// expanded, so a machine can replace the vHost template of its template.
     fn machine(&self, value: Value) -> Result<MachineSpec> {
         let mut value = self.expand(value, &mut Vec::new())?;
-        if let Some(host) = value.get_mut("host") {
-            *host = self.expand(host.take(), &mut Vec::new()).context("host")?;
+        if let Some(vhost) = value.get_mut("vhost") {
+            *vhost = self
+                .expand(vhost.take(), &mut Vec::new())
+                .context("vhost")?;
         }
         let mut device_names = Vec::new();
         if let Some(devices) = value.get_mut("devices") {
@@ -259,7 +235,7 @@ impl Loader {
 
     /// Replaces the `use` reference of `value` with the merged template chain.
     ///
-    /// Nested definitions such as `host` keep their own references.
+    /// Nested definitions such as `vhost` keep their own references.
     fn expand(&self, mut value: Value, active: &mut Vec<String>) -> Result<Value> {
         let object = value
             .as_object_mut()
@@ -316,8 +292,8 @@ fn merge(base: &mut Value, overlay: Value) {
 /// Executables are resolved only when they contain a path separator; bare
 /// names are searched in `PATH` at execution.
 fn resolve_paths(value: &mut Value, workspace: &Path) -> Result<()> {
-    if let Some(host) = value.get_mut("host") {
-        resolve_paths(host, workspace)?;
+    if let Some(vhost) = value.get_mut("vhost") {
+        resolve_paths(vhost, workspace)?;
     }
     if let Some(devices) = value.get_mut("devices").and_then(Value::as_array_mut) {
         for device in devices {
@@ -329,7 +305,7 @@ fn resolve_paths(value: &mut Value, workspace: &Path) -> Result<()> {
     {
         absolute(binary, workspace)?;
     }
-    for pointer in ["/config", "/pci/rom", "/boot/kernel", "/boot/initrd"] {
+    for pointer in ["/config", "/pci/rom", "/kernel", "/initrd"] {
         if let Some(path) = value.pointer_mut(pointer) {
             absolute(path, workspace)?;
         }

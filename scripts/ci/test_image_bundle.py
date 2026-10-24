@@ -12,7 +12,7 @@ from resources.images.recipe import load_recipe
 
 
 WORKSPACE = Path(__file__).resolve().parents[2]
-RECIPE_ID = "ubuntu/24.04/x86_64/rocm7_0"
+RECIPE_ID = "ubuntu/24.04/x86_64/rocm/7.0"
 
 
 class ImageBundleVerificationStampTests(unittest.TestCase):

@@ -12,9 +12,8 @@ use serde_json::{Map, Value};
 
 use crate::adapter::{Adapter, CommandTemplate, Gem5Mi300x, QemuDevice, TemplateDevice};
 use crate::model::{
-    Device, DeviceModel, DirectBoot, Disk, DiskBus, DiskFormat, DiskMode, GuestHints, Host,
-    Identifier, ImageRecipe, Machine, MemoryRegion, Payload, Pci, Program, Role, SerialReady,
-    Topology,
+    Device, DeviceModel, DirectBoot, Disk, DiskBus, DiskFormat, DiskMode, GuestHints, Identifier,
+    ImageRecipe, Machine, MemoryRegion, Pci, Program, Role, SerialReady, Topology, Vhost,
 };
 use crate::raw;
 use crate::size::ByteSize;
@@ -49,8 +48,8 @@ impl Kinds {
                     .and_then(|command| command.context("one of command or argv is required"))
                     .with_context(|| format!("kind {name}"))?;
                 ensure!(
-                    kind.max_devices.is_none() || kind.role == Role::Host,
-                    "kind {name}: max_devices applies to host kinds"
+                    kind.max_devices.is_none() || kind.role == Role::Vhost,
+                    "kind {name}: max_devices applies to vhost kinds"
                 );
                 let kind = Kind {
                     role: kind.role,
@@ -67,7 +66,7 @@ impl Kinds {
     fn get(&self, name: &str, role: Role) -> Result<&Kind> {
         let role_name = match role {
             Role::Device => "device",
-            Role::Host => "host",
+            Role::Vhost => "vhost",
         };
         self.0
             .get(name)
@@ -101,110 +100,60 @@ pub(crate) fn topology(
         machines.extend(machine(spec, kinds)?);
     }
     unique(machines.iter().map(|machine| &machine.id), "machine")?;
+    validate_machines(&machines)?;
     Ok(Topology { source, machines })
 }
 
-/// Converts a payload document into validated boot and storage inputs.
-pub(crate) fn payload(raw: raw::PayloadDocument, source: PathBuf) -> Result<Payload> {
-    let raw::PayloadDocument {
-        version,
-        image,
-        boot: raw_boot,
-        disks: raw_disks,
-        snapshot,
-    } = raw;
-    ensure!(version == 1, "unsupported payload version {}", version);
-    let image = image
-        .map(|image| {
-            let recipe = Path::new(&image.recipe);
-            ensure!(
-                !image.recipe.is_empty()
-                    && !image.recipe.contains('\\')
-                    && !recipe.is_absolute()
-                    && recipe
-                        .components()
-                        .all(|component| matches!(component, Component::Normal(_))),
-                "image.recipe must be a nonempty relative recipe path"
-            );
-            Ok(ImageRecipe {
-                recipe: image.recipe,
-            })
-        })
-        .transpose()?;
-    ensure!(
-        image.is_none() || raw_boot.kernel.is_none(),
-        "image.recipe supplies boot.kernel; omit payload.boot.kernel"
-    );
-    ensure!(
-        image.is_none() || !raw_disks.iter().any(|disk| disk.boot),
-        "image.recipe supplies the boot disk; omit boot: true from payload.disks"
-    );
-    Ok(Payload {
-        source,
-        image,
-        boot: boot(raw_boot)?,
-        disks: disks(raw_disks, snapshot)?,
-    })
-}
-
-/// Checks payload constraints that depend on the topology's machine set.
-pub fn validate_payload(topology: &Topology, payload: Option<&Payload>) -> Result<()> {
-    if payload.is_some_and(|payload| payload.boot.is_none() && payload.image.is_none())
-        || payload.is_none()
-    {
-        for device in topology
-            .machines
-            .iter()
-            .flat_map(|machine| &machine.devices)
-        {
-            ensure!(
-                device.guest_hints.cmdline.is_none(),
-                "device {}: guest_hints.cmdline requires payload boot.kernel",
-                device.id
-            );
+fn validate_machines(machines: &[Machine]) -> Result<()> {
+    for machine in machines {
+        if machine.vhost.boot.is_none() && machine.vhost.image.is_none() {
+            for device in &machine.devices {
+                ensure!(
+                    device.guest_hints.cmdline.is_none(),
+                    "device {}: guest_hints.cmdline requires vhost.image or vhost.kernel",
+                    device.id
+                );
+            }
         }
     }
-    if let Some(payload) = payload {
-        disk_sharing(&topology.machines, &payload.disks)?;
-    }
-    Ok(())
+    disk_sharing(machines)
 }
 
-/// Resolves a recipe selection into the kernel and root disk supplied by its artifact bundle.
+/// Resolves a recipe selection into the kernel and root disk of one vHost.
 pub fn materialize_image_recipe(
-    payload: &mut Payload,
+    vhost: &mut Vhost,
     kernel: Option<PathBuf>,
     disk: PathBuf,
-    disk_id: &str,
     disk_format: DiskFormat,
-    disk_bus: DiskBus,
-    kernel_cmdline: Option<String>,
 ) -> Result<()> {
+    let image = vhost
+        .image
+        .as_ref()
+        .context("vhost does not select an image recipe")?;
     ensure!(
-        payload.image.is_some(),
-        "payload does not select an image recipe"
-    );
-    ensure!(
-        payload.boot.is_none(),
-        "image recipe cannot replace an existing boot kernel"
+        vhost.boot.is_none(),
+        "image recipe cannot replace vhost.kernel"
     );
     ensure!(
         disk.is_absolute(),
         "image recipe disk path must be absolute"
     );
     ensure!(
-        kernel.is_some() || kernel_cmdline.is_none(),
-        "image recipe kernel command line requires a kernel artifact"
+        kernel.is_some() || image.cmdline.is_none(),
+        "vhost.cmdline requires a kernel result"
     );
     ensure!(
-        !payload
+        !vhost
             .disks
             .iter()
-            .any(|disk| disk.id.as_str().eq_ignore_ascii_case(disk_id)),
-        "image recipe disk id {disk_id} conflicts with a payload disk"
+            .any(|disk| disk.id.as_str().eq_ignore_ascii_case("root")),
+        "image root disk conflicts with vhost disk root"
     );
-    let id = Identifier::new(disk_id.to_owned())?;
-    payload.boot = kernel
+    ensure!(
+        !vhost.disks.iter().any(|disk| disk.boot),
+        "vhost.image supplies the boot disk; explicit vhost disks cannot set boot: true"
+    );
+    vhost.boot = kernel
         .map(|kernel| {
             ensure!(
                 kernel.is_absolute(),
@@ -213,15 +162,15 @@ pub fn materialize_image_recipe(
             Ok(DirectBoot {
                 kernel,
                 initrd: None,
-                cmdline: kernel_cmdline,
+                cmdline: image.cmdline.clone(),
             })
         })
         .transpose()?;
-    payload.disks.push(Disk {
-        id,
+    vhost.disks.push(Disk {
+        id: Identifier::new("root")?,
         source: disk,
         format: disk_format,
-        bus: disk_bus,
+        bus: image.root_bus,
         boot: true,
         mode: DiskMode::Overlay,
         create: None,
@@ -267,7 +216,7 @@ fn machine(spec: MachineSpec, kinds: &Kinds) -> Result<Vec<Machine>> {
     let raw::Machine {
         id,
         count,
-        host,
+        vhost,
         devices,
         placement,
         ..
@@ -276,8 +225,8 @@ fn machine(spec: MachineSpec, kinds: &Kinds) -> Result<Vec<Machine>> {
         .filter(|id| !id.is_empty())
         .context("machine id is required")?;
     let expand = || -> Result<Vec<Machine>> {
-        let (host, capacity) =
-            self::host(host.context("machine has no host")?, kinds).context("host")?;
+        let (vhost, capacity) =
+            self::vhost(vhost.context("machine has no vhost")?, kinds).context("vhost")?;
         let placement = placement
             .map(|placement| {
                 ensure!(!placement.agent.is_empty(), "placement.agent is empty");
@@ -294,8 +243,8 @@ fn machine(spec: MachineSpec, kinds: &Kinds) -> Result<Vec<Machine>> {
                 .context("device count overflow")?;
             ensure!(
                 device_total <= capacity,
-                "machine exceeds {capacity} devices allowed by host kind {}",
-                host.kind
+                "machine exceeds {capacity} devices allowed by vhost kind {}",
+                vhost.kind
             );
             let explicit = device.id.is_some();
             let base = device
@@ -313,7 +262,7 @@ fn machine(spec: MachineSpec, kinds: &Kinds) -> Result<Vec<Machine>> {
                 prototype,
             });
         }
-        let devices = instances(entries, &host)?;
+        let devices = instances(entries, &vhost)?;
         let count = count.unwrap_or(1);
         (0..count)
             .map(|index| {
@@ -324,7 +273,7 @@ fn machine(spec: MachineSpec, kinds: &Kinds) -> Result<Vec<Machine>> {
                 };
                 Ok(Machine {
                     id: Identifier::new(name)?,
-                    host: host.clone(),
+                    vhost: vhost.clone(),
                     devices: devices.clone(),
                     placement: placement.clone(),
                 })
@@ -334,8 +283,8 @@ fn machine(spec: MachineSpec, kinds: &Kinds) -> Result<Vec<Machine>> {
     expand().with_context(|| format!("machine {id}"))
 }
 
-/// Assigns device identifiers and checks host constraints.
-fn instances(entries: Vec<DeviceEntry>, host: &Host) -> Result<Vec<Device>> {
+/// Assigns device identifiers and checks vHost constraints.
+fn instances(entries: Vec<DeviceEntry>, vhost: &Vhost) -> Result<Vec<Device>> {
     let mut ordinals = BTreeMap::<String, usize>::new();
     let mut devices = Vec::new();
     for entry in entries {
@@ -354,8 +303,8 @@ fn instances(entries: Vec<DeviceEntry>, host: &Host) -> Result<Vec<Device>> {
     for device in &devices {
         if matches!(device.adapter, Adapter::Gem5Mi300x(_)) {
             ensure!(
-                host.memory_map.is_some(),
-                "device {}: gem5-mi300x requires host.memory_map",
+                vhost.memory_map.is_some(),
+                "device {}: gem5-mi300x requires vhost.memory_map",
                 device.id
             );
         }
@@ -363,42 +312,63 @@ fn instances(entries: Vec<DeviceEntry>, host: &Host) -> Result<Vec<Device>> {
     Ok(devices)
 }
 
-fn host(raw: raw::Host, kinds: &Kinds) -> Result<(Host, usize)> {
-    let kind_name = raw.kind.context("host.kind is required")?;
-    let kind = kinds.get(&kind_name, Role::Host)?;
+fn vhost(raw: raw::Vhost, kinds: &Kinds) -> Result<(Vhost, usize)> {
+    let kind_name = raw.kind.context("vhost.kind is required")?;
+    let kind = kinds.get(&kind_name, Role::Vhost)?;
     ensure!(
         kind.model == DeviceModel::Qemu,
-        "host kind {kind_name} must use model: qemu"
+        "vhost kind {kind_name} must use model: qemu"
     );
     let command = CommandTemplate::from_parts(raw.runtime.argv, raw.runtime.command)
-        .context("host.runtime")?
+        .context("vhost.runtime")?
         .unwrap_or_else(|| kind.command.clone());
     let binary = raw
         .runtime
         .binary
-        .context("host.runtime.binary is required")?;
-    let host = Host {
+        .context("vhost.runtime.binary is required")?;
+    let image = raw
+        .image
+        .map(|recipe| image_recipe(recipe, raw.root_bus, raw.cmdline.clone()))
+        .transpose()?;
+    ensure!(
+        image.is_none() || (raw.kernel.is_none() && raw.initrd.is_none()),
+        "vhost.image cannot be combined with vhost.kernel or vhost.initrd"
+    );
+    let boot = if image.is_some() {
+        None
+    } else {
+        boot(raw.kernel, raw.initrd, raw.cmdline)?
+    };
+    let disks = disks(raw.disks, raw.snapshot)?;
+    ensure!(
+        image.is_none() || !disks.iter().any(|disk| disk.boot),
+        "vhost.image supplies the boot disk; explicit vhost disks cannot set boot: true"
+    );
+    let vhost = Vhost {
         kind: kind_name,
         command,
         program: program(binary, raw.runtime.env)?,
-        memory: raw.memory.context("host.memory is required")?,
-        memory_align: alignment(raw.memory_align).context("host.memory_align")?,
+        memory: raw.memory.context("vhost.memory is required")?,
+        memory_align: alignment(raw.memory_align).context("vhost.memory_align")?,
         memory_map: raw.memory_map.filter(|map| !map.is_empty()),
         cpus: raw
             .cpus
             .and_then(NonZeroU32::new)
-            .context("host.cpus must be positive")?,
-        accel: required(raw.accel, "host.accel")?,
-        machine: required(raw.machine, "host.machine")?,
+            .context("vhost.cpus must be positive")?,
+        accel: required(raw.accel, "vhost.accel")?,
+        machine: required(raw.machine, "vhost.machine")?,
         cpu: raw.cpu,
         display: raw.display,
         monitor: raw.monitor,
         no_reboot: raw.no_reboot,
         serial_ready: serial(raw.serial)?,
         args: raw.args,
+        image,
+        boot,
+        disks,
     };
     let capacity = kind.max_devices.unwrap_or(MAX_DEVICES).min(MAX_DEVICES);
-    Ok((host, capacity))
+    Ok((vhost, capacity))
 }
 
 /// Kinds that a device may reference.
@@ -524,18 +494,41 @@ fn required(value: Option<String>, field: &str) -> Result<String> {
         .with_context(|| format!("{field} is required"))
 }
 
-fn boot(raw: raw::Boot) -> Result<Option<DirectBoot>> {
-    let Some(kernel) = raw.kernel else {
+fn image_recipe(value: String, root_bus: DiskBus, cmdline: Option<String>) -> Result<ImageRecipe> {
+    let recipe = Path::new(&value);
+    ensure!(
+        !value.is_empty()
+            && !value.contains('\\')
+            && !recipe.is_absolute()
+            && recipe
+                .components()
+                .all(|component| matches!(component, Component::Normal(_)))
+            && recipe.components().count() == 5,
+        "vhost.image must be a five-level relative recipe path"
+    );
+    Ok(ImageRecipe {
+        recipe: value,
+        root_bus,
+        cmdline,
+    })
+}
+
+fn boot(
+    kernel: Option<PathBuf>,
+    initrd: Option<PathBuf>,
+    cmdline: Option<String>,
+) -> Result<Option<DirectBoot>> {
+    let Some(kernel) = kernel else {
         ensure!(
-            raw.initrd.is_none() && raw.cmdline.is_none(),
-            "boot.initrd and boot.cmdline require boot.kernel"
+            initrd.is_none() && cmdline.is_none(),
+            "vhost.initrd and vhost.cmdline require vhost.kernel or vhost.image"
         );
         return Ok(None);
     };
     Ok(Some(DirectBoot {
         kernel,
-        initrd: raw.initrd,
-        cmdline: raw.cmdline,
+        initrd,
+        cmdline,
     }))
 }
 
@@ -631,11 +624,11 @@ fn unique<'a>(ids: impl Iterator<Item = &'a Identifier>, what: &str) -> Result<(
 }
 
 /// Rejects direct writers that share an image and conflicting creation requests.
-fn disk_sharing(machines: &[Machine], disks: &[Disk]) -> Result<()> {
+fn disk_sharing(machines: &[Machine]) -> Result<()> {
     let mut users = BTreeMap::<&Path, Vec<(&Identifier, DiskMode)>>::new();
     let mut created = BTreeMap::<&Path, (ByteSize, DiskFormat)>::new();
     for machine in machines {
-        for disk in disks {
+        for disk in &machine.vhost.disks {
             users
                 .entry(&disk.source)
                 .or_default()

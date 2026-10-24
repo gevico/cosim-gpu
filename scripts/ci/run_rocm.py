@@ -119,13 +119,14 @@ def prepare(inputs: Inputs) -> dict:
 def topology(inputs: Inputs, share: Path) -> dict:
     return {
         "version": 1,
-        "imports": [str(ROOT / "samples" / path) for path in (
-            "hosts/qemu.yaml", "devices/gpu/mi300x.yaml"
+        "imports": [str(ROOT / "resources" / path) for path in (
+            "vhosts/qemu.yaml", "devices/gpu/mi300x.yaml"
         )],
         "machines": [{
             "id": "m0",
-            "host": {
-                "use": "host-x86", "runtime": {"binary": str(inputs.qemu)},
+            "vhost": {
+                "use": "vhost-x86-rocm",
+                "runtime": {"binary": str(inputs.qemu)},
                 "memory": inputs.memory, "cpus": inputs.cpus,
                 "args": [
                     "-virtfs", "local,path=" + str(share).replace(",", ",,")
@@ -138,13 +139,6 @@ def topology(inputs: Inputs, share: Path) -> dict:
                              "name": "vram", "size": inputs.vram, "align": "2M",
                          }]}],
         }],
-    }
-
-
-def payload() -> dict:
-    return {
-        "version": 1,
-        "image": {"recipe": "ubuntu/24.04/x86_64/rocm7_0"},
     }
 
 
@@ -235,11 +229,8 @@ def run_case(inputs: Inputs, program: str, lifecycle: Lifecycle) -> Result:
     source = ROOT / "tests/kernels" / f"{program}.cpp"
     config = row / "topology.yaml"
     config.write_text(yaml.safe_dump(topology(inputs, share)))
-    payload_path = row / "payload.yaml"
-    payload_path.write_text(yaml.safe_dump(payload()))
     command = [
-        str(inputs.launcher), "run", str(config), "--payload",
-        str(payload_path),
+        str(inputs.launcher), "run", str(config),
         "--run-dir", str(session),
         "--ready-timeout", str(inputs.boot_timeout), "--stdin-lifeline",
     ]
@@ -250,7 +241,6 @@ def run_case(inputs: Inputs, program: str, lifecycle: Lifecycle) -> Result:
         "boot_timeout": inputs.boot_timeout,
         "test_timeout": inputs.test_timeout,
         "artifact_dir": str(row), "command": command,
-        "payload": str(payload_path),
         "gem5_binary": str(inputs.gem5),
         "vhost_script": VHOST_REGRESSION_SCRIPT,
         "runner_argument": program,

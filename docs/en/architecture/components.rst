@@ -26,7 +26,7 @@ Overview
        Q --- P
        H --> Guest[Linux guest and ROCm]
 
-The launcher reads the topology and payload, produces an execution plan and
+The launcher reads the topology and vHost, produces an execution plan and
 supervises the processes. Simulators run only with the paths, arguments and
 memory regions the plan provides.
 
@@ -114,7 +114,7 @@ Supporting infrastructure
 - **Shared memory pool**: one file per machine, guest RAM first and device
   regions appended with alignment; the layout is written to ``layout.json``,
   see :doc:`memory_model`.
-- **Disks**: the payload declares the kernel and disks; the session creates
+- **Disks**: the vHost declares the kernel and disks; the session creates
   an overlay per machine or uses the given image.
 - **Process supervision**: each process runs in its own process group,
   devices start before the host and stop after it; details in
@@ -140,8 +140,8 @@ Source entry points
      - PM4, SDMA, interrupts, GPU VM and the vfio-user server
    * - ``third_party/qemu/hw/remote/vfio-user-obj.c``
      - QEMU device-server interface
-   * - ``samples/``
-     - Host, device, machine and payload samples
+   * - ``resources/``
+     - Image recipes and sibling directories for vHost, device, machine and cluster configurations
 
 Related pages
 -------------

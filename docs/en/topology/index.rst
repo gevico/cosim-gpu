@@ -6,7 +6,8 @@
 Topology and hardware support
 =============================
 
-This chapter answers three questions: which combinations a topology YAML document can describe, which machines (boards) in the repository can be run directly, and which host profiles, devices and payload each machine uses. The topology itself describes hardware and process composition only; guest boot inputs live in a separate payload document.
+This chapter explains which machine combinations a topology describes and how
+each machine combines one vHost with zero or more device models.
 
 Three layers
 ------------
@@ -21,19 +22,18 @@ Three layers
      - Does one YAML document describe one machine or several?
      - :doc:`single_machine`, :doc:`multi_machine`
    * - Machine (board)
-     - Which "host + device + pool" combination can be run?
+     - Which "vHost + devices" combination can be run?
      - :doc:`machines/index`
    * - Components
-     - What do host profiles, device models and payloads accept?
-     - :doc:`hosts/index`, :doc:`devices/index`, :doc:`payloads/index`
+     - What do vHost profiles and device models accept?
+     - :doc:`hosts/index`, :doc:`devices/index`
 
 .. mermaid::
 
    flowchart TD
        T[Topology family] --> M[Machine / board]
-       M --> H[Host profile]
+       M --> H[vHost profile]
        M --> D[Device]
-       M --> P[Payload]
 
 In this chapter
 ---------------
@@ -47,12 +47,11 @@ In this chapter
    machines/index
    hosts/index
    devices/index
-   payloads/index
 
 Recommended reading path
 ------------------------
 
-- New to the project: :doc:`single_machine` → :doc:`machines/index` → :doc:`machines/single_gpu` → :doc:`payloads/index`.
+- New to the project: :doc:`single_machine` → :doc:`machines/index` → :doc:`machines/single_gpu`.
 - Writing your own topology: read :doc:`write_topology` first, then copy and edit a sample from :doc:`machines/index`.
 - Multi-GPU or mixed devices: :doc:`machines/gpu_8`, :doc:`machines/mixed_models`.
 - Several machines in one session: :doc:`multi_machine`.

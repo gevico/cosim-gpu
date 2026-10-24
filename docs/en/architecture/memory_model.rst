@@ -44,7 +44,7 @@ file offsets and passes the result to gem5 through
 .. list-table::
    :header-rows: 1
 
-   * - Host profile and guest range
+   * - vHost profile and guest range
      - Pool file offset
    * - Q35: ``[0, below_4g)``
      - Starts at 0
@@ -108,5 +108,5 @@ Related pages
 - :doc:`components`
 - :doc:`vfio_user`
 - :ref:`GPU address translation <sim-gem5-address-translation>`
-- :ref:`Host profiles <topo-hosts>`
+- :ref:`vHost profiles <topo-vhosts>`
 - :ref:`Files, artifacts and source map <ref-files-and-artifacts>`

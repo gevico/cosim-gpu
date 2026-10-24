@@ -13,7 +13,7 @@ default path.
 Automatic setup
 ---------------
 
-After the guest boots, ``cosim-gpu-setup.service`` runs these steps:
+After the guest boots, ``cosim-gpu-initialize.service`` runs these steps:
 
 1. Write ``/root/roms/mi300.rom`` to the VGA ROM area at physical address
    ``0xC0000``.
@@ -27,8 +27,8 @@ The service usually takes about 40 seconds. Check its state:
 
 .. code-block:: bash
 
-   systemctl status cosim-gpu-setup.service
-   journalctl -u cosim-gpu-setup.service -b | tail -20
+   systemctl status cosim-gpu-initialize.service
+   journalctl -u cosim-gpu-initialize.service -b | tail -20
 
 Check the GPU and ROCm
 ----------------------

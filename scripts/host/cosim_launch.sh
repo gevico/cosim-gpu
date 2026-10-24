@@ -48,7 +48,7 @@ if [[ -z "${QEMU_BIN:-}" ]]; then
         QEMU_BIN="$(command -v qemu-system-x86_64 2>/dev/null || true)"
     fi
 fi
-IMAGE_DIR="${COSIM_DIR}/build/images/ubuntu/24.04/x86_64/rocm7_0"
+IMAGE_DIR="${COSIM_DIR}/build/images/ubuntu/24.04/x86_64/rocm/7.0"
 DISK_IMAGE="${IMAGE_DIR}/disk"
 KERNEL="${IMAGE_DIR}/kernel"
 
@@ -422,7 +422,7 @@ for ((g=0; g<NUM_GPUS; g++)); do
 done
 echo "============================================================"
 echo ""
-echo "GPU driver loads automatically via cosim-gpu-setup.service (~40s)."
+echo "GPU driver loads automatically via cosim-gpu-initialize.service (~40s)."
 echo "After vHost boots (auto-login as root), verify:"
 echo "  rocm-smi          # should show device 0x74a0"
 echo "  rocminfo          # should show gfx942"

@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+version: 1
+imports: [machines/host-only-aarch64.yaml]
+machines:
+  - {id: m, use: vhost-arm-node, count: 2}

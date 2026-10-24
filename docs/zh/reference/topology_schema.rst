@@ -5,426 +5,121 @@
 拓扑 YAML schema
 ================
 
-本页是拓扑文档与 payload 文档字段的唯一事实源：字段名、类型、默认值、约束和上限都在这里定义，其他章节只讲用法并链接本页。机器可读的 JSON Schema 由 ``cosim schema`` 输出。
+本页是拓扑字段的可读参考。``cosim schema`` 输出机器可读的 JSON Schema。
+未知字段会直接报错。
 
-文档结构
+核心结构
 --------
 
-拓扑文档只描述硬件与进程布局；客户机启动输入放在独立的 payload 文档中。未知字段一律报错。
+拓扑包含可复用的 ``kinds``、``templates``，以及一台或多台 ``machines``。
+一台机器只有两个结构部分：
+
+.. code-block:: yaml
+
+   machines:
+     - id: m0
+       vhost: {use: vhost-x86-rocm}
+       devices: [{use: mi300x}]
+
+``vhost`` 描述 QEMU 虚拟主机以及其操作系统如何启动；``devices`` 描述独立运行的
+设备模型。机器内容没有第三层概念。
+
+文档字段
+--------
 
 .. list-table::
    :header-rows: 1
 
    * - 字段
-     - 类型
-     - 必填
-     - 默认值
-     - 约束
+     - 含义
    * - ``version``
-     - integer
-     - 是
-     - —
-     - 必须为 ``1``
+     - 必填整数；当前为 ``1``。
    * - ``imports``
-     - list<string>
-     - 否
-     - ``[]``
-     - 相对导入文件解析，再相对 ``--samples`` （默认 ``samples/``）；支持 ``#templates`` 后缀；循环导入报错
+     - YAML 文件；先相对导入文件解析，再从 ``--resources`` 目录解析。
    * - ``templates``
-     - map<string, machine/host/device>
-     - 否
-     - ``{}``
-     - 名称必须是标识符；映射递归合并，序列整体替换；模板循环报错
+     - 可复用的机器、vHost 或设备映射。映射递归合并，序列整体替换。
    * - ``kinds``
-     - map<string, kind>
-     - 否
-     - ``{}``
-     - 必填 ``role``、``model``，提供 ``argv`` 或 ``command``；``max_devices`` 只用于 host kind
+     - 适配器类型。``role`` 为 ``vhost`` 或 ``device``，并提供 ``argv`` 或 ``command``。
    * - ``machines``
-     - list<machine>
-     - 是
-     - ``[]``
-     - 导入、模板和 ``count`` 展开后至少有一台机器，否则报错
+     - 一项或多项机器声明；``count`` 可以展开声明。
 
-机器
-----
+机器字段
+--------
 
-一台机器由一个 QEMU host、一组设备进程和一个共享内存池组成。
+``id`` 必填，并忽略 ASCII 大小写保持唯一。``use`` 选择模板，``count`` 默认为一，
+``vhost`` 必填，``devices`` 默认为空列表；``placement.agent`` 为分布式执行预留。
 
-.. list-table::
-   :header-rows: 1
-
-   * - 字段
-     - 类型
-     - 必填
-     - 默认值
-     - 约束
-   * - ``id``
-     - identifier
-     - 是
-     - —
-     - 机器标识符；``count`` 大于 1 时展开为 ``id0`` 到 ``idN``
-   * - ``use``
-     - template name
-     - 否
-     - —
-     - 选择机器模板；未知引用报错
-   * - ``count``
-     - 正整数
-     - 否
-     - ``1``
-     - 展开为多台机器，总数不超过 4096
-   * - ``host``
-     - host
-     - 是
-     - —
-     - 见 host 字段表
-   * - ``devices``
-     - list<device>
-     - 否
-     - ``[]``
-     - 数量受 host kind 的 ``max_devices`` 限制，绝对上限 256
-   * - ``placement.agent``
-     - 非空 string
-     - 否
-     - —
-     - 解析后写入计划；``cosim run`` 拒绝远端放置
-
-主机（host）
-------------
-
-host 的启动方式是 ``kinds`` 中声明的 host kind 与模板合并后的结果；``qemu-host`` 渲染 QEMU 命令行并声明 ``max_devices: 64``。
-
-.. list-table::
-   :header-rows: 1
-
-   * - 字段
-     - 类型
-     - 必填
-     - 默认值
-     - 约束
-   * - ``kind``
-     - string
-     - 是
-     - —
-     - 必须是 ``model: qemu`` 的 host kind；当前只有 ``qemu-host``
-   * - ``runtime.binary``
-     - path/name
-     - 是
-     - —
-     - 相对工作区根目录，或在不含 ``/`` 时从 ``PATH`` 查找
-   * - ``runtime.env``
-     - map<string,string>
-     - 否
-     - ``{}``
-     - 进程只获得该环境，加上 ``PATH`` 和 ``LANG=C``
-   * - ``runtime.argv`` / ``runtime.command``
-     - list / string
-     - 否
-     - kind 的命令模板
-     - 两者互斥；覆盖 kind 的命令模板；严格 MiniJinja
-   * - ``memory``
-     - byte size
-     - 是
-     - —
-     - 客户机内存，必须是执行系统页大小的整数倍
-   * - ``memory_align``
-     - byte size
-     - 否
-     - 2 MiB
-     - 客户机内存在内存池中的对齐；同时是设备区域的默认对齐
-   * - ``memory_map``
-     - MiniJinja string
-     - 含 ``gem5-mi300x`` 设备时必填
-     - —
-     - 渲染 1 到 64 个有序、不重叠、正好覆盖 ``memory`` 的 ``{start, size}`` 区间
-   * - ``cpus``
-     - 正整数
-     - 是
-     - —
-     - QEMU ``-smp`` 值
-   * - ``accel``
-     - string
-     - 是
-     - —
-     - 传给 ``-accel``，如 ``kvm``、``tcg``
-   * - ``machine``
-     - string
-     - 是
-     - —
-     - QEMU machine 类型，如 ``q35``、``virt,gic-version=3``
-   * - ``cpu``
-     - string
-     - 否
-     - 无
-     - 传入时添加 ``-cpu``
-   * - ``display`` / ``monitor``
-     - string
-     - 否
-     - 无
-     - QEMU 后端；样例设置为 ``none``
-   * - ``no_reboot``
-     - bool
-     - 否
-     - ``false``
-     - 为 true 时添加 ``-no-reboot``
-   * - ``serial.wait_for``
-     - string
-     - 否
-     - 无
-     - 串口日志中的就绪标记
-   * - ``serial.timeout``
-     - seconds
-     - 否
-     - 运行级 ``--ready-timeout``
-     - 需要 ``serial.wait_for``；取值 1 到 86400
-   * - ``args``
-     - list<string>
-     - 否
-     - ``[]``
-     - 追加到 QEMU 命令行末尾
-
-设备
-----
-
-设备字段描述声明形状，启动参数与就绪探测由适配器决定，见 :doc:`device_adapters`。
-
-.. list-table::
-   :header-rows: 1
-
-   * - 字段
-     - 类型
-     - 必填
-     - 默认值
-     - 约束
-   * - ``id``
-     - identifier
-     - 否
-     - 由 ``use`` 名称或 kind 加序号组成
-     - ``count`` 为 1 时保留显式 ``id``
-   * - ``use``
-     - template name
-     - 否
-     - —
-     - 选择设备模板
-   * - ``kind``
-     - string
-     - 是
-     - —
-     - 内置 ``gem5-mi300x``、``qemu-device``，或 ``kinds`` 中声明的 device kind
-   * - ``count``
-     - 正整数
-     - 否
-     - ``1``
-     - 展开为多个设备进程
-   * - ``config``
-     - path
-     - ``gem5-mi300x`` 必填
-     - —
-     - 指向 ``mi300_cosim.py``；``qemu-device`` 拒绝该字段
-   * - ``ready_log``
-     - 非空 string
-     - 自定义命令必填
-     - ``gem5-mi300x`` 的监听行
-     - 设备开始监听后输出到标准输出的标记；不能含 NUL
-   * - ``runtime.binary``
-     - path/name
-     - ``gem5-mi300x`` 可省略
-     - ``gem5.opt``
-     - 省略时从 ``PATH`` 查找；其他适配器必填
-   * - ``runtime.env`` / ``argv`` / ``command``
-     - map / list / string
-     - 否
-     - —
-     - ``argv`` 或 ``command`` 覆盖适配器命令
-   * - ``memory_regions``
-     - list<{name,size,align}>
-     - ``gem5-mi300x`` 恰好一个 ``vram``
-     - ``align`` 2 MiB
-     - 区域大小是页的整数倍；对齐是大于等于一页的 2 的幂
-   * - ``pci``
-     - {vendor_id, device_id, msix_vectors, rom}
-     - 否
-     - —
-     - MI300X 值固定为 ``0x1002`` 与 ``0x74a0``、256 个 MSI-X；提供时必须匹配；``msix_vectors`` 取值 1 到 2048
-   * - ``args``
-     - map<string, any>
-     - 否
-     - ``{}``
-     - 适配器特定参数，见设备适配器页
-   * - ``guest_hints``
-     - {modprobe, cmdline}
-     - 否
-     - —
-     - ``cmdline`` 需要带 ``boot.kernel`` 的 payload；``modprobe`` 只写入计划
-
-payload 文档
-------------
-
-payload 独立于拓扑选择，应用于拓扑中的每一台机器。仅描述硬件的拓扑可以省略 payload；设备声明 ``guest_hints.cmdline`` 时必须提供带 ``boot.kernel`` 的 payload。
-
-.. list-table::
-   :header-rows: 1
-
-   * - 字段
-     - 类型
-     - 必填
-     - 默认值
-     - 说明
-   * - ``boot.kernel``
-     - path
-     - 否
-     - 无
-     - 启用直接内核启动；host 添加 ``-kernel``
-   * - ``boot.initrd``
-     - path
-     - 否
-     - 无
-     - 需要 ``boot.kernel``
-   * - ``boot.cmdline``
-     - string
-     - 否
-     - 无
-     - 与每台机器所有设备的 ``guest_hints.cmdline`` 空格连接
-
-.. list-table::
-   :header-rows: 1
-
-   * - 字段
-     - 类型
-     - 必填
-     - 默认值
-     - 说明
-   * - ``id``
-     - identifier
-     - 是
-     - —
-     - payload 内唯一，忽略 ASCII 大小写
-   * - ``path`` / ``backing``
-     - path
-     - 二选一
-     - —
-     - ``path`` 是源镜像；``backing`` 是 overlay 的基底
-   * - ``format``
-     - ``raw`` / ``qcow2``
-     - 否
-     - ``qcow2``
-     - 源镜像格式
-   * - ``bus``
-     - ``virtio`` / ``nvme`` / ``ide`` / ``scsi``
-     - 否
-     - ``virtio``
-     - 客户机挂载总线
-   * - ``boot``
-     - bool
-     - 否
-     - ``false``
-     - 整个 payload 中至多一个 ``true``
-   * - ``create`` + ``size``
-     - bool + byte size
-     - 否
-     - ``false`` / 无
-     - ``create: true`` 需要 ``path`` 和 ``size``；``size`` 只在创建时使用
-   * - ``readonly`` / ``shared``
-     - bool
-     - 否
-     - overlay
-     - ``shared: true`` 要求 ``readonly: true``；直接写入要求 ``readonly: false`` 且 ``shared: false``
-   * - ``snapshot`` （payload 级）
-     - bool
-     - 否
-     - ``false``
-     - 为每台机器创建 qcow2 overlay
-
-``snapshot`` 是 payload 级布尔字段：为 true 时所有磁盘都按 overlay 处理，即使声明了 ``readonly: false`` 和 ``shared: false``。
-
-资源路径与标识符
-----------------
-
-- 资源路径相对工作区根目录解析（``COSIM_WORKSPACE``，未设置时为当前目录），包括带 ``/`` 的可执行文件、``config``、``pci.rom``、``boot.kernel``、``boot.initrd``、磁盘的 ``path`` 和 ``backing``。
-
-- 相对路径不能包含 ``..``；绝对路径允许。不含 ``/`` 的可执行文件名从 ``PATH`` 查找。
-
-- 标识符由 1 到 48 个 ASCII 字母、数字、下划线或连字符组成；机器、设备和磁盘标识符忽略 ASCII 大小写后必须唯一。
-
-- 机器标识符 ``memory``，以及设备标识符 ``host``、``qmp``、``serial`` 由会话布局保留。
-
-默认值与上限
-------------
-
-.. list-table::
-   :header-rows: 1
-
-   * - 项目
-     - 默认值或上限
-     - 来源
-   * - 区域对齐默认值
-     - 2 MiB
-     - ``crates/cosim-topology/src/resolve.rs``
-   * - 磁盘格式 / 总线默认值
-     - ``qcow2`` / ``virtio``
-     - ``crates/cosim-topology/src/model.rs``
-   * - 机器总数上限
-     - 4096
-     - ``crates/cosim-topology/src/resolve.rs``
-   * - 每台机器设备数上限
-     - host kind 的 ``max_devices`` （``qemu-host`` 为 64），绝对上限 256
-     - ``crates/cosim-topology/src/resolve.rs``
-   * - 标识符
-     - 1 到 48 个 ASCII 字母、数字、``_`` 或 ``-``；忽略大小写唯一
-     - ``crates/cosim-topology/src/model.rs``
-   * - 保留名
-     - 机器 ``memory``；设备 ``host``、``qmp``、``serial``
-     - ``crates/cosim-runtime/src/layout.rs``
-   * - 串口标记超时
-     - 1 到 86400 秒
-     - ``crates/cosim-topology/src/resolve.rs``
-   * - 就绪超时默认值
-     - 120 秒（``--ready-timeout``）
-     - ``crates/cosim-cli/src/main.rs``
-   * - 运行目录默认值
-     - ``.cosim/<12-hex>``
-     - ``crates/cosim-cli/src/main.rs``
-   * - 内存池目录默认值
-     - Linux 为 ``/dev/shm/cosim-<name>-<hash>``，其他系统为 ``<run-dir>/memory``
-     - ``crates/cosim-runtime/src/layout.rs``
-   * - 磁盘锁目录
-     - ``~/.cache/cosim-gpu/disk-locks`` （``COSIM_DISK_LOCK_DIR``）
-     - ``crates/cosim-runtime/src/env.rs``
-
-来源与维护
+vHost 字段
 ----------
 
-字段定义来自以下文件，修改时需同步本页表格：
+基础执行字段包括 ``kind``、``runtime``、``memory``、``memory_align``、
+``memory_map``、``cpus``、``accel``、``machine``、``cpu``、``display``、
+``monitor``、``no_reboot``、``serial`` 和 ``args``。仓库自带的 vHost kind 使用 QEMU。
 
-- ``crates/cosim-topology/src/raw.rs``：YAML 解码类型。
+同一个 ``vhost`` 映射也直接拥有操作系统输入：
 
-- ``crates/cosim-topology/src/model.rs``：校验后的类型与枚举取值。
+.. list-table::
+   :header-rows: 1
 
-- ``crates/cosim-topology/src/resolve.rs``：默认值、约束与上限。
+   * - 字段
+     - 类型/默认值
+     - 含义
+   * - ``image``
+     - 可选配方标识
+     - 相对 ``resources/images/recipes`` 的五层路径。
+   * - ``kernel``
+     - 可选路径
+     - 未选择镜像配方时用于直接启动的内核。
+   * - ``initrd``
+     - 可选路径
+     - 初始内存盘；要求同时声明 ``kernel``。
+   * - ``cmdline``
+     - 可选字符串
+     - 内核命令行；要求声明 ``image`` 或 ``kernel``。
+   * - ``root_bus``
+     - 磁盘总线，默认 ``virtio``
+     - ``image`` 产出的根磁盘使用的总线。
+   * - ``disks``
+     - 列表，默认 ``[]``
+     - 挂载到该 vHost 的附加磁盘。
+   * - ``snapshot``
+     - 布尔值，默认 ``false``
+     - 通过每会话 overlay 打开可写的显式磁盘；明确声明的只读磁盘仍保持只读。
 
-- ``crates/cosim-runtime/src/layout.rs``：会话路径与保留名。
+``image`` 不能与 ``kernel`` 或 ``initrd`` 同时使用。运行时，其已验证磁盘会作为
+``root`` 磁盘加入，导出的内核用于直接启动。因此选择 ``image`` 时，显式磁盘不能
+再使用 ``root`` 标识或设置 ``boot: true``。
 
-- ``samples/``：仓库测试会加载并渲染全部样例，可作为合法配置的活样例。
+磁盘字段
+--------
 
-更新后运行以下命令核对：
+每块磁盘需要唯一的 ``id``，并且必须且只能声明 ``path`` 或 ``backing`` 之一。
+``format`` 为 ``raw`` 或 ``qcow2``，默认 ``qcow2``；``bus`` 为 ``virtio``、
+``nvme``、``ide`` 或 ``scsi``，默认 ``virtio``。``boot`` 最多标记一块启动盘。
+``create`` 要求同时提供 ``path`` 与 ``size``。``shared: true`` 要求
+``readonly: true``；直接写入要求两者都为 false。
+
+设备字段
+--------
+
+设备可以使用 ``id``、``use``、``kind``、``count``、``config``、``ready_log``、
+``runtime``、``memory_regions``、``pci``、``args`` 和 ``guest_hints``。适配器特有
+要求见 :doc:`device_adapters`。使用 ``guest_hints.cmdline`` 时，其所属 vHost 必须
+选择 ``image`` 或 ``kernel``。
+
+路径与限制
+----------
+
+资源路径相对工作区根目录解析；相对路径不能包含 ``..``。标识由 1 到 48 个 ASCII
+字母、数字、下划线或连字符组成。拓扑最多包含 4096 台机器，每台机器最多 256 个
+设备；vHost kind 可以通过 ``max_devices`` 设置更小的限制。
+
+验证修改：
 
 .. code-block:: bash
 
    just run-cli schema
-   just run-cli schema --payload
-   just run-cli validate samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --assets
+   just run-cli validate resources/machines/single-gpu.yaml --assets
    just check-cosim
 
-相关页面
---------
-
-- 设备启动约定：:doc:`device_adapters`
-
-- 客户机驱动参数：:doc:`guest_parameters`
-
-- 拓扑写法与示例：:ref:`topo-write-topology`
-
-- payload 与客户机镜像：:ref:`topo-payloads`
-
-- YAML 加载与计划生成流程：:ref:`launcher-yaml-pipeline`
+镜像配方字段见 :ref:`ref-vhost-image-recipe`。

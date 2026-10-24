@@ -11,7 +11,7 @@
 自动初始化
 ----------
 
-客户机启动后，``cosim-gpu-setup.service`` 自动执行以下步骤：
+客户机启动后，``cosim-gpu-initialize.service`` 自动执行以下步骤：
 
 1. 把 ``/root/roms/mi300.rom`` 写入物理地址 ``0xC0000`` 的 VGA ROM 区域；
 2. 把 ``mi300_discovery`` 链接为 ``ip_discovery.bin``；
@@ -22,8 +22,8 @@
 
 .. code-block:: bash
 
-   systemctl status cosim-gpu-setup.service
-   journalctl -u cosim-gpu-setup.service -b | tail -20
+   systemctl status cosim-gpu-initialize.service
+   journalctl -u cosim-gpu-initialize.service -b | tail -20
 
 检查 GPU 与 ROCm
 ----------------

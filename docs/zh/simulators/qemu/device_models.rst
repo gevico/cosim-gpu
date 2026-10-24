@@ -30,7 +30,7 @@ QEMU 作为 device model
 示例：edu 设备
 ---------------
 
-``samples/devices/pci/qemu-edu.yaml``\ 使用 QEMU 自带的 ``edu``\ 教学 PCI 设备。该设备提供配置空间、BAR、DMA 和中断，足以演示 vfio-user 的配置空间、MMIO 与中断转发路径。对应机器样例是 ``samples/machines/qemu-device.yaml``\ ：一个暂停的 x86_64 TCG host 连接一个 ``edu``\ 设备。
+``resources/devices/pci/qemu-edu.yaml``\ 使用 QEMU 自带的 ``edu``\ 教学 PCI 设备。该设备提供配置空间、BAR、DMA 和中断，足以演示 vfio-user 的配置空间、MMIO 与中断转发路径。对应机器样例是 ``resources/machines/qemu-device.yaml``\ ：一个暂停的 x86_64 TCG host 连接一个 ``edu``\ 设备。
 
 就绪与生命周期
 ---------------
@@ -51,7 +51,7 @@ QEMU 作为 device model
 -----------
 
 - 适配器实现：``crates/cosim-topology/src/adapter/qemu_device.rs``\ 。
-- 示例设备模板：``samples/devices/pci/qemu-edu.yaml``\ 。
+- 示例设备模板：``resources/devices/pci/qemu-edu.yaml``\ 。
 - QEMU vfio-user server：``third_party/qemu/hw/remote/vfio-user-obj.c``\ 。
 - edu 设备：``third_party/qemu/hw/misc/edu.c``\ 。
 

@@ -52,8 +52,6 @@
      - ``build/qemu/qemu-system-x86_64``，带 ``vfio-user-pci`` 与 KVM 支持
    * - ``just build-gem5``
      - ``build/gem5/<arch>/VEGA_X86/gem5.opt``
-   * - ``just build-m5``
-     - 客户机镜像内使用的 ``m5`` 工具
    * - ``just build-disk``
      - ``build/rocm-local-installed/{disk,kernel}``
    * - ``just build-gpu-app``
@@ -61,8 +59,7 @@
    * - ``just build-cosim``
      - Rust ``cosim`` launcher
 
-构建顺序有依赖：客户机镜像构建需要 QEMU 与 m5，GPU 应用构建在独立的 GPU
-容器中进行。
+客户机镜像构建需要 QEMU，GPU 应用构建在独立的 GPU 容器中进行。
 
 分步构建
 --------
@@ -75,7 +72,6 @@
    just build-qemu 4               # 限制并行任务数
    just build-gem5                 # 使用全部 CPU
    just build-gem5 1               # 链接阶段内存不足时限制并行度
-   just build-m5
    just build-disk                 # 需要 /dev/kvm、QEMU 与约 60 GB 空间
    just build-cosim
 
@@ -92,13 +88,13 @@
 
 .. code-block:: bash
 
-   just run-cli validate samples/machines/single-gpu.yaml \
-       --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-cli validate resources/machines/single-gpu.yaml \
+
    ls -l build/qemu/qemu-system-x86_64
    ls -l build/gem5/*/VEGA_X86/gem5.opt
    ls -l build/rocm-local-installed/disk build/rocm-local-installed/kernel
 
-``validate`` 只检查拓扑与 payload；带 ``--assets`` 时还会检查本机输入文件。
+``validate`` 只检查拓扑与 vHost；带 ``--assets`` 时还会检查本机输入文件。
 
 相关页面
 --------

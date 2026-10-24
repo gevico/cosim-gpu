@@ -1,4 +1,0 @@
-# SPDX-License-Identifier: Apache-2.0
-version: 1
-image:
-  recipe: ubuntu/24.04/x86_64/rocm7_0

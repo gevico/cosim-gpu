@@ -9,22 +9,22 @@ gpu-8 机器
 概述
 ----
 
-``gpu-8`` 是单机多 GPU 板卡：一台 ``host-x86`` 主机带 8 个 gem5 MI300X 设备，每个设备 8 GiB VRAM，共享一个 96 GiB 内存池。它用来观察单机的设备进程扇出与内存池容量计算。
+``gpu-8`` 是单机多 GPU 板卡：一台 ``vhost-x86`` 主机带 8 个 gem5 MI300X 设备，每个设备 8 GiB VRAM，共享一个 96 GiB 内存池。它用来观察单机的设备进程扇出与内存池容量计算。
 
 拓扑
 ----
 
 .. code-block:: yaml
 
-   # samples/machines/gpu-8.yaml
+   # resources/machines/gpu-8.yaml
    version: 1
    imports:
-     - hosts/qemu.yaml
+     - vhosts/qemu.yaml
      - devices/gpu/mi300x.yaml
    templates:
      node8:
-       host:
-         use: host-x86
+       vhost:
+         use: vhost-x86
          memory: 32G
          cpus: 16
        devices:
@@ -50,16 +50,16 @@ gpu-8 机器
      - 来源
    * - 机器
      - 1 台（``m0``\ ）
-     - ``samples/machines/gpu-8.yaml``
-   * - 主机配置
-     - ``host-x86``\ ：``q35``\ 、``kvm``\ 、16 vCPU
-     - ``samples/hosts/qemu.yaml``
+     - ``resources/machines/gpu-8.yaml``
+   * - vHost 配置
+     - ``vhost-x86``\ ：``q35``\ 、``kvm``\ 、16 vCPU
+     - ``resources/vhosts/qemu.yaml``
    * - 客户机 RAM
      - 32 GiB
      - ``gpu-8.yaml``
    * - 设备
      - 8 × ``mi300x``\ ，各 8 GiB VRAM、40 CU
-     - ``samples/devices/gpu/mi300x.yaml``
+     - ``resources/devices/gpu/mi300x.yaml``
    * - 内存池
      - 96 GiB = 32 GiB RAM + 64 GiB VRAM
      - ``crates/cosim-topology/src/layout.rs``
@@ -81,7 +81,7 @@ gpu-8 机器
      - 说明
    * - 客户机 OS
      - Ubuntu 24.04.2 LTS，内核 6.8.0-124-generic
-     - 可选 payload；板卡本身只描述硬件
+     - 可选 vHost；板卡本身只描述硬件
    * - GPU 驱动
      - ``amdgpu``\ ，固定参数
      - ``ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2``
@@ -89,7 +89,7 @@ gpu-8 机器
      - 8 个独立 gem5 MI300X 进程
      - 每个进程一个 GPU（``--num-gpus=1``\ ）
    * - 客户机初始化
-     - ``cosim-gpu-setup.service``
+     - ``cosim-gpu-initialize.service``
      - 对每个模拟设备执行 ROM ``dd`` 与 ``modprobe``
 
 运行该机器
@@ -98,10 +98,10 @@ gpu-8 机器
 .. code-block:: bash
 
    # 校验并预览 96 GiB 内存池的布局
-   just run-cli validate samples/machines/gpu-8.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --assets
-   just run-cli plan samples/machines/gpu-8.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-cli validate resources/machines/gpu-8.yaml  --assets
+   just run-topology resources/machines/gpu-8.yaml --dry-run
    # 启动会话
-   just run-topology samples/machines/gpu-8.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-topology resources/machines/gpu-8.yaml
 
 - 内存池目录需要有 96 GiB 可用空间；Linux 上默认位于 ``/dev/shm`` 下。
 - 关闭流程与单机相同：主机退出后设备依次停止；生命周期见 :ref:`launcher-session-lifecycle`\ 。
@@ -125,9 +125,9 @@ gpu-8 机器
 --------
 
 - 单机拓扑与内存池算术：:doc:`../single_machine`
-- 主机配置：:doc:`../hosts/index`
+- vHost 配置：:doc:`../hosts/index`
 - 设备目录：:doc:`../devices/index`
-- Payload：:doc:`../payloads/index`
+- vHost：:ref:`ref-topology-schema`
 - 机器目录：:doc:`index`
 - 第 4 章：:ref:`sim-gem5-model`\ ，:ref:`sim-gem5-multi-gpu`
-- 源码：``samples/machines/gpu-8.yaml``\ 、``samples/devices/gpu/mi300x.yaml``
+- 源码：``resources/machines/gpu-8.yaml``\ 、``resources/devices/gpu/mi300x.yaml``

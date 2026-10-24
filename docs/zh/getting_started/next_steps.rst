@@ -37,7 +37,7 @@ QEMU 作为 vhost 与 device model 的细节、gem5 MI300X 性能模型和客户
 编写自己的拓扑
 --------------
 
-机器目录、host 与 device 配置、payload 以及如何编写拓扑 YAML 见第 5 章：
+机器目录、host 与 device 配置、vHost 以及如何编写拓扑 YAML 见第 5 章：
 
 - :ref:`拓扑结构与硬件支持 <topo-index>`
 - :ref:`机器目录 <topo-machines-index>`

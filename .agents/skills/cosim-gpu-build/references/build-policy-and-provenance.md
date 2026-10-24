@@ -14,9 +14,8 @@ just build-gem5
 just build-qemu
 ```
 
-Use `just build-m5 x86` for the x86 vHost image recipe. `GEM5_BUILD_DIR` changes the
-gem5 output directory under `build/`; `just build-gem5` always reads sources
-from `third_party/gem5/`.
+`GEM5_BUILD_DIR` changes the gem5 output directory under `build/`;
+`just build-gem5` always reads sources from `third_party/gem5/`.
 
 ## Verify a local binary
 

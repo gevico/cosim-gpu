@@ -81,7 +81,7 @@ impl SessionLayout {
     /// Rejects identifiers whose session paths would collide.
     ///
     /// Metadata files contain a dot, which identifiers cannot, so only the
-    /// pool subdirectory and host paths are reserved.
+    /// pool subdirectory and vHost paths are reserved.
     pub fn check_identifiers(topology: &Topology) -> Result<()> {
         for machine in &topology.machines {
             ensure!(
@@ -93,7 +93,7 @@ impl SessionLayout {
                 ensure!(
                     !matches!(
                         device.id.as_str().to_ascii_lowercase().as_str(),
-                        "host" | "qmp" | "serial"
+                        "vhost" | "qmp" | "serial"
                     ),
                     "device identifier {} in {} is reserved by the session layout",
                     device.id,
@@ -172,9 +172,9 @@ impl SessionLayout {
         self.machine_dir(machine).join("layout.json")
     }
 
-    /// Working directory of the host process.
-    pub fn host_dir(&self, machine: &Identifier) -> PathBuf {
-        self.machine_dir(machine).join("host")
+    /// Working directory of the vHost process.
+    pub fn vhost_dir(&self, machine: &Identifier) -> PathBuf {
+        self.machine_dir(machine).join("vhost")
     }
 
     /// Working directory of a device process.
@@ -208,9 +208,9 @@ impl SessionLayout {
             })
     }
 
-    /// Serial console log written by the host.
+    /// Serial console log written by the vHost.
     pub fn serial_log(&self, machine: &Identifier) -> PathBuf {
-        self.host_dir(machine).join("serial.log")
+        self.vhost_dir(machine).join("serial.log")
     }
 
     /// vfio-user socket of a device.
@@ -223,13 +223,13 @@ impl SessionLayout {
         self.machine_dir(machine).join(format!("{device}.qmp.sock"))
     }
 
-    /// QMP socket of the host.
-    pub fn host_qmp(&self, machine: &Identifier) -> PathBuf {
+    /// QMP socket of the vHost.
+    pub fn vhost_qmp(&self, machine: &Identifier) -> PathBuf {
         self.machine_dir(machine).join("qmp.sock")
     }
 
-    /// Serial console socket of the host.
-    pub fn host_serial(&self, machine: &Identifier) -> PathBuf {
+    /// Serial console socket of the vHost.
+    pub fn vhost_serial(&self, machine: &Identifier) -> PathBuf {
         self.machine_dir(machine).join("serial.sock")
     }
 

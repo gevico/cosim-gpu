@@ -22,7 +22,7 @@ just run-launch --gem5-debug MI300XCosim
 just run-launch --cosim-backend legacy
 ```
 
-After the vHost boots, the driver loads automatically via `cosim-gpu-setup.service`.
+After the vHost boots, the driver loads automatically via `cosim-gpu-initialize.service`.
 If not, manually load with `cosim-gpu-guest`.
 
 ## Autonomy

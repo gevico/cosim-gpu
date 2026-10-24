@@ -40,7 +40,7 @@ CI 与回归
 - ``Rust Topology and Runtime``：运行 ``just check-cosim``、
   ``just test-cosim-integration`` 与 ``just test-cosim-memory``。
 - ``ROCm regression runner tests``：运行 ``python3 -m unittest discover
-  -s scripts/ci -p 'test_*.py' -v`` 与 ``just test-legacy-build-image``。
+  -s scripts/ci -p 'test_*.py' -v``。
 - ``Checkpatch``：对拉取请求使用基准提交、对 push 使用推送前提交运行
   ``just check-patch``；没有可用的前置提交时回退到 ``HEAD^``。
 - ``Maintainers``：安装 ``scripts/ci/requirements.txt`` 后运行
@@ -61,14 +61,16 @@ CI 与回归
 
 - ``Build gem5 (VEGA_X86)`` 只编译一次 gem5。缓存键由 ``just ci-gem5-key``
   计算，覆盖 gem5 输入、相关 just 配方与配置、构建任务、辅助脚本和 Dockerfile。
+  just 变量只收集明确列出的 gem5 与开发容器构建设置；vHost recipe、镜像输出
+  路径及其他 vHost 配置不参与 gem5 缓存键。
   命中缓存时保留原始的 ``build_source`` 与 ``build_run``，本轮任务的源码
   版本与运行标识单独记录。修改 ``COSIM_GEM5_CACHE_EPOCH`` 可以重新构建工具
   环境。产物包含二进制、模型测试需要的 ``libvfio-user.a``、开发容器镜像和
   SHA-256 清单，通过 ``just ci-reuse-gem5`` 发布为本轮工作流的固定 artifact，
   并由 ``just test-runtime-artifact`` 校验完整性与来源。
-- ``Build ROCm guest image`` 先构建 x86 m5，再校验真实的 Packer 构建器与
-  provisioner，然后查找同一源分支下经过验证的保留镜像。镜像键覆盖源码版本、配方
-  内容、m5 二进制、QEMU 版本、镜像构建程序与磁盘格式；复用时校验输入标识和全部产物
+- ``Build ROCm guest image`` 校验真实的 Packer 构建器与 provisioner，然后查找
+  同一源分支下经过验证的保留镜像。镜像键覆盖源码版本、配方内容、QEMU 版本、镜像
+  构建程序与磁盘格式；复用时校验输入标识和全部产物
   摘要。把 ``COSIM_ROCM_IMAGE_EPOCH`` 从默认值 ``1`` 改为新值，可以重新解析
   软件包依赖。完成的镜像记录实际安装的 Debian 与 Python 软件包版本，以及
   ``manifest.json`` 中的 SHA-256。

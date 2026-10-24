@@ -17,7 +17,7 @@ Run ``just`` in the repository root to list every task; recipes are grouped by
 the ``dev-``, ``build-``, ``run-``, ``test-``, ``check-``,
 ``ci-`` and ``maint-`` prefixes.
 
-QEMU, gem5, m5, Rust and topology recipes run natively on a Linux host. On other
+QEMU, gem5, Rust and topology recipes run natively on a Linux host. On other
 systems, or on Linux with ``COSIM_ENV=container``, they run in a temporary
 development container by default. See :ref:`gs-requirements` for environment
 requirements and :ref:`gs-platform-container` for container usage.

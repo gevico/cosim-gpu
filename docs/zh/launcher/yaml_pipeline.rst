@@ -21,39 +21,41 @@ YAML 加载与计划
 
 ``cosim-topology``\ 只读取 YAML 文档，结果与执行它的系统无关；``cosim-runtime``\ 加入本机事实和会话路径后生成计划，``run``\ 才真正创建资源。
 
-文档与 payload
----------------
+拓扑文档
+--------
 
-顶层文档包含 ``version: 1``\ ，以及 ``imports``\ 、``templates``\ 、``kinds``\ 、``machines``\ 中的任意几项。未知字段会报错。客户机启动和存储输入放在独立的 payload 文档中，用 ``--payload``\ 选择，并应用于拓扑中的每台机器。
+顶层文档包含 ``version: 1``\ ，以及 ``imports``\ 、``templates``\ 、``kinds``\ 、
+``machines``\ 中的任意几项。未知字段会报错。每台机器直接包含自己的 ``vhost``
+映射，其中包括镜像、直接启动和存储字段。
 
 .. code-block:: yaml
 
    version: 1
    imports:
-     - hosts/qemu.yaml
+     - vhosts/qemu.yaml
      - devices/gpu/mi300x.yaml
    machines:
      - id: m0
-       host: {use: host-x86, memory: 32G}
+       vhost: {use: vhost-x86, memory: 32G}
        devices:
          - {use: mi300x, count: 2}
 
 导入与模板展开
 ---------------
 
-- 导入路径先相对导入它的文件解析，再相对 ``--samples``\ 目录（默认 ``samples/``\ ）解析；接受 ``#templates``\ 后缀。
+- 导入路径先相对导入它的文件解析，再相对 ``--resources``\ 目录（默认 ``resources/``\ ）解析；接受 ``#templates``\ 后缀。
 - 被导入的文件提供模板、kind 和进一步的导入；只有顶层文档提供可运行的机器。
 - ``use``\ 选择模板。映射递归合并，序列整体替换，显式写出的值覆盖模板值。
 - 导入循环、模板循环、重复的模板或 kind 名称以及未知引用都会报错；同一文件经多条路径导入时只加载一次。
-- ``samples/``\ 中 ``hosts/``\ 和 ``devices/``\ 不导入其他文件，``machines/``\ 导入 ``hosts/``\ 和 ``devices/``\ ，``clusters/``\ 导入 ``machines/``\ 。
+- ``resources/``\ 中 ``vhosts/``\ 和 ``devices/``\ 不导入其他文件，``machines/``\ 导入二者，``clusters/``\ 导入 ``machines/``\ 。
 
 校验与标识符
 -------------
 
 - 标识符由 1 到 48 个字母、数字、下划线或连字符组成；机器、设备和磁盘标识符不能只在 ASCII 大小写上不同。
 - ``count``\ 把 ``id: m, count: 4``\ 展开为 ``m0``\ 到 ``m3``\ ，机器总数最多 4096 台。
-- 机器标识符 ``memory``\ ，以及设备标识符 ``host``\ 、``qmp``\ 、``serial``\ 由会话布局保留，不能复用。
-- 一台机器的设备数量不能超过其 host kind 的 ``max_devices``\ （``qemu-host``\ 为 64）。
+- 机器标识符 ``memory``\ ，以及设备标识符 ``vhost``\ 、``qmp``\ 、``serial``\ 由会话布局保留，不能复用。
+- 一台机器的设备数量不能超过其 vHost kind 的 ``max_devices``\ （``qemu-vhost``\ 为 64）。
 - ``placement.agent``\ 可以描述远端放置，但 ``cosim run``\ 会在分配资源前拒绝执行远端放置。
 - 资源路径相对工作区根目录解析，不能包含 ``..``\ ；绝对路径可以使用。不含 ``/``\ 的可执行文件名在生成计划时从 ``PATH``\ 查找。
 
@@ -80,7 +82,7 @@ YAML 加载与计划
 - 内存布局：``crates/cosim-topology/src/layout.rs``\ 。
 - 本机环境与计划：``crates/cosim-runtime/src/env.rs``\ 、``layout.rs``\ 、``plan.rs``\ 。
 - 设备适配器：``crates/cosim-topology/src/adapter/``\ 。
-- 示例：``samples/machines/single-gpu.yaml``\ 、``samples/payloads/ubuntu-rocm7_0.yaml``\ 。
+- 示例：``resources/machines/single-gpu.yaml``\ 、``resources/vhosts/qemu.yaml``\ 。
 
 相关页面
 ---------

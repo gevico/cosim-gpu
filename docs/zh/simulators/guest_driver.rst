@@ -13,18 +13,18 @@
 - 客户机镜像需要与内核版本匹配的 amdgpu DKMS 模块（ROCm 7.0），以及 ``amddrm_exec``\ 等同组模块；缺少模块会导致 TTM 初始化失败。
 - IP discovery 固件位于 ``/usr/lib/firmware/amdgpu/mi300_discovery``\ ，因此 ``discovery=2``\ 可以从磁盘文件读取 IP 信息。
 - VBIOS 文件位于 ``/root/roms/mi300.rom``\ ，需要在加载驱动前写入共享内存。
-- 自动加载由 ``/etc/systemd/system/cosim-gpu-setup.service``\ 和 ``/usr/local/bin/cosim-gpu-setup.sh``\ 完成，顺序是写 ROM、再 ``modprobe``\ 。
+- 自动加载由 ``/lib/systemd/system/cosim-gpu-initialize.service``\ 和 ``/usr/local/bin/cosim-gpu-initialize.sh``\ 完成，顺序是写 ROM、再 ``modprobe``\ 。
 
 内核命令行
 -----------
 
-样例 payload ``samples/payloads/ubuntu-rocm7_0.yaml``\ 使用以下命令行：
+样例 vHost 模板 ``resources/vhosts/qemu.yaml``\ 使用以下命令行：
 
 .. code-block:: text
 
    console=ttyS0 root=/dev/vda1 rw nokaslr modprobe.blacklist=amdgpu
 
-``modprobe.blacklist=amdgpu``\ 防止 PCI 子系统在 ROM 写入共享内存之前自动加载驱动。host 模板会把 payload 的 ``boot.cmdline``\ 与设备 ``guest_hints.cmdline``\ 拼接后传给 QEMU 的 ``-append``\ 。
+``modprobe.blacklist=amdgpu``\ 防止 PCI 子系统在 ROM 写入共享内存之前自动加载驱动。vHost 模板会把 vHost 的 ``cmdline``\ 与设备 ``guest_hints.cmdline``\ 拼接后传给 QEMU 的 ``-append``\ 。
 
 驱动参数
 ---------
@@ -69,7 +69,7 @@ ROM 写入顺序
 自动加载与手动恢复
 -------------------
 
-正常启动时 ``cosim-gpu-setup.service``\ 会自动完成 ROM 写入与驱动加载。需要手动恢复时：
+正常启动时 ``cosim-gpu-initialize.service``\ 会自动完成 ROM 写入与驱动加载。需要手动恢复时：
 
 .. code-block:: bash
 
@@ -89,7 +89,7 @@ ROM 写入顺序
    rocminfo | head -40
    rocm-smi
    # 自动加载服务是否成功
-   systemctl status cosim-gpu-setup.service
+   systemctl status cosim-gpu-initialize.service
 
 能够看到 MI300X 设备、``gfx942``\ 代理和可用的 ROCm 队列，说明功能路径已经打通。首个 HIP 程序的验证步骤见 :ref:`gs-verify-guest`\ 。
 
@@ -114,15 +114,15 @@ ROM 写入顺序
    * - ``insmod``\ 内核版本不匹配
      - DKMS 模块与 ``uname -r``
      - 重建或更换匹配的镜像。
-   * - ``cosim-gpu-setup.service``\ 失败
-     - ``journalctl -u cosim-gpu-setup``
+   * - ``cosim-gpu-initialize.service``\ 失败
+     - ``journalctl -u cosim-gpu-initialize``
      - 按日志修复后手动执行上面的命令。
 
 源码与依据
 -----------
 
-- 自动加载脚本：``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/files/cosim_gpu_setup.sh``\ 、``load_amdgpu.sh``\ 。
-- 启动 payload：``samples/payloads/ubuntu-rocm7_0.yaml``\ 。
+- 自动加载脚本：``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/files/cosim_gpu_initialize.sh``\ 。
+- 启动 vHost：``resources/vhosts/qemu.yaml``\ 。
 - 驱动侧 ROM 读取：``third_party/gem5/src/dev/amdgpu/amdgpu_device.cc``\ 中的 ``readROM()``\ 。
 - 参数唯一事实源：:ref:`ref-guest-parameters`\ 。
 

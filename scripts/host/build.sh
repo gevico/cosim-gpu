@@ -5,7 +5,6 @@
 #
 # Usage: scripts/host/build.sh qemu ARCH JOBS
 #        scripts/host/build.sh gem5 BUILD_DIR JOBS [SCONS_ARG...]
-#        scripts/host/build.sh m5 ABI
 #
 # Run it through scripts/host/dev.sh to select the Host or development
 # container.
@@ -68,35 +67,6 @@ build_gem5() {
     scons "$build_dir/gem5.opt" -j"$jobs" "$@"
 }
 
-build_m5() {
-    local abi="$1"
-    local source_build="$root/third_party/gem5/util/m5/build"
-    local build_dir="$root/build/m5"
-    if [ -L "$source_build" ]; then
-        if [ "$(readlink "$source_build")" != "$build_dir" ]; then
-            echo "m5 build path points outside the workspace" \
-                "build directory" >&2
-            return 2
-        fi
-    elif [ -e "$source_build" ]; then
-        if [ -e "$build_dir" ]; then
-            echo "cannot centralize m5 output:" \
-                "both $source_build and $build_dir exist" >&2
-            return 2
-        fi
-        mkdir -p "$root/build"
-        mv "$source_build" "$build_dir"
-    else
-        mkdir -p "$build_dir"
-    fi
-    if [ ! -L "$source_build" ]; then
-        ln -s "$build_dir" "$source_build"
-    fi
-    mkdir -p "$build_dir/scratch"
-    cd "$root/third_party/gem5/util/m5"
-    TMPDIR="$build_dir/scratch" scons "build/$abi/out/m5"
-}
-
 case "${1:-}" in
     qemu)
         [ "$#" -eq 3 ] || { usage >&2; exit 2; }
@@ -106,10 +76,6 @@ case "${1:-}" in
         [ "$#" -ge 3 ] || { usage >&2; exit 2; }
         shift
         build_gem5 "$@"
-        ;;
-    m5)
-        [ "$#" -eq 2 ] || { usage >&2; exit 2; }
-        build_m5 "$2"
         ;;
     -h | --help)
         usage

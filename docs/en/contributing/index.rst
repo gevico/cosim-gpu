@@ -15,6 +15,7 @@ In this chapter
    :maxdepth: 1
 
    workflow
+   add_vhost_recipe
    patch_check
    maintainers
    ci
@@ -25,6 +26,7 @@ Recommended path
 ----------------
 
 - First contribution: read :doc:`workflow`, then :doc:`patch_check`
+- New guest distribution or image variant: read :doc:`add_vhost_recipe`
 - Rust changes: also read :doc:`rust_guidelines`
 - Documentation changes: read :doc:`documentation` and run ``just docs-check``
 - To find the reviewers: see :doc:`maintainers`

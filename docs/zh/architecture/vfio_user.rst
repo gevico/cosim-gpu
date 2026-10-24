@@ -38,7 +38,7 @@ vfio-user 是 host QEMU 与设备模型之间的桥。QEMU 侧使用内置客户
   ``<run-dir>/<machine>/<device>.sock``；
 - Unix socket 与共享文件映射要求 host 与设备进程在同一系统运行，不支持网络
   传输；
-- host 的 QEMU 命令由 host 模板渲染：为每个设备创建 PCIe root port 与
+- QEMU vHost 命令由 vHost 模板渲染：为每个设备创建 PCIe root port 与
   ``vfio-user-pci`` 客户端，参数包含 socket 路径与可选的 ``romfile``；
 - 设备先启动，通过监听日志与 socket 存在两项探测后 host 才启动；会话结束时
   先停 host，再停设备，最后删除 socket；

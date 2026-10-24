@@ -8,15 +8,15 @@ use crate::model::Topology;
 pub fn graph(topology: &Topology) -> String {
     let mut text = String::from("flowchart TD\n");
     for (machine_index, machine) in topology.machines.iter().enumerate() {
-        let host = format!("h{machine_index}");
+        let vhost = format!("h{machine_index}");
         text.push_str(&format!(
-            "    subgraph m{machine_index}[\"{}\"]\n        {host}[\"QEMU host\"]\n",
+            "    subgraph m{machine_index}[\"{}\"]\n        {vhost}[\"QEMU vHost\"]\n",
             machine.id
         ));
         for (device_index, device) in machine.devices.iter().enumerate() {
             let node = format!("d{machine_index}_{device_index}");
             text.push_str(&format!(
-                "        {node}[\"{} ({})\"]\n        {host} -->|vfio-user| {node}\n",
+                "        {node}[\"{} ({})\"]\n        {vhost} -->|vfio-user| {node}\n",
                 device.id, device.kind
             ));
         }

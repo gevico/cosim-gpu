@@ -152,7 +152,7 @@ Use `cosim-gpu-guest` for console transport and vHost command injection. Gather:
 
 - PCI device state for the emulated GPU
 - loaded amdgpu module state
-- `cosim-gpu-setup.service` status
+- `cosim-gpu-initialize.service` status
 - ROCm device visibility and agent enumeration
 - full and filtered kernel logs
 - target process id, thread table, wait channel, kernel stacks, file

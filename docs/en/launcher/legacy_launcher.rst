@@ -27,7 +27,7 @@ Differences from the Rust Launcher
      - Rust launcher
      - Legacy shell launcher
    * - Input
-     - YAML topology and payload documents
+     - YAML topology and vHost documents
      - Command-line options and fixed build artifact paths
    * - Device model
      - Adapter selection, one GPU per process
@@ -49,7 +49,7 @@ Run Flow
 2. Generate a run id and derive the socket, the ``/dev/shm`` shared memory names, the screen session and the log path from it.
 3. Start the gem5 container and wait for the vfio-user socket.
 4. Start QEMU on the host with the kernel and disk, attaching the GPU as a vfio-user client.
-5. Watch the guest serial console in the screen session; ``cosim-gpu-setup.service`` writes the ROM and loads the driver inside the guest.
+5. Watch the guest serial console in the screen session; ``cosim-gpu-initialize.service`` writes the ROM and loads the driver inside the guest.
 6. End the run and clean up the container, socket, shared memory and screen session. Leftovers can be listed with ``just run-preflight`` and removed with ``just run-clean-orphans``.
 
 Common Commands
@@ -73,7 +73,6 @@ Maintenance Boundaries
 -----------------------
 
 - The canonical option table is :ref:`ref-legacy-launcher`; this page does not duplicate defaults or per-option descriptions.
-- Standalone gem5 full-system simulation uses ``just run-gem5-fs`` and ``just run-gem5-fs-legacy``; see :ref:`appendix-standalone-gem5`.
 - New topologies, devices and automated tests belong in the Rust launcher; this script is maintained for compatibility only.
 - Options of ``mi300_cosim.py`` such as ``--num-gpus``, ``--xgmi-topology`` and ``--shmem-path`` belong to the gem5 configuration, not to the YAML adapter contract.
 
@@ -91,4 +90,3 @@ Related Pages
 - :doc:`index` for an overview of the Rust launcher.
 - :doc:`cli` for Rust launcher commands and options.
 - :ref:`ref-legacy-launcher` for the canonical legacy option reference.
-- :ref:`appendix-standalone-gem5` for standalone gem5 full-system simulation.

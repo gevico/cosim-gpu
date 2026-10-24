@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+version: 1
+imports:
+  - vhosts/qemu.yaml
+  - devices/gpu/mi300x.yaml
+  - devices/pci/qemu-edu.yaml
+machines:
+  - id: m0
+    vhost: {use: vhost-x86-rocm}
+    devices:
+      - {use: mi300x, count: 2}
+      - {use: qemu-edu, count: 2}

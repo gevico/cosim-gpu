@@ -330,7 +330,7 @@ impl Running<'_> {
                     process: plan.id.clone(),
                     status: status.to_string(),
                 });
-                if plan.role == NodeRole::Host && status.success() {
+                if plan.role == NodeRole::Vhost && status.success() {
                     Ok(())
                 } else {
                     Err(anyhow!(

@@ -10,7 +10,7 @@ This page is the single source of truth for device and host adapter launch contr
 Adapter inventory
 -----------------
 
-The repository ships two device adapters plus a template adapter for declared custom devices; the host side has a single ``qemu-host`` adapter.
+The repository ships two device adapters plus a template adapter for declared custom devices; the host side has a single ``qemu-vhost`` adapter.
 
 .. list-table::
    :header-rows: 1
@@ -188,20 +188,20 @@ Template device context variables:
 
 The rendered result must be a non-empty argument vector; undefined variables are errors. Probes are the log marker followed by the socket.
 
-Host adapter contract
----------------------
+vHost adapter contract
+----------------------
 
-A host kind must declare ``role: host`` and ``model: qemu`` and provide ``argv`` or ``command``; ``max_devices`` applies to host kinds only (64 for ``qemu-host``). The ``qemu-host`` command template allocates a PCIe root port per device first, attaches disks next, and appends ``host.args`` last.
+A vHost kind must declare ``role: vhost`` and ``model: qemu`` and provide ``argv`` or ``command``; ``max_devices`` applies to vHost kinds only (64 for ``qemu-vhost``). The ``qemu-vhost`` command template allocates a PCIe root port per device first, attaches disks next, and appends ``vhost.args`` last.
 
-Host template context variables:
+vHost template context variables:
 
 .. list-table::
    :header-rows: 1
 
    * - Variable
      - Meaning
-   * - ``host``
-     - validated host object with ``machine``, ``accel``, ``cpus``, ``args`` and related fields
+   * - ``vhost``
+     - validated vHost object with ``machine``, ``accel``, ``cpus``, ``args`` and related fields
    * - ``machine``
      - machine identifier
    * - ``pool``
@@ -211,7 +211,7 @@ Host template context variables:
    * - ``guest_ranges``
      - guest physical ranges
    * - ``boot``
-     - direct-boot configuration from the payload, possibly empty
+     - direct-boot configuration from the vHost, possibly empty
    * - ``disks``
      - rendered disk list with ``path``, ``format``, ``readonly``, ``bus`` and ``boot``
    * - ``devices``
@@ -219,16 +219,16 @@ Host template context variables:
    * - ``qmp`` / ``serial`` / ``serial_log``
      - QMP socket, serial socket and serial log paths
    * - ``cmdline``
-     - payload ``boot.cmdline`` joined with every device ``guest_hints.cmdline``
+     - The vHost's ``cmdline`` joined with every device ``guest_hints.cmdline``
    * - ``run_dir`` / ``node_dir``
-     - session run directory and the working directory of this host node
+     - session run directory and the working directory of this vHost node
 
-A host program must stay in the foreground, keep resource users in its process group and keep inherited descriptors open; QEMU ``-daemonize`` is rejected.
+A vHost program must stay in the foreground, keep resource users in its process group and keep inherited descriptors open; QEMU ``-daemonize`` is rejected.
 
 Readiness probes and timeouts
 -----------------------------
 
-After a process starts, probes run in order and the process is ready when all pass; every probe must succeed within ``--ready-timeout`` (120 seconds by default). ``serial.timeout`` gives the serial marker its own 1 to 86400 second deadline. Devices become ready before the host, and the host stops before devices.
+After a process starts, probes run in order and the process is ready when all pass; every probe must succeed within ``--ready-timeout`` (120 seconds by default). ``serial.timeout`` gives the serial marker its own 1 to 86400 second deadline. Devices become ready before the vHost, and the vHost stops before devices.
 
 .. list-table::
    :header-rows: 1
@@ -259,20 +259,20 @@ Contract definitions and adapter implementations:
 
 - ``crates/cosim-topology/src/adapter/template.rs``: template devices and command rendering.
 
-- ``samples/devices/``: device template samples; ``samples/hosts/qemu.yaml``: host command template.
+- ``resources/devices/``: device template samples; ``resources/vhosts/qemu.yaml``: host command template.
 
 After a change, run:
 
 .. code-block:: bash
 
-   just run-cli plan samples/machines/qemu-device.yaml
-   just run-cli validate samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --assets
+   just run-topology resources/machines/qemu-device.yaml --dry-run
+   just run-cli validate resources/machines/single-gpu.yaml  --assets
    just check-cosim
 
 Related pages
 -------------
 
-- Device fields and payloads: :doc:`topology_schema`
+- Device fields and vHost: :doc:`topology_schema`
 
 - Guest driver parameters: :doc:`guest_parameters`
 

@@ -74,40 +74,30 @@ impl fmt::Display for Identifier {
     }
 }
 
-/// One QEMU host and the device processes connected to it.
+/// One QEMU vHost and the device processes connected to it.
 #[non_exhaustive]
 #[derive(Clone, Debug, Serialize)]
 pub struct Machine {
     /// Machine identifier after count expansion.
     pub id: Identifier,
-    /// The QEMU host process.
-    pub host: Host,
+    /// The QEMU vHost process.
+    pub vhost: Vhost,
     /// Device processes in declaration order.
     pub devices: Vec<Device>,
     /// Remote agent reserved for distributed execution.
     pub placement: Option<String>,
 }
 
-/// Guest boot and storage inputs supplied separately from machine hardware.
-#[non_exhaustive]
-#[derive(Clone, Debug, Serialize)]
-pub struct Payload {
-    /// Canonical path of the payload document.
-    pub source: PathBuf,
-    /// vHost image recipe that supplies the boot kernel and root disk.
-    pub image: Option<ImageRecipe>,
-    /// Direct kernel boot configuration.
-    pub boot: Option<DirectBoot>,
-    /// Storage attached to each machine in the topology.
-    pub disks: Vec<Disk>,
-}
-
-/// A reusable vHost image recipe selected by a payload.
+/// Image selection resolved as part of one vHost.
 #[non_exhaustive]
 #[derive(Clone, Debug, Serialize)]
 pub struct ImageRecipe {
     /// Recipe identifier relative to `resources/images/recipes`.
     pub recipe: String,
+    /// Bus used to attach the recipe's root disk.
+    pub root_bus: DiskBus,
+    /// Command line used with the recipe's matching kernel.
+    pub cmdline: Option<String>,
 }
 
 /// An executable and the environment it receives.
@@ -120,11 +110,11 @@ pub struct Program {
     pub env: BTreeMap<String, String>,
 }
 
-/// QEMU host configuration.
+/// QEMU vHost configuration.
 #[non_exhaustive]
 #[derive(Clone, Debug, Serialize)]
-pub struct Host {
-    /// Name of the host adapter kind.
+pub struct Vhost {
+    /// Name of the vHost adapter kind.
     pub kind: String,
     /// Command template that renders the QEMU arguments.
     pub command: CommandTemplate,
@@ -150,10 +140,16 @@ pub struct Host {
     pub monitor: Option<String>,
     /// Exit instead of rebooting the guest.
     pub no_reboot: bool,
-    /// Guest serial output that marks the host ready.
+    /// Guest serial output that marks the vHost ready.
     pub serial_ready: Option<SerialReady>,
     /// Additional QEMU arguments.
     pub args: Vec<String>,
+    /// Image recipe awaiting runtime resolution.
+    pub image: Option<ImageRecipe>,
+    /// Direct kernel boot configuration after image resolution.
+    pub boot: Option<DirectBoot>,
+    /// Storage attached to this vHost.
+    pub disks: Vec<Disk>,
 }
 
 /// Kernel, initial RAM disk and command line for direct boot.
@@ -168,21 +164,21 @@ pub struct DirectBoot {
     pub cmdline: Option<String>,
 }
 
-/// A serial marker that completes host readiness.
+/// A serial marker that completes vHost readiness.
 #[non_exhaustive]
 #[derive(Clone, Debug, Serialize)]
 pub struct SerialReady {
     /// Text the guest prints on its serial console.
     pub marker: String,
-    /// Deadline measured from host start; the run's readiness timeout applies otherwise.
+    /// Deadline measured from vHost start; the run's readiness timeout applies otherwise.
     pub timeout: Option<Duration>,
 }
 
-/// A disk image attached to the host.
+/// A disk image attached to the vHost.
 #[non_exhaustive]
 #[derive(Clone, Debug, Serialize)]
 pub struct Disk {
-    /// Disk identifier, unique within its host.
+    /// Disk identifier, unique within its vHost.
     pub id: Identifier,
     /// Image that the disk reads or writes.
     pub source: PathBuf,
@@ -192,7 +188,7 @@ pub struct Disk {
     pub bus: DiskBus,
     /// Whether the guest boots from this disk.
     pub boot: bool,
-    /// How the host opens the source image.
+    /// How the vHost opens the source image.
     pub mode: DiskMode,
     /// Size of a source image created when it is missing.
     pub create: Option<ByteSize>,
@@ -240,11 +236,11 @@ pub enum DiskBus {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DiskMode {
-    /// The host opens the source read-only.
+    /// The vHost opens the source read-only.
     ReadOnly,
-    /// The host writes a per-machine overlay backed by the source.
+    /// The vHost writes a per-machine overlay backed by the source.
     Overlay,
-    /// The host writes the source directly.
+    /// The vHost writes the source directly.
     Direct,
 }
 
@@ -264,8 +260,8 @@ pub enum DeviceModel {
 pub enum Role {
     /// A device process connected through vfio-user.
     Device,
-    /// The QEMU host process.
-    Host,
+    /// The QEMU vHost process.
+    Vhost,
 }
 
 /// A device process.
@@ -302,7 +298,7 @@ pub struct MemoryRegion {
     pub align: ByteSize,
 }
 
-/// PCI identity and host-side option ROM.
+/// PCI identity and vHost-side option ROM.
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Pci {
@@ -312,7 +308,7 @@ pub struct Pci {
     pub device_id: Option<u16>,
     /// Number of MSI-X vectors.
     pub msix_vectors: Option<u16>,
-    /// Option ROM exposed by the host's vfio-user PCI device.
+    /// Option ROM exposed by the vHost's vfio-user PCI device.
     pub rom: Option<PathBuf>,
 }
 

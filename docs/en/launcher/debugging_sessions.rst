@@ -12,7 +12,7 @@ Session Events and Logs
 
 - ``run`` prints ``session: <run-dir>`` when it starts, then prints ``started``, ``ready``, ``exited`` and ``stopped`` event lines.
 - Each process writes combined standard output and standard error to ``output.log`` in its work directory; gem5 also writes its ``m5out/`` directory there.
-- Host serial output goes to ``<machine>/host/serial.log`` and is also available through the serial socket.
+- vHost serial output goes to ``<machine>/vhost/serial.log`` and is also available through the serial socket.
 - ``verdict.json`` records the final result; the same content is printed on the ``[COSIM_VERDICT]`` line.
 
 .. code-block:: bash
@@ -21,8 +21,8 @@ Session Events and Logs
    ls .cosim/<name>
    # Tail the process logs
    tail -n 50 .cosim/<name>/m0/mi300x-0/output.log
-   tail -n 50 .cosim/<name>/m0/host/output.log
-   tail -n 50 .cosim/<name>/m0/host/serial.log
+   tail -n 50 .cosim/<name>/m0/vhost/output.log
+   tail -n 50 .cosim/<name>/m0/vhost/serial.log
    cat .cosim/<name>/verdict.json
 
 Reading the Verdict
@@ -64,15 +64,15 @@ Common Startup Failures
      - YAML field names, template names and ``use`` references
      - Fix the document against ``cosim schema``.
    * - An import is missing
-     - Whether the path is relative to the importing file or to ``--samples``
-     - Fix the relative path or pass the correct ``--samples`` directory.
+     - Whether the path is relative to the importing file or to ``--resources``
+     - Fix the relative path or pass the correct ``--resources`` directory.
    * - A program cannot be found
      - ``runtime.binary`` and ``PATH``
      - Use a workspace-relative path or build the binary first.
    * - A device readiness probe times out
      - The readiness marker and socket in the device ``output.log``
      - Check that the binary runs, that ``ready_log`` is correct and that the socket is not taken.
-   * - The host readiness probe times out
+   * - The vHost readiness probe times out
      - The ``serial.wait_for`` marker and ``serial.timeout``
      - Check the guest command line and the serial configuration.
    * - Pool capacity is exhausted

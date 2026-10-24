@@ -85,10 +85,11 @@ def inspect_recipe(
     return {
         "recipe": {
             "id": recipe.identifier,
-            "role": recipe.role,
             "distribution": recipe.distribution,
             "release": recipe.release,
             "architecture": recipe.architecture,
+            "software": recipe.software,
+            "software_release": recipe.software_release,
         },
         "status": status,
         "input_key": fingerprint["input_key"] if fingerprint else None,
@@ -96,13 +97,10 @@ def inspect_recipe(
         "artifact_directory": str(output),
         "disk": str(output / "disk"),
         "disk_format": recipe.disk_format,
-        "disk_id": recipe.disk_id,
-        "disk_bus": recipe.disk_bus,
         "kernel": (
-            str(output / recipe.kernel_artifact)
-            if recipe.kernel_artifact else None
+            str(output / recipe.kernel_file)
+            if recipe.kernel_file else None
         ),
-        "kernel_cmdline": recipe.kernel_cmdline,
         "reasons": reasons,
         "commands": [
             ["scripts/host/cosim-image", "validate", recipe.identifier],
@@ -321,14 +319,14 @@ def build_recipe(workspace: Path, identifier: str) -> dict:
             products.mkdir()
             disk_image = packer_disk_output(packer_output, recipe.image_name)
             os.replace(disk_image, products / "disk")
-            for artifact in recipe.outputs:
-                fetched_path = fetched / artifact.name
+            for result_file in recipe.result_files:
+                fetched_path = fetched / result_file.name
                 if not fetched_path.is_file():
                     raise ImageError(
-                        "Packer did not fetch declared artifact "
-                        f"{artifact.name}"
+                        "Packer did not fetch declared result file "
+                        f"{result_file.name}"
                     )
-                os.replace(fetched_path, products / artifact.name)
+                os.replace(fetched_path, products / result_file.name)
             shutil.copy2(logs / "packer.log", products / "packer.log")
             shutil.copy2(logs / "packer-build.log", products / "build.log")
             manifest = write_manifest(recipe, fingerprint, products)

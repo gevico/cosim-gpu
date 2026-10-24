@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-//! Disk images prepared for a host: creation, leases and overlays.
+//! Disk images prepared for a vHost: creation, leases and overlays.
 
 use std::collections::BTreeMap;
 use std::fs;

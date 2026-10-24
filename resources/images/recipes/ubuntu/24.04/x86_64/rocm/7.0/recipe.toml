@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: Apache-2.0
+
+schema = 2
+
+[base]
+url = "https://cloud-images.ubuntu.com/releases/noble/release-20260826/ubuntu-24.04-server-cloudimg-amd64.img"
+sha256 = "d0fe84bb5f80853425fa6be28e2c106f30104c3cfe8611933f2e65c9b63f0e30"
+format = "qcow2"
+
+[provision]
+image_name = "cosim-rocm7-0"
+disk_size = "56000M"
+disk_format = "qcow2"
+cpus = 4
+memory_mb = 8192
+ssh_username = "ubuntu"
+accelerator = "kvm"
+machine_type = "q35"
+cpu_model = "host"
+playbook = "provision.yml"
+
+[provision.variables]
+kernel_release = "6.8.0-124-generic"
+rocm_distribution = "noble"
+amdgpu_dkms_version = "1:6.14.14.30100000-2204008.24.04"
+pytorch_index_url = "https://download.pytorch.org/whl/rocm6.0"
+
+[provision.files]
+mi200_rom = "third_party/gem5-resources/src/x86-ubuntu-gpu-ml/files/mi200.rom"
+mi300_rom = "third_party/gem5-resources/src/x86-ubuntu-gpu-ml/files/mi300.rom"
+mi300_discovery = "third_party/gem5-resources/src/x86-ubuntu-gpu-ml/files/mi300_discovery"
+mi350_discovery = "third_party/gem5-resources/src/x86-ubuntu-gpu-ml/files/mi350_discovery"
+
+[result]
+kernel = "kernel"
+
+[[result.files]]
+name = "kernel"
+guest_path = "/home/gem5/vmlinux-gpu-ml"
+
+[[result.files]]
+name = "image-packages.tsv"
+guest_path = "/home/gem5/image-packages.tsv"
+
+[[result.files]]
+name = "kernel-release"
+guest_path = "/home/gem5/kernel-release"
+
+[[result.files]]
+name = "python-packages.json"
+guest_path = "/home/gem5/python-packages.json"
+
+[[result.files]]
+name = "amdgpu-module.txt"
+guest_path = "/home/gem5/amdgpu-module.txt"
+
+[[result.files]]
+name = "hipcc-version.txt"
+guest_path = "/home/gem5/hipcc-version.txt"
+
+[[result.files]]
+name = "os-release"
+guest_path = "/etc/os-release"

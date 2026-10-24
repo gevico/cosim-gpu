@@ -33,8 +33,8 @@
      - gem5 未连接或已经崩溃
    * - ``insmod`` 报错
      - 内核版本与 DKMS 模块不匹配
-   * - ``cosim-gpu-setup.service`` 失败
-     - ``journalctl -u cosim-gpu-setup``
+   * - ``cosim-gpu-initialize.service`` 失败
+     - ``journalctl -u cosim-gpu-initialize``
    * - BAR 布局 probe 返回 -12
      - 检查 ``MI300XVfioUser`` 导出的 BAR 区域描述
 
@@ -56,7 +56,7 @@
    * - 根因
      - 五种 BIOS 发现方式在 cosim 下全部失败，驱动打印 ``Unable to locate a BIOS ROM`` 后继续执行，RAS 初始化路径在 ``atom_context`` 为空时仍调用解析函数。
    * - 修复
-     - 在 ``modprobe`` 之前写入 ROM，命令见 :doc:`guest_parameters` 的 VGA ROM 一节；``cosim-gpu-setup.service`` 会自动完成。
+     - 在 ``modprobe`` 之前写入 ROM，命令见 :doc:`guest_parameters` 的 VGA ROM 一节；``cosim-gpu-initialize.service`` 会自动完成。
 
 4.2 PSP / SMU 固件加载失败
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

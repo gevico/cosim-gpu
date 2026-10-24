@@ -58,22 +58,22 @@ just dev-image        # 非 Linux Host，或设置 COSIM_ENV=container
 
 # 在带 KVM 的 x86_64 Host 上构建工具链和 vHost 镜像
 just build-all
-just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+just run-topology resources/machines/single-gpu.yaml
 ~~~
 
 首次构建镜像时会使用 `resources/images/` 中选定的配方，并将验证后的磁盘与内核
 保存在 `build/images/`。可以先检查解析后的配方和启动命令，不构建镜像或启动进程：
 
 ~~~bash
-just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --dry-run
+just run-topology resources/machines/single-gpu.yaml --dry-run
 ~~~
 
 ### 拓扑示例
 
-- <code>samples/machines/single-gpu.yaml</code>：启动单 GPU vHost。
-- <code>samples/machines/mixed-models.yaml</code>：组合 gem5 和 QEMU Device Model。
-- <code>samples/machines/gpu-8.yaml</code>：查看八 GPU 机器及其 96 GiB 内存池。
-- <code>samples/machines/host-only-aarch64.yaml</code>：在 ARM64 上检查不含 Device Model 的 vHost。
+- <code>resources/machines/single-gpu.yaml</code>：启动单 GPU vHost。
+- <code>resources/machines/mixed-models.yaml</code>：组合 gem5 和 QEMU Device Model。
+- <code>resources/machines/gpu-8.yaml</code>：查看八 GPU 机器及其 96 GiB 内存池。
+- <code>resources/machines/host-only-aarch64.yaml</code>：在 ARM64 上检查不含 Device Model 的 vHost。
 
 <details>
 <summary>示例：一台机器组合 gem5 和 QEMU 设备</summary>
@@ -81,19 +81,19 @@ just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ub
 ~~~yaml
 version: 1
 imports:
-  - hosts/qemu.yaml
+  - vhosts/qemu.yaml
   - devices/gpu/mi300x.yaml
   - devices/pci/qemu-edu.yaml
 machines:
   - id: m0
-    host: {use: host-x86, memory: 32G}
+    vhost: {use: vhost-x86-rocm, memory: 32G}
     devices:
       - {use: mi300x, count: 2}
       - {use: qemu-edu}
 ~~~
 
-运行 `just run-topology` 时传入 `--payload samples/payloads/ubuntu-rocm7_0.yaml`，以加载
-vHost 操作系统内核和磁盘输入。构建产物统一保存在仓库顶层的 `build/` 目录中。
+所选 vHost 配置已经包含镜像配方和启动输入。构建产物统一保存在仓库顶层的
+`build/` 目录中。
 
 QEMU Device Model 示例使用 <code>just build-qemu</code> 构建的 QEMU，通过
 <code>x-vfio-user-server</code> 提供真实的 <code>edu</code> PCI 模型。
@@ -104,7 +104,7 @@ QEMU Device Model 示例使用 <code>just build-qemu</code> 构建的 QEMU，通
 
 ### 启动器和配置工具
 
-启动器需要 Rust 1.95+、Cargo 和 just。QEMU、gem5、m5 构建，拓扑运行和 Rust 检查
+启动器需要 Rust 1.95+、Cargo 和 just。QEMU、gem5 构建，拓扑运行和 Rust 检查
 通过 <code>scripts/host/dev.sh</code> 执行。非 Linux Host 或设置
 <code>COSIM_ENV=container</code> 时，命令使用基于
 <code>scripts/host/Dockerfile.dev</code> 的临时容器。vHost 镜像、HIP 应用以及
@@ -135,7 +135,10 @@ QEMU Device Model 示例使用 <code>just build-qemu</code> 构建的 QEMU，通
 - **模拟器模型：** <code>third_party/gem5/</code>、
   <code>third_party/qemu/</code> 和 <code>configs/sst/</code>。
 - **GPU 工作负载和 vHost 固件输入：** <code>third_party/gem5-resources/</code>。
-- **项目工具：** <code>samples/</code>、<code>scripts/</code>、
+- **机器配置：** <code>resources/vhosts/</code>、<code>resources/devices/</code>、
+  <code>resources/machines/</code> 和 <code>resources/clusters/</code>。
+- **示例程序：** <code>samples/</code> 留给 vHost 启动后运行的程序。
+- **项目工具：** <code>scripts/</code>、
   <code>justfile</code> 和 <code>.agents/</code>。
 - **vHost 镜像配方：** <code>resources/images/recipes/</code> 中按操作系统组织的
   Packer/QEMU 配置、Ansible playbook 和镜像文件。

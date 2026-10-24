@@ -10,7 +10,7 @@
 适用范围
 --------
 
-``scripts/host/cosim_launch.sh`` 通过 ``just run-launch`` 调用，启动一个客户机、一个 gem5 容器并通过 vfio-user 连接；``just test-gpu`` 与 ``scripts/host/run_cosim_tests.sh`` 也使用该路径。当前文档主路径是 YAML launcher，两者不要混用参数：本页表格只描述 shell launcher 与其调用的 gem5 配置。独立 gem5 全系统仿真由另一套脚本负责，见 :ref:`appendix-standalone-gem5`。
+``scripts/host/cosim_launch.sh`` 通过 ``just run-launch`` 调用，启动一个客户机、一个 gem5 容器并通过 vfio-user 连接；``just test-gpu`` 与 ``scripts/host/run_cosim_tests.sh`` 也使用该路径。当前文档主路径是 YAML launcher，两者不要混用参数：本页表格只描述 shell launcher 与其调用的 gem5 配置。
 
 shell launcher 参数
 -------------------
@@ -184,7 +184,7 @@ gem5 config 参数
      - ``just run-topology``
    * - 输入
      - 命令行参数 + 固定磁盘与内核路径
-     - 拓扑 YAML + 独立 payload YAML
+     - 一份拓扑 YAML，其中包含每台机器的 vHost
    * - 多 GPU
      - ``--num-gpus N``，单个 gem5 进程内多 GPU
      - 每个 GPU 一个设备进程
@@ -236,5 +236,3 @@ gem5 config 参数
 - 客户机参数：:doc:`guest_parameters`
 
 - 相关已知问题：:doc:`known_issues`
-
-- 独立 gem5 全系统仿真：:ref:`appendix-standalone-gem5`

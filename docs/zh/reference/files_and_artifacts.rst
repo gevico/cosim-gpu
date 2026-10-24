@@ -28,23 +28,29 @@
    * - ``crates/*/tests/``
      - 拓扑渲染、会话生命周期与 vfio-user 集成测试
      - 需要 QEMU/gem5 的用例标记为 ``--ignored``
+   * - ``resources/vhosts/``、``resources/devices/``
+     - 可复用的 vHost 与设备模型配置
+     - 由机器配置导入
+   * - ``resources/machines/``、``resources/clusters/``
+     - 完整机器配置与多机组合
+     - 测试加载配置并渲染全部进程
    * - ``samples/``
-     - 机器、集群、host、设备与 payload 样例
-     - 测试加载并渲染全部样例
+     - 预留给 vHost 启动后运行的示例程序
+     - 拓扑 YAML 存放在 ``resources/``
    * - ``scripts/``
      - 构建、开发容器、launcher、测试运行器与镜像辅助脚本
-     - ``cosim_launch.sh`` 是遗留 shell launcher；``run_mi300x_fs.sh`` 是独立 gem5 全系统编排
+     - ``cosim_launch.sh`` 是遗留 shell launcher
    * - ``scripts/ci/``
      - CI 生命周期、ROCm 回归、镜像与运行时产物工具
      - 见 ``justfile`` 的 ``ci-*`` 与 ``scripts/ci/test_*.py`` recipe
    * - ``resources/images/recipes/``
      - 客户机镜像 recipe（Packer 模板与 Ansible playbook）
-     - 唯一 recipe：``ubuntu/24.04/x86_64/rocm7_0/``
+     - 唯一 recipe：``ubuntu/24.04/x86_64/rocm/7.0/``
    * - ``third_party/gem5/src/dev/amdgpu/``
      - MI300X 设备模型、vfio-user 服务端、GART/PM4/SDMA/IH
      - gem5 子模块内容
    * - ``third_party/gem5/configs/example/gpufs/``
-     - cosim 与独立 gem5 配置
+     - cosim gem5 配置
      - ``mi300_cosim.py`` 由设备适配器调用
    * - ``configs/sst/``
      - SST 网络实验数据模型
@@ -76,9 +82,6 @@
    * - gem5
      - ``build/gem5/<arch>/VEGA_X86/gem5.opt``
      - ``just build-gem5``
-   * - m5 工具
-     - ``build/m5/<abi>/out/m5``
-     - ``just build-m5``
    * - 客户机内核
      - ``build/rocm-local-installed/kernel``
      - ``just build-disk``
@@ -144,18 +147,12 @@
      - IP discovery 固件
    * - ``/usr/lib/firmware/amdgpu/ip_discovery.bin``
      - 指向 ``mi300_discovery`` 的符号链接
-   * - ``/etc/systemd/system/cosim-gpu-setup.service``
+   * - ``/lib/systemd/system/cosim-gpu-initialize.service``
      - 开机初始化服务单元
-   * - ``/usr/local/bin/cosim-gpu-setup.sh``
+   * - ``/usr/local/bin/cosim-gpu-initialize.sh``
      - 初始化脚本：写 ROM、链接固件、加载驱动并校验
    * - ``/lib/modules/$(uname -r)/updates/dkms/amdgpu.ko.zst``
      - ROCm 7.0 DKMS amdgpu 内核模块
-   * - ``/home/gem5/load_amdgpu.sh``
-     - 独立 gem5 全系统仿真的驱动加载脚本（``ip_block_mask=0x6f``）
-   * - ``/home/gem5/gem5_wmi.ko``
-     - 独立 gem5 仿真使用的 WMI 兼容模块
-   * - ``/sbin/m5``
-     - gem5 伪指令工具
 
 gem5 MI300X 模型源码
 --------------------
@@ -196,16 +193,6 @@ gem5 配置、Python 组件与 QEMU 接口
      - 作用
    * - ``third_party/gem5/configs/example/gpufs/mi300_cosim.py``
      - vfio-user cosim 系统配置，由 ``gem5-mi300x`` 适配器启动
-   * - ``third_party/gem5/configs/example/gem5_library/x86-mi300x-gpu.py``
-     - 独立 gem5 stdlib 仿真配置
-   * - ``third_party/gem5/configs/example/gpufs/mi300.py``
-     - 遗留独立仿真配置，由 ``run-legacy`` 使用
-   * - ``src/dev/intel_8254_timer.{cc,hh}``
-     - ``disable_timer_events`` 参数，避免定时器事件导致 tick 溢出
-   * - ``src/dev/mc146818.{cc,hh}``
-     - ``disable_rtc_events`` 参数，避免 RTC 事件导致 tick 溢出
-   * - ``src/python/third_party/gem5/prebuilt/viper/board.py``
-     - ViperBoard：readfile 注入与驱动加载
    * - ``src/python/third_party/gem5/components/devices/gpus/amdgpu.py``
      - MI300X 设备定义
    * - ``third_party/qemu/hw/remote/vfio-user-obj.c``
@@ -267,7 +254,7 @@ gem5 配置、Python 组件与 QEMU 接口
 
    just --list
    just build-status
-   just run-cli plan samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-topology resources/machines/single-gpu.yaml --dry-run
 
 相关页面
 --------

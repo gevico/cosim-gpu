@@ -25,14 +25,14 @@
    * - GPU 数据
      - MI300X VBIOS ROM 与 IP discovery 固件
    * - 初始化
-     - ``cosim-gpu-setup.service`` 在启动时写入 ROM 并加载 amdgpu
+     - ``cosim-gpu-initialize.service`` 在启动时写入 ROM 并加载 amdgpu
    * - 登录
      - root 串口自动登录，供脚本与交互使用
-   * - 配套 payload
-     - ``samples/payloads/ubuntu-rocm7_0.yaml``，声明内核、根磁盘与 cmdline
+   * - 配套 vHost
+     - ``resources/vhosts/qemu.yaml``，声明内核、根磁盘与 cmdline
 
 镜像配方与 Ansible playbook 由本仓库维护在
-``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/``；
+``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/``；
 ``recipe.toml`` 记录 Ubuntu 版本、内核版本、Packer 模板与导出产物。
 
 复用预构建镜像
@@ -40,7 +40,6 @@
 
 .. code-block:: bash
 
-   just build-m5          # 构建客户机内使用的 m5 工具
    just build-disk        # 构建内核与磁盘，并安装本地副本
 
 ``just build-disk`` 在 ``build/rocm-local`` 生成 raw 格式产物，并把标准示例
@@ -59,7 +58,7 @@
      - ``build/rocm-local-installed/kernel``
      - 64 MB
 
-``samples/payloads/ubuntu-rocm7_0.yaml`` 直接引用这两个路径，并用
+``resources/vhosts/qemu.yaml`` 直接引用这两个路径，并用
 ``modprobe.blacklist=amdgpu`` 让初始化服务按正确顺序加载驱动。
 
 重新构建镜像
@@ -71,7 +70,7 @@ ROCm，最后导出磁盘与配套内核。重建需要：
 - Linux x86_64 主机与可访问的 ``/dev/kvm``；
 - 构建与压缩至少 60 GiB 可用磁盘，以及容纳 8 GiB 构建虚拟机的内存；
 - QEMU、``qemu-img``、Ansible、``python3-tomli``、curl、unzip、Perl 的
-  ``shasum``、binutils、SCons 和 C++ 编译器；
+  ``shasum`` 与 binutils；
 - 访问 Canonical、AMD、HashiCorp 与 PyTorch 软件源。
 
 .. code-block:: bash
@@ -124,8 +123,8 @@ bundle 目录包含以下文件，供会话与校验使用：
 
 .. warning::
 
-   随附镜像只面向 x86_64；AArch64 机器没有可引导的客户机镜像。一个 payload
-   会应用到拓扑中的每台机器，schema 不提供逐机器 payload 或磁盘映射。
+   随附镜像只面向 x86_64；AArch64 机器没有可引导的客户机镜像。每台机器都在
+   ``vhost`` 中独立选择镜像。
 
 相关页面
 --------
@@ -133,5 +132,5 @@ bundle 目录包含以下文件，供会话与校验使用：
 - :doc:`install`
 - :doc:`first_session`
 - :doc:`verify_guest`
-- :ref:`Payload 与客户机镜像 <topo-payloads>`
+- :ref:`ref-vhost-image-recipe`
 - :ref:`CI 与回归 <contrib-ci>`

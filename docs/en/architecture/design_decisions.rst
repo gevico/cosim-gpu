@@ -60,7 +60,7 @@ Why a Rust launcher
 - Topology validation is strongly typed: unknown fields, duplicate
   references and out-of-range counts fail before startup, and a JSON Schema
   can be exported.
-- Plans are previewable: ``cosim plan`` prints executables, arguments,
+- Plans are previewable: ``cosim run --dry-run`` prints executables, arguments,
   environment, probes, memory and disk targets for review before a run.
 - Process supervision and resource ownership are explicit: process groups,
   parent-death signals, device leases, image leases, verdicts and ``clean``
@@ -70,14 +70,13 @@ Why a Rust launcher
 - The legacy shell launcher is kept for legacy flows; see
   :ref:`Legacy shell launcher <launcher-legacy>`.
 
-Why separate the topology and payload
--------------------------------------
+Why the machine owns its vHost
+---------------------------------------------
 
-Topology describes machine hardware: host profile, device list, memory and
-disk targets. The payload describes guest boot inputs: kernel, initrd, cmdline
-and disks. Separated, one topology can use different images and one payload
-applies to every machine in the topology. The cost is that the schema has no
-per-machine payload or disk mapping.
+The machine is the unit that runs: it combines one vHost with its connected
+device models. The vHost therefore owns its image, kernel command line and
+disks directly. This keeps per-machine boot choices explicit and avoids a
+second document whose lifetime and scope would need separate rules.
 
 Costs and limitations
 ---------------------

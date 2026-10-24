@@ -111,7 +111,7 @@ def inspect_toolchain(
         missing.append("ssh-keygen is missing; install openssh-client")
     if (
         require_kernel_tools
-        and recipe.kernel_artifact
+        and recipe.kernel_file
         and shutil.which("readelf") is None
         and qemu_img is not None
     ):
@@ -250,14 +250,22 @@ def packer_variables(
 
 def ansible_variables(recipe: ImageRecipe, fetched: Path) -> dict:
     return {
-        "cosim_recipe_tasks": str(recipe.tasks_file),
-        "cosim_recipe_variables": recipe.variables,
-        "cosim_inputs": {
-            name: str(path.resolve())
-            for name, path in recipe.inputs.items()
+        "cosim_recipe": {
+            "distribution": recipe.distribution,
+            "release": recipe.release,
+            "architecture": recipe.architecture,
+            "software": recipe.software,
+            "software_release": recipe.software_release,
         },
-        "cosim_outputs": [asdict(output) for output in recipe.outputs],
-        "cosim_output_directory": str(fetched),
+        "cosim_recipe_variables": recipe.variables,
+        "cosim_provision_files": {
+            name: str(path.resolve())
+            for name, path in recipe.provision_files.items()
+        },
+        "cosim_result_files": [
+            asdict(result_file) for result_file in recipe.result_files
+        ],
+        "cosim_result_directory": str(fetched),
     }
 
 

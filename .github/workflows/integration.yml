@@ -85,7 +85,7 @@ jobs:
       - name: Verify and adopt the paired disk, kernel and package manifest
         env:
           IMAGE_KEY: ${{ inputs.image-key }}
-        run: just ci-adopt-rocm-artifact build/rocm-artifact-download build/images/ubuntu/24.04/x86_64/rocm7_0 "$IMAGE_KEY"
+        run: just ci-adopt-rocm-artifact build/rocm-artifact-download build/images/ubuntu/24.04/x86_64/rocm/7.0 "$IMAGE_KEY"
 
       - name: Build QEMU and Rust launcher
         run: |
@@ -96,7 +96,7 @@ jobs:
         run: just test-cosim-vfio-user
 
       - name: Run ROCm workloads through the Rust launcher
-        run: just test-rocm-regression artifacts/rocm-regression/guest build/images/ubuntu/24.04/x86_64/rocm7_0
+        run: just test-rocm-regression artifacts/rocm-regression/guest build/images/ubuntu/24.04/x86_64/rocm/7.0
 
       - name: Upload complete regression evidence
         if: always()
@@ -105,7 +105,7 @@ jobs:
           name: rocm-regression-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             artifacts/rocm-regression/
-            build/images/ubuntu/24.04/x86_64/rocm7_0/manifest.json
+            build/images/ubuntu/24.04/x86_64/rocm/7.0/manifest.json
             build/ci-build/manifest.json
             !artifacts/rocm-regression/**/*.sock
           if-no-files-found: warn

@@ -10,7 +10,7 @@ This page is the quick reference for the ``cosim`` commands: subcommands, common
 Global Options
 ---------------
 
-``--samples`` is the only global option. It defaults to ``samples/`` and resolves imports that are not relative to the importing file. Resource paths are relative to the workspace root, and executable names without a ``/`` are searched in ``PATH`` while planning.
+``--resources`` is the only global option. It defaults to ``resources/`` and resolves imports that are not relative to the importing file. Resource paths are relative to the workspace root, and executable names without a ``/`` are searched in ``PATH`` while planning.
 
 Subcommands
 ------------
@@ -22,19 +22,16 @@ Subcommands
      - Main arguments
      - Output and effect
    * - ``validate``
-     - topology, ``--payload``, ``--assets``
+     - topology, ``--assets``
      - Validates documents, identifiers and memory layouts; ``--assets`` also checks local input files. Prints the machine and device counts on success.
-   * - ``plan``
-     - topology, ``--payload``, ``--run-dir``, ``--pool-dir``
-     - Prints the resolved processes, arguments, readiness probes and memory layout as JSON without starting processes.
    * - ``graph``
      - topology
      - Prints machines and device connections as a Mermaid flowchart.
    * - ``schema``
-     - ``--payload``
-     - Prints the JSON Schema of topology documents or payload documents.
+     - none
+     - Prints the JSON Schema of topology documents.
    * - ``run``
-     - topology, ``--payload``, directory and run options
+     - topology, directory and run options
      - Starts and supervises the session, printing event lines and the final verdict.
    * - ``clean``
      - run directory
@@ -49,12 +46,12 @@ Run Options
    * - Option
      - Default
      - Description
-   * - ``--payload``
-     - none
-     - Separate guest boot and storage inputs, applied to every machine in the topology.
+   * - ``--dry-run``
+     - off
+     - Resolves image recipes and prints the launch plan without building images or starting processes.
    * - ``--run-dir``
      - ``.cosim/<12 random characters>``
-     - New session directory; ``plan`` uses ``.cosim/plan``.
+     - New session directory; dry-run defaults to ``.cosim/dry-run``.
    * - ``--pool-dir``
      - ``/dev/shm/cosim-<name>-<hash>`` on Linux, ``<run-dir>/memory`` elsewhere
      - Shared memory pool directory.
@@ -79,15 +76,15 @@ Typical Workflows
    # Build the launcher once
    just build-cosim
    # Validate documents, identifiers and local input files only
-   just run-cli validate samples/machines/gpu-8.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --assets
+   just run-cli validate resources/machines/gpu-8.yaml  --assets
    # Inspect the resolved plan
-   just run-cli plan samples/machines/mixed-models.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-topology resources/machines/mixed-models.yaml --dry-run
    # Inspect machine and device connections
-   just run-cli graph samples/clusters/cluster-4x8.yaml
+   just run-cli graph resources/clusters/cluster-4x8.yaml
    # Print the JSON Schema of topology documents
    just run-cli schema
    # Run and supervise a session
-   just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-topology resources/machines/single-gpu.yaml
    # Remove resources left by an abnormal exit
    just run-cli clean .cosim/<name>
 
@@ -111,7 +108,7 @@ Sources
 - Command and option definitions: ``crates/cosim-cli/src/main.rs``.
 - ``Verdict`` and ``Status``: ``crates/cosim-runtime/src/session.rs``.
 - Plan structure: ``crates/cosim-runtime/src/plan.rs``.
-- Sample topologies and payloads: ``samples/machines/`` and ``samples/payloads/ubuntu-rocm7_0.yaml``.
+- Sample topologies and vHost: ``resources/machines/`` and ``resources/vhosts/qemu.yaml``.
 
 Related Pages
 --------------

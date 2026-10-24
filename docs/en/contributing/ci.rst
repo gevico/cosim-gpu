@@ -43,7 +43,7 @@ The jobs in ``ci.yml`` run on every push and pull request:
 - ``Rust Topology and Runtime``: ``just check-cosim``,
   ``just test-cosim-integration`` and ``just test-cosim-memory``.
 - ``ROCm regression runner tests``: ``python3 -m unittest discover
-  -s scripts/ci -p 'test_*.py' -v`` and ``just test-legacy-build-image``.
+  -s scripts/ci -p 'test_*.py' -v``.
 - ``Checkpatch``: ``just check-patch`` against the pull request base or the
   pre-push commit; falls back to ``HEAD^`` when no earlier commit is available.
 - ``Maintainers``: installs ``scripts/ci/requirements.txt`` and runs
@@ -65,7 +65,10 @@ Build caches and artifacts
 
 - ``Build gem5 (VEGA_X86)`` builds gem5 once. The cache key comes from
   ``just ci-gem5-key`` and covers the gem5 inputs, the related just recipes and
-  configuration, the build task, helper scripts and the Dockerfile. A cache hit
+  configuration, the build task, helper scripts and the Dockerfile.
+  Only explicitly listed gem5 and development-container just settings are used;
+  vHost recipes, image output paths and other vHost configuration do not affect
+  the gem5 cache key. A cache hit
   preserves the original ``build_source`` and ``build_run``; the current
   source revision and run identity are recorded separately. Changing
   ``COSIM_GEM5_CACHE_EPOCH`` rebuilds the toolchain environment. The artifact
@@ -73,10 +76,10 @@ Build caches and artifacts
   development container image and a SHA-256 manifest; ``just ci-reuse-gem5``
   publishes it as this run's immutable artifact, and
   ``just test-runtime-artifact`` verifies its integrity and provenance.
-- ``Build ROCm guest image`` builds the x86 m5 utility, validates the real
-  Packer builder and provisioners, then looks for a verified retained image from
-  the same source branch. The image key covers source revisions, recipe contents,
-  the m5 binary, the QEMU version, the image builder and the disk format; reuse
+- ``Build ROCm guest image`` validates the real Packer builder and provisioners,
+  then looks for a verified retained image from the same source branch. The
+  image key covers source revisions, recipe contents, the QEMU version, the
+  image builder and the disk format; reuse
   validates the input identity and every product hash. Changing
   ``COSIM_ROCM_IMAGE_EPOCH`` from its default ``1`` resolves packages again.
   The finished image records the resolved Debian and Python package versions and

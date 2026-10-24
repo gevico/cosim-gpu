@@ -28,23 +28,29 @@ Source directories
    * - ``crates/*/tests/``
      - Topology rendering, session lifecycle and vfio-user integration tests
      - tests that need QEMU or gem5 are marked ``--ignored``
+   * - ``resources/vhosts/``, ``resources/devices/``
+     - Reusable vHost and device-model configurations
+     - imported by machine configurations
+   * - ``resources/machines/``, ``resources/clusters/``
+     - Complete machine configurations and multi-machine compositions
+     - tests load configurations and render every process
    * - ``samples/``
-     - Machine, cluster, host, device and payload samples
-     - tests load and render every sample
+     - Reserved for example programs run after a vHost boots
+     - topology YAML lives under ``resources/``
    * - ``scripts/``
      - Build, development container, launchers, test runners and image helper scripts
-     - ``cosim_launch.sh`` is the legacy shell launcher; ``run_mi300x_fs.sh`` orchestrates standalone gem5 full-system runs
+     - ``cosim_launch.sh`` is the legacy shell launcher
    * - ``scripts/ci/``
      - CI lifecycle, ROCm regression, image and runtime artifact tools
      - see the ``ci-*`` and ``scripts/ci/test_*.py`` recipes in ``justfile``
    * - ``resources/images/recipes/``
      - Guest image recipes (Packer template and Ansible playbook)
-     - the only recipe is ``ubuntu/24.04/x86_64/rocm7_0/``
+     - the only recipe is ``ubuntu/24.04/x86_64/rocm/7.0/``
    * - ``third_party/gem5/src/dev/amdgpu/``
      - MI300X device model, vfio-user server, GART/PM4/SDMA/IH
      - content of the gem5 submodule
    * - ``third_party/gem5/configs/example/gpufs/``
-     - cosim and standalone gem5 configurations
+     - cosim gem5 configuration
      - ``mi300_cosim.py`` is started by the device adapter
    * - ``configs/sst/``
      - SST network experiment data models
@@ -76,9 +82,6 @@ The build recipes map to the following artifacts; version data is in :doc:`versi
    * - gem5
      - ``build/gem5/<arch>/VEGA_X86/gem5.opt``
      - ``just build-gem5``
-   * - m5 utility
-     - ``build/m5/<abi>/out/m5``
-     - ``just build-m5``
    * - Guest kernel
      - ``build/rocm-local-installed/kernel``
      - ``just build-disk``
@@ -144,18 +147,12 @@ The guest image is built from the only recipe and its driver initialization depe
      - IP discovery firmware
    * - ``/usr/lib/firmware/amdgpu/ip_discovery.bin``
      - symbolic link to ``mi300_discovery``
-   * - ``/etc/systemd/system/cosim-gpu-setup.service``
+   * - ``/lib/systemd/system/cosim-gpu-initialize.service``
      - boot-time initialization unit
-   * - ``/usr/local/bin/cosim-gpu-setup.sh``
+   * - ``/usr/local/bin/cosim-gpu-initialize.sh``
      - initialization script: ROM write, firmware link, driver load and verification
    * - ``/lib/modules/$(uname -r)/updates/dkms/amdgpu.ko.zst``
      - ROCm 7.0 DKMS amdgpu kernel module
-   * - ``/home/gem5/load_amdgpu.sh``
-     - driver-load script for standalone gem5 full-system simulation (``ip_block_mask=0x6f``)
-   * - ``/home/gem5/gem5_wmi.ko``
-     - WMI compatibility module used by standalone gem5 simulation
-   * - ``/sbin/m5``
-     - gem5 pseudo-instruction utility
 
 gem5 MI300X model sources
 -------------------------
@@ -196,16 +193,6 @@ gem5 configuration, Python components and QEMU interface
      - Purpose
    * - ``third_party/gem5/configs/example/gpufs/mi300_cosim.py``
      - vfio-user cosim system configuration started by the ``gem5-mi300x`` adapter
-   * - ``third_party/gem5/configs/example/gem5_library/x86-mi300x-gpu.py``
-     - standalone gem5 stdlib simulation configuration
-   * - ``third_party/gem5/configs/example/gpufs/mi300.py``
-     - legacy standalone configuration used by ``run-legacy``
-   * - ``src/dev/intel_8254_timer.{cc,hh}``
-     - ``disable_timer_events`` parameter that avoids tick overflow from timer events
-   * - ``src/dev/mc146818.{cc,hh}``
-     - ``disable_rtc_events`` parameter that avoids tick overflow from RTC events
-   * - ``src/python/third_party/gem5/prebuilt/viper/board.py``
-     - ViperBoard: readfile injection and driver loading
    * - ``src/python/third_party/gem5/components/devices/gpus/amdgpu.py``
      - MI300X device definition
    * - ``third_party/qemu/hw/remote/vfio-user-obj.c``
@@ -267,7 +254,7 @@ Verify with:
 
    just --list
    just build-status
-   just run-cli plan samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-topology resources/machines/single-gpu.yaml --dry-run
 
 Related pages
 -------------

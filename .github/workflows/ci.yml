@@ -76,9 +76,6 @@ jobs:
           mkdir -p artifacts/ci-check/scratch
           env TMPDIR="$PWD/artifacts/ci-check/scratch" \
             python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v
-      - name: Verify legacy build image selection
-        run: just test-legacy-build-image
-
   checkpatch:
     name: Checkpatch
     runs-on: ubuntu-latest

@@ -15,28 +15,23 @@ Topology and runtime
 Topology
   A YAML document describing several machines, with the ``version``,
   ``imports``, ``templates``, ``kinds`` and ``machines`` fields. It
-  describes hardware and its composition only; guest boot and storage inputs come
-  from a payload.
+  describes vHosts, their attached devices and how they are started.
 
 Machine
-  A runtime unit made of one ``host``, all ``device`` processes attached to
+  A runtime unit made of one ``vhost``, all ``device`` processes attached to
   it, and one shared-memory pool. The ``machines`` list expands through
   ``count`` into concrete instances such as ``m0`` to ``m3``.
 
-Host
-  The QEMU process that runs the guest Linux. A host is declared by a host
-  template and owns the CPU, memory, PCIe enumeration, QMP and serial endpoints,
-  and acts as the vfio-user client for its devices.
+vHost
+  The QEMU process within a machine. Its topology mapping owns CPU, memory,
+  image or direct-boot fields and disks, and it acts as the vfio-user client
+  for attached devices. Linux running inside QEMU may be called the guest OS;
+  ``guest`` is not a separate topology object or configuration layer.
 
 Device
-  A natively running process that provides a PCI device to its machine's host
+  A natively running process that provides a PCI device to its machine's vHost
   over vfio-user. Devices start through the ``gem5-mi300x`` or
   ``qemu-device`` adapter; the MI300X adapter runs one GPU per process.
-
-Payload
-  A YAML document describing guest boot and storage inputs, with the
-  ``boot``, ``disks`` and ``snapshot`` fields. It is selected at runtime
-  with ``--payload`` and applies to every machine in the topology.
 
 Session
   The resource tree created by ``cosim run``: run directory, shared-memory pool
@@ -44,7 +39,7 @@ Session
   under a temporary name, published once, and writes a verdict when it ends.
 
 Plan
-  The complete execution description printed by ``cosim plan``: programs,
+  The complete execution description printed by ``cosim run --dry-run``: programs,
   arguments, environment, dependencies, readiness probes, memory regions, disk
   targets and lock file paths. ``cosim run`` consumes the plan directly.
 
@@ -68,7 +63,7 @@ Interfaces and hardware
 -----------------------
 
 vfio-user
-  A protocol that exports PCI devices over a Unix socket. The host side is used by
+  A protocol that exports PCI devices over a Unix socket. The vHost side is used by
   QEMU's ``vfio-user-pci`` client; the device side is served by libvfio-user
   (gem5's ``MI300XVfioUser``) or QEMU's ``x-vfio-user-server``.
 
@@ -78,7 +73,7 @@ BAR
   512 KiB of MMIO registers on BAR5.
 
 MSI-X
-  The PCI interrupt mechanism. A device signals an IRQ eventfd to the host, which
+  The PCI interrupt mechanism. A device signals an IRQ eventfd to the vHost, which
   then injects the interrupt into the guest.
 
 DMA mapping
@@ -102,7 +97,7 @@ SDMA
 
 IH
   Interrupt Handler. A device writes interrupt records into shared memory, updates
-  the write pointer, and then signals the host through an IRQ eventfd.
+  the write pointer, and then signals the vHost through an IRQ eventfd.
 
 gfx942
   The GPU architecture identifier of the MI300X. ``rocminfo`` reports the agent
@@ -117,14 +112,9 @@ gem5
   vfio-user.
 
 QEMU
-  The functional simulation and virtualization component. As a host it runs the
+  The functional simulation and virtualization component. As a vHost it runs the
   guest Linux; as a device model it provides PCI devices through ``x-remote``
   and ``x-vfio-user-server``.
-
-m5
-  The gem5 guest utility for pseudo instructions such as readfile injection and
-  simulation exit; the standalone full-system flow uses it to load the driver
-  automatically and end the test.
 
 StubWorkload
   The workload used by the co-simulation gem5 configuration so the device model
@@ -141,7 +131,7 @@ XGMI
   process.
 
 Cluster
-  A topology combination of several machines. Samples under ``samples/clusters/``
+  A topology combination of several machines. Samples under ``resources/clusters/``
   expand machine counts through ``count``; a cluster is a topology combination,
   not a single machine in the machine catalog.
 

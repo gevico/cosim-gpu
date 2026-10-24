@@ -14,6 +14,7 @@
    :maxdepth: 1
 
    workflow
+   add_vhost_recipe
    patch_check
    maintainers
    ci
@@ -24,6 +25,7 @@
 --------
 
 - 第一次提交：先读 :doc:`workflow`，再读 :doc:`patch_check`
+- 新增客户机发行版或镜像变体：阅读 :doc:`add_vhost_recipe`
 - 修改 Rust 代码：补充阅读 :doc:`rust_guidelines`
 - 修改文档页面：阅读 :doc:`documentation`，并运行 ``just docs-check``
 - 需要知道由谁审查：查看 :doc:`maintainers`

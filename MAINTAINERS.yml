@@ -92,15 +92,13 @@
   status: maintained
   maintainers:
     - zevorn
-  files:
-    - scripts/host/run_mi300x_fs.sh
   files-regex:
     - ^third_party/gem5$
   labels:
     - "area: gem5 GPU backend"
   description: >-
     gem5 MI300X GPU model used as the accelerator backend behind the QEMU
-    vfio-user device and the standalone gem5 full-system flow.
+    vfio-user device.
 
 "Accelerator Backend: SST Multi-node":
   status: maintained
@@ -140,8 +138,8 @@ Build System and CI:
     - scripts/host/dev.sh
     - scripts/host/Dockerfile.dev
     - scripts/ci/runtime_artifact.py
+    - scripts/ci/test_runtime_artifact.py
     - scripts/ci/verify_runtime_artifact.py
-    - scripts/ci/verify_legacy_image.py
     - scripts/ci/image_artifact.py
     - scripts/ci/verify_image_artifact.py
     - scripts/ci/prepare_image_host.sh
@@ -189,12 +187,13 @@ GPU Applications and Firmware Inputs:
   maintainers:
     - zevorn
   files-regex:
+    - ^samples/
     - ^third_party/gem5-resources$
   labels:
     - "area: tests"
   description: >-
-    GPU application programs, workload sources and vHost firmware inputs
-    provided by gem5-resources for regressions and standalone gem5 examples.
+    Example programs for the vHost, along with GPU workloads and firmware
+    inputs provided by gem5-resources for co-simulation regressions.
 
 vHost Tests:
   status: maintained
@@ -205,7 +204,7 @@ vHost Tests:
     - scripts/ci/guest_console.py
     - scripts/ci/ci_lifecycle.py
     - scripts/ci/run_rocm.py
-    - resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/files/cosim_rocm_regression.sh
+    - resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/files/cosim_rocm_regression.sh
     - scripts/ci/test_guest_console.py
     - scripts/ci/test_ci_lifecycle.py
     - scripts/ci/test_image_process.py
@@ -258,9 +257,12 @@ Topology and Runtime:
     - Cargo.toml
     - Cargo.lock
     - crates/
-    - samples/
+    - resources/vhosts/
+    - resources/devices/
+    - resources/machines/
+    - resources/clusters/
   labels:
     - "area: QEMU frontend"
   description: >-
     YAML topology loading and validation, session planning, Rust process
-    supervision and the sample configurations.
+    supervision and reusable vHost, device, machine and cluster configurations.

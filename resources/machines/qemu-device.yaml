@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# A paused x86_64 vHost connected to QEMU's edu device through vfio-user.
+version: 1
+imports:
+  - vhosts/qemu.yaml
+  - vhosts/vhost-x86-tcg.yaml
+  - devices/pci/qemu-edu.yaml
+machines:
+  - id: m0
+    vhost:
+      use: vhost-x86-tcg
+      runtime: {binary: build/qemu/qemu-system-x86_64}
+    devices:
+      - {use: qemu-edu}

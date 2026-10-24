@@ -11,7 +11,7 @@ A multi-machine topology is a document whose ``machines`` list holds several mac
 Multi-machine semantics
 -----------------------
 
-- Each machine selects its own host template, device list and pool size; the same payload applies to every machine.
+- Each machine independently selects its vHost, image, device list and pool size.
 - Machines do not wait for each other: a host exiting with status 0 ends only its own machine, and the other machines keep running.
 - There is no NIC, switch, XGMI or cross-machine DMA model between machines; multi-node network data models live in the separate SST experiments, see :ref:`appendix-sst-and-placement`.
 - ``placement.agent`` is parsed and stored, but ``cosim run`` rejects remote placement before creating any resource.
@@ -22,7 +22,7 @@ count expansion
 - ``count`` expands ``id: m, count: 4`` into ``m0`` to ``m3``; a topology holds at most 4096 machines.
 - Devices accept ``count`` as well; machine and device identifier rules are in :doc:`write_topology`.
 - Cluster files import machine files only; imported documents contribute templates, and only the top-level document contributes runnable machines.
-- The samples under ``samples/clusters/`` reuse machine definitions by importing templates from ``samples/machines/``.
+- The samples under ``resources/clusters/`` reuse machine definitions by importing templates from ``resources/machines/``.
 
 Cluster samples
 ---------------
@@ -44,11 +44,11 @@ Cluster samples
      - Declares ``placement.agent``; ``cosim run`` rejects remote placement
    * - ``tcg-pair.yaml``
      - 2 (``m0``, ``m1``)
-     - ``host-x86-tcg`` each, no devices, 64 MiB pool
+     - ``vhost-x86-tcg`` each, no devices, 64 MiB pool
      - Paused TCG hosts for multi-machine session lifecycle
    * - ``tcg-pair-aarch64.yaml``
      - 2 (``m0``, ``m1``)
-     - ``host-arm-tcg`` each, no devices, 64 MiB pool
+     - ``vhost-arm-tcg`` each, no devices, 64 MiB pool
      - Same topology on AArch64
 
 Per-machine resource routing
@@ -71,7 +71,7 @@ Per-machine resource routing
      - ``<run>/<machine>/<device>.sock``
    * - Disk overlay
      - One per machine
-     - Created in the session directory from the payload disk declarations
+     - Created in the session directory from the vHost disk declarations
    * - Disk locks
      - Shared by the host
      - ``COSIM_DISK_LOCK_DIR``, default ``~/.cache/cosim-gpu/disk-locks``
@@ -82,10 +82,10 @@ Running multiple machines
 .. code-block:: bash
 
    # Inspect the structure without starting processes
-   just run-cli graph samples/clusters/cluster-4x8.yaml
-   just run-cli validate samples/clusters/cluster-4x8.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-cli graph resources/clusters/cluster-4x8.yaml
+   just run-cli validate resources/clusters/cluster-4x8.yaml
    # Start a multi-machine session
-   just run-topology samples/clusters/tcg-pair.yaml --run-for 5
+   just run-topology resources/clusters/tcg-pair.yaml --run-for 5
 
 - ``cosim graph`` renders each machine as a Mermaid subgraph and draws the vfio-user edges between hosts and devices.
 - Estimate resources first: ``cluster-4x8`` needs 4 × 96 GiB pools, 4 QEMU hosts and 32 gem5 processes, and the pool directory needs enough space.
@@ -96,7 +96,7 @@ Limitations
 
 - There is no cross-machine fabric, scheduling or peer communication implementation; this page describes "several independent machines in one session".
 - The SST configurations describe network topology data models only and are not a multi-machine capability of this launcher; see :ref:`appendix-sst-and-placement`.
-- One payload applies to all machines, so a multi-machine topology boots identical disk contents (each machine gets its own overlay).
+- Each machine owns its vHost and may select a different image and disks.
 
 Related pages
 -------------

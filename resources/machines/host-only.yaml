@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# Exercises QEMU process, memory and QMP management without a guest image.
+version: 1
+imports: [vhosts/qemu.yaml, vhosts/vhost-x86-tcg.yaml]
+templates:
+  vhost-x86-node:
+    vhost: {use: vhost-x86-tcg}
+machines:
+  - {id: m0, use: vhost-x86-node}

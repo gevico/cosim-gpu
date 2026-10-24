@@ -10,11 +10,16 @@ from runtime_artifact import ROOT
 from resources.images.recipe import load_recipe
 
 
+def recipe_tasks(recipe):
+    playbook = yaml.safe_load(recipe.playbook_file.read_text(encoding="utf-8"))
+    return playbook[0]["tasks"]
+
+
 class GuestBuildTargetTests(unittest.TestCase):
     def test_guest_build_directory_matches_the_makefile_targets(self):
         script = (
             ROOT / "resources/images/recipes/ubuntu/24.04/x86_64/"
-            "rocm7_0/files/cosim_rocm_regression.sh"
+            "rocm/7.0/files/cosim_rocm_regression.sh"
         ).read_text()
         self.assertIn('make -j1 "BUILDDIR=build" "build/$program"', script)
         for program in PROGRAMS:
@@ -32,43 +37,41 @@ class GuestBuildTargetTests(unittest.TestCase):
                     f"make could not resolve build/{program}: {result.stderr}",
                 )
 
-    def test_vhost_scripts_are_image_inputs(self):
+    def test_vhost_scripts_are_recipe_files(self):
         recipe = load_recipe(
-            ROOT, "ubuntu/24.04/x86_64/rocm7_0"
+            ROOT, "ubuntu/24.04/x86_64/rocm/7.0"
         )
-        tasks = yaml.safe_load(
-            recipe.tasks_file.read_text(encoding="utf-8")
-        )
+        tasks = recipe_tasks(recipe)
         install_task = next(
-            task for task in tasks if task["name"] == "Install image inputs"
+            task for task in tasks if task["name"] == "Install recipe files"
         )
         destinations = {
             item["source"]: item["destination"]
             for item in install_task["loop"]
         }
         expected = {
-            "vhost_gpu_setup": "/usr/local/bin/cosim-gpu-setup.sh",
-            "vhost_rocm_regression": VHOST_REGRESSION_SCRIPT,
+            "cosim_gpu_initialize.sh": "/usr/local/bin/cosim-gpu-initialize.sh",
+            "cosim_rocm_regression.sh": VHOST_REGRESSION_SCRIPT,
         }
-        for input_name, destination in expected.items():
-            with self.subTest(input_name=input_name):
-                script = recipe.inputs[input_name]
+        for filename, destination in expected.items():
+            with self.subTest(filename=filename):
+                script = recipe.directory / "files" / filename
                 self.assertTrue(script.is_file())
                 self.assertEqual(script.parent, recipe.directory / "files")
-                source = f"{{{{ cosim_inputs.{input_name} }}}}"
+                source = f"{{{{ playbook_dir }}}}/files/{filename}"
                 self.assertEqual(destinations[source], destination)
 
     def test_serial_console_override_is_installed_for_ttyS0(self):
         recipe = load_recipe(
-            ROOT, "ubuntu/24.04/x86_64/rocm7_0"
+            ROOT, "ubuntu/24.04/x86_64/rocm/7.0"
         )
-        tasks = yaml.safe_load(
-            recipe.tasks_file.read_text(encoding="utf-8")
-        )
+        tasks = recipe_tasks(recipe)
         install_task = next(
-            task for task in tasks if task["name"] == "Install image inputs"
+            task for task in tasks if task["name"] == "Install recipe files"
         )
-        override_input = "{{ cosim_inputs.serial_getty_override }}"
+        override_input = (
+            "{{ playbook_dir }}/files/serial-getty-override.conf"
+        )
         override = next(
             item for item in install_task["loop"]
             if item["source"] == override_input
@@ -78,39 +81,17 @@ class GuestBuildTargetTests(unittest.TestCase):
             override["destination"],
             "/etc/systemd/system/serial-getty@ttyS0.service.d/override.conf",
         )
-        content = recipe.inputs["serial_getty_override"].read_text()
+        content = (
+            recipe.directory / "files/serial-getty-override.conf"
+        ).read_text()
         self.assertIn("ExecStart=\n", content)
         self.assertIn("--autologin root", content)
 
-    def test_amd_bsd_license_is_installed_in_the_guest(self):
-        recipe = load_recipe(
-            ROOT, "ubuntu/24.04/x86_64/rocm7_0"
-        )
-        tasks = yaml.safe_load(
-            recipe.tasks_file.read_text(encoding="utf-8")
-        )
-        install_task = next(
-            task for task in tasks if task["name"] == "Install image inputs"
-        )
-        license_input = "{{ cosim_inputs.amd_bsd_license }}"
-        destinations = {
-            item["source"]: item["destination"]
-            for item in install_task["loop"]
-        }
-
-        self.assertEqual(
-            destinations[license_input],
-            "/usr/share/doc/cosim-gpu-image/LICENSE.BSD-3-Clause",
-        )
-        self.assertTrue(recipe.inputs["amd_bsd_license"].is_file())
-
     def test_amdgpu_dkms_is_pinned_to_the_verified_package(self):
         recipe = load_recipe(
-            ROOT, "ubuntu/24.04/x86_64/rocm7_0"
+            ROOT, "ubuntu/24.04/x86_64/rocm/7.0"
         )
-        tasks = yaml.safe_load(
-            recipe.tasks_file.read_text(encoding="utf-8")
-        )
+        tasks = recipe_tasks(recipe)
         dkms_task = next(
             task for task in tasks
             if task["name"] == "Install and build the AMDGPU DKMS module"
@@ -137,11 +118,9 @@ class GuestBuildTargetTests(unittest.TestCase):
 
     def test_dkms_failure_path_prints_logs_and_fails_the_build(self):
         recipe = load_recipe(
-            ROOT, "ubuntu/24.04/x86_64/rocm7_0"
+            ROOT, "ubuntu/24.04/x86_64/rocm/7.0"
         )
-        tasks = yaml.safe_load(
-            recipe.tasks_file.read_text(encoding="utf-8")
-        )
+        tasks = recipe_tasks(recipe)
         dkms_task = next(
             task for task in tasks
             if task["name"] == "Install and build the AMDGPU DKMS module"

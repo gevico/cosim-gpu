@@ -16,7 +16,7 @@
 ``run-``、``test-``、``check-``、``ci-`` 和 ``maint-``
 前缀分组。
 
-QEMU、gem5、m5、Rust 与拓扑相关任务在 Linux 主机上原生运行；其他系统，或设置了
+QEMU、gem5、Rust 与拓扑相关任务在 Linux 主机上原生运行；其他系统，或设置了
 ``COSIM_ENV=container`` 的 Linux 主机，默认在临时开发容器中运行。环境要求与
 工具版本见 :ref:`gs-requirements`，容器用法见 :ref:`gs-platform-container`。
 

@@ -34,14 +34,14 @@ launcher 在启动进程前计算每台机器的布局：
 客户机物理地址与文件偏移
 ------------------------
 
-host 模板通过 ``memory_map`` 声明客户机物理 RAM 区间。Rust 校验区间顺序、
+vHost 模板通过 ``memory_map`` 声明客户机物理 RAM 区间。Rust 校验区间顺序、
 页边界与总大小，为它们分配连续的文件偏移，再把结果通过
 ``--host-memory-ranges`` 传给 gem5。
 
 .. list-table::
    :header-rows: 1
 
-   * - host profile 与客户机地址区间
+   * - vHost profile 与客户机地址区间
      - 池文件偏移
    * - Q35：``[0, below_4g)``
      - 从 0 开始
@@ -93,5 +93,5 @@ VRAM 访问不走 vfio-user：它由共享文件的 BAR 映射直接完成。vfi
 - :doc:`components`
 - :doc:`vfio_user`
 - :ref:`GPU 地址翻译 <sim-gem5-address-translation>`
-- :ref:`主机配置 <topo-hosts>`
+- :ref:`vHost 配置 <topo-vhosts>`
 - :ref:`产物、路径与源码地图 <ref-files-and-artifacts>`

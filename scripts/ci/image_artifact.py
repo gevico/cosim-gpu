@@ -19,7 +19,7 @@ from scripts.ci.ci_lifecycle import Lifecycle
 
 
 ROOT = Path(__file__).resolve().parents[2]
-ROCM_RECIPE = "ubuntu/24.04/x86_64/rocm7_0"
+ROCM_RECIPE = "ubuntu/24.04/x86_64/rocm/7.0"
 input_key = digest_json
 
 
@@ -99,8 +99,8 @@ def require_key(manifest: dict, key: str) -> None:
 def image_manifest_member(archive: zipfile.ZipFile) -> zipfile.ZipInfo | None:
     for name in (
         "manifest.json",
-        "build/images/ubuntu/24.04/x86_64/rocm7_0/manifest.json",
-        "images/ubuntu/24.04/x86_64/rocm7_0/manifest.json",
+        "build/images/ubuntu/24.04/x86_64/rocm/7.0/manifest.json",
+        "images/ubuntu/24.04/x86_64/rocm/7.0/manifest.json",
     ):
         try:
             return archive.getinfo(name)

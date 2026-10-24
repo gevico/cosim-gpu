@@ -108,7 +108,7 @@ VGA ROM 写入
 内核命令行
 ----------
 
-客户机内核使用以下命令行启动（记录在 payload 的 ``boot.cmdline`` 中）：
+客户机内核使用以下命令行启动（记录在 vHost 的 ``cmdline`` 中）：
 
 .. code-block:: text
 
@@ -219,7 +219,7 @@ IP block mask
 初始化顺序
 ----------
 
-``cosim-gpu-setup.service`` 在客户机启动时执行一次 ``/usr/local/bin/cosim-gpu-setup.sh``，顺序如下：
+``cosim-gpu-initialize.service`` 在客户机启动时执行一次 ``/usr/local/bin/cosim-gpu-initialize.sh``，顺序如下：
 
 .. list-table::
    :header-rows: 1
@@ -239,12 +239,10 @@ IP block mask
    * - 6
      - 检查每个 AMD PCI 设备都有对应 DRM card，否则以非零状态退出
 
-独立 gem5 全系统仿真使用另一份驱动加载脚本 ``/home/gem5/load_amdgpu.sh``，它以 ``ip_block_mask=0x6f`` 手动 ``insmod`` 依赖模块和 ``amdgpu``。该脚本不属于 cosim 路径，不要混用，参见 :ref:`appendix-standalone-gem5`。
-
 校验与来源
 ----------
 
-``tests/test_modprobe_params.sh`` 检查镜像 recipe 中的 ``cosim_gpu_setup.sh``，要求每处 ``modprobe``/``insmod`` 都包含上述六个参数：
+``tests/test_modprobe_params.sh`` 检查镜像 recipe 中的 ``cosim_gpu_initialize.sh``，要求每处 ``modprobe``/``insmod`` 都包含上述六个参数：
 
 .. code-block:: bash
 
@@ -252,11 +250,11 @@ IP block mask
 
 参数定义来源：
 
-- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/files/cosim_gpu_setup.sh``：客户机初始化脚本与默认参数。
+- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/files/cosim_gpu_initialize.sh``：客户机初始化脚本与默认参数。
 
-- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/files/cosim-gpu-setup.service``：开机执行单元。
+- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/files/cosim-gpu-initialize.service``：开机执行单元。
 
-- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/provision.yml``：ROM、discovery 固件与 DKMS 模块的安装位置。
+- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/provision.yml``：ROM、discovery 固件与 DKMS 模块的安装位置。
 
 - ``tests/test_modprobe_params.sh``：参数集合的回归检查。
 
@@ -265,7 +263,7 @@ IP block mask
 相关页面
 --------
 
-- 拓扑与 payload 字段：:doc:`topology_schema`
+- 拓扑与 vHost 字段：:doc:`topology_schema`
 
 - 相关故障的处理：:doc:`known_issues`
 
@@ -274,5 +272,3 @@ IP block mask
 - 客户机驱动要求：:ref:`sim-guest-driver`
 
 - GPU 地址翻译：:ref:`sim-gem5-address-translation`
-
-- 独立 gem5 全系统仿真：:ref:`appendix-standalone-gem5`

@@ -59,5 +59,4 @@ cosim-gpu 用 QEMU 运行真实 Linux 客户机，用 gem5 对 AMD MI300X GPU �
    reference/index
    contributing/index
    glossary
-   appendix/standalone_gem5
    appendix/sst_and_placement

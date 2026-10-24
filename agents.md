@@ -25,7 +25,7 @@ Add reusable workflows under `.agents/skills/` instead, then update this mapping
 
 All build, launch, test and check tasks are recipes in the top-level `justfile`
 (`just --list`). Use the recipes instead of calling the scripts directly.
-The QEMU, gem5, m5, Rust and topology recipes run on the Host OS, or in a
+The QEMU, gem5, Rust and topology recipes run on the Host OS, or in a
 temporary development container when `COSIM_ENV=container` (the default
 outside Linux); `just dev-image` builds its image.
 
@@ -39,7 +39,6 @@ Individual steps when needed:
 just dev-image
 just build-qemu
 just build-gem5
-just build-m5
 just build-disk
 ```
 
@@ -48,13 +47,13 @@ Use `just build-gem5 1` for gem5 linking if the Host is OOM-killed.
 ## Launch
 
 ```bash
-just run-topology samples/machines/single-gpu.yaml
+just run-topology resources/machines/single-gpu.yaml
 just run-launch
 just run-launch --gem5-debug MI300XCosim
 just test-gpu --all
 ```
 
-After vHost boot, `cosim-gpu-setup.service` copies the ROM and loads `amdgpu`.
+After vHost boot, `cosim-gpu-initialize.service` copies the ROM and loads `amdgpu`.
 Manual recovery:
 
 ```bash

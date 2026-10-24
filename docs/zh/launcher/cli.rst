@@ -10,7 +10,7 @@
 全局选项
 ---------
 
-``--samples``\ 是唯一的全局选项，默认 ``samples/``\ ，用于解析没有相对导入文件定位的导入路径。资源路径相对工作区根目录解析，不含 ``/``\ 的可执行文件名在生成计划时从 ``PATH``\ 查找。
+``--resources``\ 是唯一的全局选项，默认 ``resources/``\ ，用于解析没有相对导入文件定位的导入路径。资源路径相对工作区根目录解析，不含 ``/``\ 的可执行文件名在生成计划时从 ``PATH``\ 查找。
 
 子命令
 -------
@@ -22,19 +22,16 @@
      - 主要参数
      - 输出与作用
    * - ``validate``
-     - 拓扑、``--payload``、``--assets``
+     - 拓扑、``--assets``
      - 校验文档、标识符和内存布局；``--assets``\ 额外检查本地输入文件。成功时打印机器数和设备数。
-   * - ``plan``
-     - 拓扑、``--payload``、``--run-dir``、``--pool-dir``
-     - 以 JSON 打印进程、参数、就绪探测和内存布局的计划，不启动进程。
    * - ``graph``
      - 拓扑
      - 以 Mermaid flowchart 打印机器与设备的连接。
    * - ``schema``
-     - ``--payload``
-     - 打印拓扑文档或 payload 文档的 JSON Schema。
+     - 无
+     - 打印拓扑文档的 JSON Schema。
    * - ``run``
-     - 拓扑、``--payload``、目录选项和运行选项
+     - 拓扑、目录选项和运行选项
      - 启动并监督会话，输出事件行和最终 verdict。
    * - ``clean``
      - 运行目录
@@ -49,12 +46,12 @@ run 选项
    * - 选项
      - 默认值
      - 说明
-   * - ``--payload``
-     - 无
-     - 独立的客户机启动与存储输入文档，应用于拓扑中的每台机器。
+   * - ``--dry-run``
+     - 关闭
+     - 解析镜像配方并打印启动计划，不构建镜像也不启动进程。
    * - ``--run-dir``
      - ``.cosim/<12 位随机名>``
-     - 新会话目录；``plan``\ 使用 ``.cosim/plan``\ 。
+     - 新会话目录；dry-run 默认使用 ``.cosim/dry-run``\ 。
    * - ``--pool-dir``
      - Linux 上为 ``/dev/shm/cosim-<name>-<hash>``\ ，其他系统为 ``<run-dir>/memory``
      - 共享内存池目录。
@@ -79,15 +76,15 @@ run 选项
    # 构建启动器（首次需要）
    just build-cosim
    # 只校验文档、标识符和本地输入文件
-   just run-cli validate samples/machines/gpu-8.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --assets
+   just run-cli validate resources/machines/gpu-8.yaml  --assets
    # 查看解析后的执行计划
-   just run-cli plan samples/machines/mixed-models.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-topology resources/machines/mixed-models.yaml --dry-run
    # 查看机器与设备的连接
-   just run-cli graph samples/clusters/cluster-4x8.yaml
+   just run-cli graph resources/clusters/cluster-4x8.yaml
    # 打印拓扑文档的 JSON Schema
    just run-cli schema
    # 运行并监督一个会话
-   just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-topology resources/machines/single-gpu.yaml
    # 回收异常退出留下的会话资源
    just run-cli clean .cosim/<name>
 
@@ -111,7 +108,7 @@ run 选项
 - 命令与选项定义：``crates/cosim-cli/src/main.rs``\ 。
 - ``Verdict``\ 与 ``Status``\ ：``crates/cosim-runtime/src/session.rs``\ 。
 - 计划的结构：``crates/cosim-runtime/src/plan.rs``\ 。
-- 示例拓扑与 payload：``samples/machines/``\ 、``samples/payloads/ubuntu-rocm7_0.yaml``\ 。
+- 示例拓扑与 vHost：``resources/machines/``\ 、``resources/vhosts/qemu.yaml``\ 。
 
 相关页面
 ---------

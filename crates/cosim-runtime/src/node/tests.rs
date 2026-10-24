@@ -73,9 +73,9 @@ fn observe_exit(pid: Pid) -> WaitStatus {
 #[tokio::test(flavor = "current_thread")]
 async fn completed_exits_take_precedence_over_simultaneous_stop_requests() {
     for (role, code, released) in [
-        (NodeRole::Host, 17, false),
+        (NodeRole::Vhost, 17, false),
         (NodeRole::Device, 0, true),
-        (NodeRole::Host, 0, false),
+        (NodeRole::Vhost, 0, false),
     ] {
         let directory = directory();
         let release = directory.path().join("exit");
@@ -128,7 +128,7 @@ async fn completed_exits_take_precedence_over_simultaneous_stop_requests() {
         };
         let end = running.supervise(&context).await;
         assert!(end.stopped);
-        assert_eq!(end.result.is_ok(), role == NodeRole::Host && code == 0);
+        assert_eq!(end.result.is_ok(), role == NodeRole::Vhost && code == 0);
         assert!(matches!(observed.try_recv().unwrap(), Event::Exited { .. }));
     }
 }

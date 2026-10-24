@@ -1,24 +1,25 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 
-.. _topo-hosts:
+.. _topo-vhosts:
 
-Host profiles
-=============
+vHost profiles
+==============
 
-Every machine has one QEMU host process. The host template renders YAML fields into a QEMU command line, binds the memory pool, and exposes QMP and the serial console. This page covers the host's place in the topology, its fields, the four profiles shipped in the repository, and the QEMU command contract, memory map and serial readiness. The complete field table is in :ref:`ref-topology-schema` and the adapter lives in ``crates/cosim-topology/src/adapter/mod.rs``.
+Every machine has one QEMU vHost process. Its template renders YAML fields
+into a QEMU command line, binds the memory pool, and exposes QMP and serial.
 
 Role in a topology
 ------------------
 
-- A machine has exactly one host; the host kind must be a host kind with ``model: qemu``, and the repository ships only ``qemu-host``.
-- ``samples/hosts/qemu.yaml`` declares ``qemu-host``: the command template renders with MiniJinja, binds the memory pool, exposes QMP and the serial console, gives every device its own PCIe root port at slots ``0x10`` to ``0x17`` (eight functions), and lets QEMU place disks in the remaining slots.
+- A machine has exactly one vHost; its kind must use ``model: qemu``, and the repository ships only ``qemu-vhost``.
+- ``resources/vhosts/qemu.yaml`` declares ``qemu-vhost``: the command template renders with MiniJinja, binds the memory pool, exposes QMP and the serial console, gives every device its own PCIe root port at slots ``0x10`` to ``0x17`` (eight functions), and lets QEMU place disks in the remaining slots.
 - The kind declares ``max_devices: 64``; a machine may not exceed that number of devices.
-- The host starts only after every local device is ready and has handed over its lease; devices stop after the host has shut down.
-- Every host program must stay in the foreground, keep its resource users in its process group and keep inherited file descriptors open; QEMU ``-daemonize`` is rejected.
+- The vHost starts only after every local device is ready and has handed over its lease; devices stop after the vHost has shut down.
+- Every vHost program must stay in the foreground, keep its resource users in its process group and keep inherited file descriptors open; QEMU ``-daemonize`` is rejected.
 
-Host fields
------------
+vHost fields
+------------
 
 .. list-table::
    :header-rows: 1
@@ -30,7 +31,7 @@ Host fields
    * - ``kind``
      - string
      - none
-     - Must resolve to a host kind with ``model: qemu``
+     - Must resolve to a vHost kind with ``model: qemu``
    * - ``runtime.binary``
      - path or name
      - none
@@ -87,72 +88,76 @@ Host fields
 Shipped profiles
 ----------------
 
-The four profiles are defined under ``samples/hosts/`` and selected by a machine through ``use``.
+The four profiles are defined under ``resources/vhosts/`` and selected by a machine through ``use``.
 
-.. _topo-host-x86:
+.. _topo-vhost-x86:
 
-host-x86
-~~~~~~~~
+vhost-x86
+~~~~~~~~~
 
 - ``q35``, ``kvm``, ``host`` CPU, 8 GiB RAM, 4 vCPU; binary ``build/qemu/qemu-system-x86_64``.
 - ``memory_map`` describes the x86_64 PCI hole: when RAM is at least 2.75 GiB, 2 GiB stay below 4 GiB and the rest goes above 4 GiB.
-- The x86_64 KVM guest boards use this profile by default.
+- The x86_64 KVM vHosts use this profile by default.
 
-.. _topo-host-arm:
+.. _topo-vhost-arm:
 
-host-arm
-~~~~~~~~
+vhost-arm
+~~~~~~~~~
 
 - ``virt,gic-version=3``, ``kvm``, ``host`` CPU, 8 GiB RAM, 4 vCPU; binary ``build/qemu/qemu-system-aarch64``.
 - ``memory_map`` places RAM at 1 GiB.
-- No sample uses this KVM profile directly; it is only the base template of ``host-arm-tcg``.
+- No sample uses this KVM profile directly; it is only the base template of ``vhost-arm-tcg``.
 
-.. _topo-host-x86-tcg:
+.. _topo-vhost-x86-tcg:
 
-host-x86-tcg
-~~~~~~~~~~~~
+vhost-x86-tcg
+~~~~~~~~~~~~~
 
-- Inherits ``host-x86`` and overrides it with ``tcg``, ``qemu64``, 64 MiB RAM and 1 vCPU.
+- Inherits ``vhost-x86`` and overrides it with ``tcg``, ``qemu64``, 64 MiB RAM and 1 vCPU.
 - The binary is the bare name ``qemu-system-x86_64``, looked up in ``PATH`` during planning.
-- ``args`` is ``[-S, -nodefaults]``, so the host stays paused; used for guest-less session tests.
+- ``args`` is ``[-S, -nodefaults]``, so the vHost stays paused; used for sessions that do not boot an OS.
 
-.. _topo-host-arm-tcg:
+.. _topo-vhost-arm-tcg:
 
-host-arm-tcg
-~~~~~~~~~~~~
+vhost-arm-tcg
+~~~~~~~~~~~~~
 
-- Inherits ``host-arm`` and overrides it with ``tcg``, ``cortex-a72``, 64 MiB RAM and 1 vCPU.
+- Inherits ``vhost-arm`` and overrides it with ``tcg``, ``cortex-a72``, 64 MiB RAM and 1 vCPU.
 - The binary is the bare name ``qemu-system-aarch64``; ``args`` is ``[-S, -nodefaults]``.
 - The AArch64 samples and architecture-dependent session tests use this profile.
 
 QEMU command contract
 ---------------------
 
-The host kind renders QEMU arguments from a command template whose context includes ``host``, ``machine``, ``pool``, ``ram``, ``guest_ranges``, ``boot``, ``disks``, ``devices``, ``qmp``, ``serial``, ``serial_log``, ``cmdline``, ``run_dir`` and ``node_dir``. The main pieces rendered by ``samples/hosts/qemu.yaml``:
+The vHost kind renders QEMU arguments from a command template whose context
+includes ``vhost``, ``machine``, ``pool``, ``ram``, ``guest_ranges``,
+``boot``, ``disks``, ``devices``, ``qmp``, ``serial``, ``serial_log``,
+``cmdline``, ``run_dir`` and ``node_dir``.
 
 - ``-machine <machine>,memory-backend=ram``, ``-accel``, ``-m`` and ``-smp``;
 - ``memory-backend-file`` (``share=on``, offset at the guest RAM offset) binding the pool;
 - a QMP Unix socket; a serial chardev with a logfile;
-- optional ``-cpu``, ``-display``, ``-monitor`` and ``-append``; ``-kernel`` and ``-initrd`` when the payload has ``boot.kernel``; ``-no-reboot`` when ``no_reboot`` is set;
+- optional ``-cpu``, ``-display``, ``-monitor`` and ``-append``; ``-kernel`` and ``-initrd`` when the vHost has ``kernel``; ``-no-reboot`` when ``no_reboot`` is set;
 - one ``pcie-root-port`` and one ``vfio-user-pci`` client per device (with ``romfile`` when ``pci.rom`` is set);
 - ``virtio-scsi-pci`` when a SCSI disk exists; disks first become ``-blockdev`` file and format nodes, then map to ``virtio-blk-pci``, ``nvme``, ``scsi-hd`` or ``ide-hd`` by ``bus``, with ``bootindex=1`` on the boot disk;
-- ``host.args`` appended last.
+- ``vhost.args`` appended last.
 
 Readiness probes run in order: the serial socket exists, QMP negotiation succeeds, and the optional ``serial.wait_for`` log marker appears. Undefined template values are errors rather than empty strings.
 
 Memory map
 ----------
 
-- ``memory_map`` is a MiniJinja template that receives ``host`` and ``ram.size`` and renders 1 to 64 ordered, non-overlapping ``{start, size}`` ranges that cover ``memory`` exactly.
+- ``memory_map`` is a MiniJinja template that receives ``vhost`` and
+  ``ram.size`` and renders 1 to 64 ordered, non-overlapping ranges.
 - A machine with a gem5 MI300X device must provide ``memory_map``; machines with QEMU devices only do not need it.
 - QEMU maps guest RAM through ``memory-backend-file``; gem5 receives ``--host-memory-ranges`` and ``--shared-pool`` and maps the same pool file. The address space is described in :ref:`arch-memory-model`.
 
 Serial and readiness deadline
 -----------------------------
 
-- ``serial.wait_for`` adds a serial readiness marker; ``serial.timeout`` limits that marker in seconds, measured from host start, and requires ``wait_for``.
+- ``serial.wait_for`` adds a serial readiness marker; ``serial.timeout`` limits that marker in seconds, measured from vHost start, and requires ``wait_for``.
 - Without ``serial.timeout`` the session ``--ready-timeout`` applies (default 120 seconds).
-- A host exiting with status 0 ends its machine; any other exit, a failed probe or cancellation ends the whole session.
+- A vHost exiting with status 0 ends its machine; any other exit, a failed probe or cancellation ends the whole session.
 
 Related pages
 -------------
@@ -163,4 +168,4 @@ Related pages
 - Reference: :ref:`ref-topology-schema`
 - Chapter 4: :ref:`sim-qemu-vhost`
 - Lifecycle: :ref:`launcher-session-lifecycle`
-- Sources: ``samples/hosts/qemu.yaml``, ``samples/hosts/host-x86-tcg.yaml``, ``samples/hosts/host-arm-tcg.yaml``
+- Sources: ``resources/vhosts/qemu.yaml``, ``resources/vhosts/vhost-x86-tcg.yaml``, ``resources/vhosts/vhost-arm-tcg.yaml``

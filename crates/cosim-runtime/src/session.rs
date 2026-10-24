@@ -465,13 +465,13 @@ impl Session {
     }
 
     /// Lock descriptors each process keeps, in plan order: the session lock,
-    /// and for a host also the image leases of its machine.
+    /// and for a vHost also the image leases of its machine.
     fn inherited(&self, plan: &Plan) -> Vec<Vec<BorrowedFd<'_>>> {
         plan.processes
             .iter()
             .map(|process| {
                 let mut descriptors = vec![self.lock.as_fd()];
-                if process.role == NodeRole::Host
+                if process.role == NodeRole::Vhost
                     && let Some(machine) = self.machines.get(process.machine)
                 {
                     descriptors.extend(machine.disks.leases());

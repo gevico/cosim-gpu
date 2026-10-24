@@ -26,14 +26,14 @@ Image contents
    * - GPU data
      - MI300X VBIOS ROM and IP discovery firmware
    * - Initialization
-     - ``cosim-gpu-setup.service`` writes the ROM and loads amdgpu at boot
+     - ``cosim-gpu-initialize.service`` writes the ROM and loads amdgpu at boot
    * - Login
      - Root serial autologin for scripts and interactive use
-   * - Matching payload
-     - ``samples/payloads/ubuntu-rocm7_0.yaml`` declares kernel, root disk and cmdline
+   * - Matching vHost
+     - ``resources/vhosts/qemu.yaml`` declares kernel, root disk and cmdline
 
 The image recipe and Ansible playbook are maintained in this repository at
-``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/``;
+``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/``;
 ``recipe.toml`` records the Ubuntu and kernel versions, the Packer template
 and the exported artifacts.
 
@@ -42,7 +42,6 @@ Reuse a prebuilt image
 
 .. code-block:: bash
 
-   just build-m5          # build the m5 utility used inside the guest
    just build-disk        # build kernel and disk, install the local copies
 
 ``just build-disk`` creates raw artifacts under ``build/rocm-local`` and
@@ -61,7 +60,7 @@ installs the copies used by the standard samples here:
      - ``build/rocm-local-installed/kernel``
      - 64 MB
 
-``samples/payloads/ubuntu-rocm7_0.yaml`` points at these paths and uses
+``resources/vhosts/qemu.yaml`` points at these paths and uses
 ``modprobe.blacklist=amdgpu`` so the setup service loads the driver in the
 right order.
 
@@ -76,7 +75,7 @@ A rebuild needs:
 - at least 60 GiB free for construction and compression, plus memory for an
   8 GiB build virtual machine;
 - QEMU, ``qemu-img``, Ansible, ``python3-tomli``, curl, unzip, Perl
-  ``shasum``, binutils, SCons and a C++ compiler;
+  ``shasum`` and binutils;
 - network access to Canonical, AMD, HashiCorp and PyTorch package servers.
 
 .. code-block:: bash
@@ -137,8 +136,7 @@ Verify and reuse
 .. warning::
 
    The shipped image targets x86_64 only; AArch64 machines have no bootable
-   guest image. One payload applies to every machine in a topology, and the
-   schema has no per-machine payload or disk mapping.
+   guest image. Each machine independently selects its image in ``vhost``.
 
 Related pages
 -------------
@@ -146,5 +144,5 @@ Related pages
 - :doc:`install`
 - :doc:`first_session`
 - :doc:`verify_guest`
-- :ref:`Payload and guest image <topo-payloads>`
+- :ref:`ref-vhost-image-recipe`
 - :ref:`CI and regressions <contrib-ci>`

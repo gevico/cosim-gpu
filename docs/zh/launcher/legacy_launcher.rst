@@ -27,7 +27,7 @@
      - Rust launcher
      - 遗留 shell launcher
    * - 输入
-     - YAML 拓扑与 payload 文档
+     - YAML 拓扑与 vHost 文档
      - 命令行参数加固定的构建产物路径
    * - 设备模型
      - 适配器选择，每进程一个 GPU
@@ -49,7 +49,7 @@
 2. 生成 run id，并据此命名 socket、``/dev/shm``\ 共享内存、screen 会话和日志。
 3. 启动 gem5 容器，等待 vfio-user socket 就绪。
 4. 在宿主机启动 QEMU，加载内核与磁盘，并把 GPU 作为 vfio-user 客户端连接。
-5. 在 screen 会话中观察客户机串口；``cosim-gpu-setup.service``\ 在客户机内完成 ROM 写入与驱动加载。
+5. 在 screen 会话中观察客户机串口；``cosim-gpu-initialize.service``\ 在客户机内完成 ROM 写入与驱动加载。
 6. 结束运行并清理容器、socket、共享内存和 screen 会话；异常残留可以用 ``just run-preflight``\ 列出、用 ``just run-clean-orphans``\ 删除。
 
 常用命令
@@ -73,7 +73,6 @@
 ---------
 
 - 脚本的参数表以 :ref:`ref-legacy-launcher` 为准，本页不重复维护默认值和逐项说明。
-- 独立 gem5 全系统仿真使用 ``just run-gem5-fs``\ 与 ``just run-gem5-fs-legacy``\ ，见 :ref:`appendix-standalone-gem5`\ 。
 - 新的拓扑、设备和自动化测试应使用 Rust launcher；本脚本只做兼容性维护。
 - ``mi300_cosim.py``\ 的选项（``--num-gpus``\ 、``--xgmi-topology``\ 、``--shmem-path``\ 等）属于 gem5 配置，不是 YAML 适配器契约。
 
@@ -91,4 +90,3 @@
 - :doc:`index`\ ：Rust launcher 的总体介绍。
 - :doc:`cli`\ ：Rust launcher 的命令与选项。
 - :ref:`ref-legacy-launcher`\ ：遗留脚本参数的唯一事实源。
-- :ref:`appendix-standalone-gem5`\ ：独立 gem5 全系统仿真。

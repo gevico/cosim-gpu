@@ -72,7 +72,15 @@ def build_key() -> str:
         "workflow_defaults": workflow.get("defaults", {}),
         "recipes": {name: recipes["recipes"][name]
                     for name in ("build-gem5", "dev-image")},
-        "assignments": recipes["assignments"], "settings": recipes["settings"],
+        "assignments": {
+            name: recipes["assignments"][name]
+            for name in (
+                "host_arch_input", "host_arch", "container_platform",
+                "gem5_build_dir", "dev", "dev_image", "build_jobs",
+                "COSIM_ENV", "COSIM_DEV_IMAGE", "COSIM_DEV_PLATFORM",
+            )
+        },
+        "settings": recipes["settings"],
         "files": {name: sha256(ROOT / name) for name in (
             "scripts/host/build.sh", "scripts/host/dev.sh",
             "scripts/host/Dockerfile.dev",

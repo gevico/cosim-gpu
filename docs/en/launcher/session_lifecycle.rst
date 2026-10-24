@@ -70,7 +70,7 @@ Disks, Overlays and Locks
 --------------------------
 
 - ``readonly: true`` opens the source image read-only. ``readonly: false`` requires ``shared: false`` and writes ``path`` directly.
-- When a disk declares ``backing`` or the payload sets ``snapshot: true``, the session writes a per-machine qcow2 overlay in its directory instead.
+- When a disk declares ``backing`` or the vHost sets ``snapshot: true``, the session writes a per-machine qcow2 overlay in its directory instead.
 - A disk without ``readonly`` also gets a per-machine qcow2 overlay. ``shared: true`` requires ``readonly: true``.
 - ``create: true`` with ``size`` creates a missing image with ``qemu-img``: the image is formatted under a temporary name and published with a link that never replaces an image created concurrently.
 - The disk lock directory is selected by ``COSIM_DISK_LOCK_DIR``, default ``~/.cache/cosim-gpu/disk-locks``. Lock files outlive sessions, so the lock directory must be outside the pool directory.
@@ -99,7 +99,7 @@ Cleanup and Session Records
      - Name, offset and size of every memory region of one machine.
    * - ``<machine>/<node>/output.log``
      - Combined standard output and standard error of one process.
-   * - ``<machine>/host/serial.log``
+   * - ``<machine>/vhost/serial.log``
      - Serial console log of the host QEMU process.
    * - ``verdict.json``
      - The final result, also printed by the ``[COSIM_VERDICT]`` line.

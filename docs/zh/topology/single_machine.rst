@@ -22,16 +22,13 @@
      - ``machines`` 列表中的一项，带 ``id``
    * - 主机
      - 运行客户机的 QEMU；绑定内存池，提供 QMP、串口与 PCIe 根端口
-     - ``host.use`` 选择主机模板，可覆盖 ``memory``\ 、``cpus`` 等字段
+     - ``vhost.use`` 选择 vHost 模板，可覆盖镜像、启动、``memory``\ 、``cpus`` 等字段
    * - 设备
      - 通过 vfio-user 导出给主机的 PCI 设备
      - ``devices`` 列表中的 ``use`` 或 ``kind``\ ，以及 ``count``
    * - 内存池
      - 每台机器一个文件：客户机 RAM 加各设备内存区域
      - 由主机 ``memory`` 与设备 ``memory_regions`` 推导，不单独声明
-   * - Payload
-     - 客户机内核、命令行与磁盘
-     - 不在拓扑中；校验或运行时用 ``--payload`` 选择
 
 .. mermaid::
 
@@ -96,22 +93,22 @@
 
    version: 1
    imports:
-     - hosts/qemu.yaml
+     - vhosts/qemu.yaml
      - devices/gpu/mi300x.yaml
    machines:
      - id: m0
-       host: {use: host-x86}
+       vhost: {use: vhost-x86}
        devices:
          - {use: mi300x}
 
-``samples/machines/single-gpu.yaml`` 用模板复用同样的组合；完整的编写规则见 :doc:`write_topology`\ 。
+``resources/machines/single-gpu.yaml`` 用模板复用同样的组合；完整的编写规则见 :doc:`write_topology`\ 。
 
 源码与证据
 ----------
 
-- 样例：``samples/machines/`` 下的全部机器文件。
+- 样例：``resources/machines/`` 下的全部机器文件。
 - 实现：``crates/cosim-topology/src/layout.rs``\ （内存池布局）、``crates/cosim-runtime/src/layout.rs``\ （会话路径）。
-- 命令：``cosim validate``\ 、``cosim plan``\ 、``cosim graph``\ 。
+- 命令：``cosim validate``\ 、``cosim run --dry-run``\ 、``cosim graph``\ 。
 
 相关页面
 --------

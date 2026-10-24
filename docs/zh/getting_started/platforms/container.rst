@@ -66,8 +66,8 @@ dev.sh 的行为
 
    just dev-shell                                  # 打开一次性的交互 shell
    COSIM_ENV=container just build-cosim            # 在容器中构建 launcher
-   just run-cli plan samples/machines/single-gpu.yaml
-   just run-topology samples/machines/host-only.yaml --run-for 1
+   just run-topology resources/machines/single-gpu.yaml --dry-run
+   just run-topology resources/machines/host-only.yaml --run-for 1
 
 ``just run-topology`` 与 ``just run-cli`` 本身也走 ``dev.sh``；设置
 ``COSIM_ENV=container`` 后 ``cosim run`` 在容器内执行。host-only 与 TCG

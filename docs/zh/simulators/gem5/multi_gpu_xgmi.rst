@@ -24,7 +24,7 @@
      - 每个 GPU 有自己的 ``AMDGPUDevice``\ 、Shader 和 vfio-user 桥；所有 GPU 共享一个 Ruby 缓存层次；使用 ``/dev/shm/mi300x-vram-{i}``\ 形式的共享内存，而不是 pool 文件。
 
 - ``--shared-pool``\ 与多 GPU 互斥：传了 ``--shared-pool``\ 时 ``--num-gpus``\ 必须为 1。
-- YAML 中想在一台机器上使用多个 GPU，应声明多个设备（例如 ``count: 8``\ ），launcher 会为每个 GPU 启动一个进程；``samples/machines/gpu-8.yaml``\ 就是这种机器。
+- YAML 中想在一台机器上使用多个 GPU，应声明多个设备（例如 ``count: 8``\ ），launcher 会为每个 GPU 启动一个进程；``resources/machines/gpu-8.yaml``\ 就是这种机器。
 - 单进程多 GPU 只存在于 vfio-user 后端；两个 gem5 进程之间没有 XGMI 链路。
 
 XGMI 模型
@@ -97,7 +97,7 @@ SST 实验
 - XGMI 桥：``third_party/gem5/src/dev/amdgpu/xgmi_bridge.{cc,hh}``\ 、``XGMIBridge.py``\ 。
 - 传输接口：``third_party/gem5/src/dev/amdgpu/xgmi_transport.hh``\ 。
 - SST 配置：``configs/sst/``\ 。
-- 机器样例：``samples/machines/gpu-8.yaml``\ 。
+- 机器样例：``resources/machines/gpu-8.yaml``\ 。
 
 相关页面
 ---------

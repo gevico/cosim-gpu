@@ -108,7 +108,7 @@ The range is ``0xC0000`` to ``0xDFFFF`` inside shared guest memory. gem5 reads i
 Kernel command line
 -------------------
 
-The guest kernel boots with the following command line, recorded in the payload ``boot.cmdline``:
+The guest kernel boots with the following command line, recorded in the vHost ``cmdline``:
 
 .. code-block:: text
 
@@ -219,7 +219,7 @@ Bit layout of ``0x67``:
 Initialization order
 --------------------
 
-``cosim-gpu-setup.service`` runs ``/usr/local/bin/cosim-gpu-setup.sh`` once at guest boot, in this order:
+``cosim-gpu-initialize.service`` runs ``/usr/local/bin/cosim-gpu-initialize.sh`` once at guest boot, in this order:
 
 .. list-table::
    :header-rows: 1
@@ -239,12 +239,10 @@ Initialization order
    * - 6
      - check that every AMD PCI device has a DRM card and exit non-zero otherwise
 
-Standalone gem5 full-system simulation uses a different driver-load script, ``/home/gem5/load_amdgpu.sh``, which insmods dependency modules and ``amdgpu`` with ``ip_block_mask=0x6f``. That script is not part of the cosim path; see :ref:`appendix-standalone-gem5`.
-
 Verification and sources
 ------------------------
 
-``tests/test_modprobe_params.sh`` checks the image recipe's ``cosim_gpu_setup.sh`` and requires every ``modprobe`` or ``insmod`` line to carry the six parameters:
+``tests/test_modprobe_params.sh`` checks the image recipe's ``cosim_gpu_initialize.sh`` and requires every ``modprobe`` or ``insmod`` line to carry the six parameters:
 
 .. code-block:: bash
 
@@ -252,11 +250,11 @@ Verification and sources
 
 Sources of the definitions:
 
-- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/files/cosim_gpu_setup.sh``: guest initialization script and default parameters.
+- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/files/cosim_gpu_initialize.sh``: guest initialization script and default parameters.
 
-- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/files/cosim-gpu-setup.service``: boot-time unit.
+- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/files/cosim-gpu-initialize.service``: boot-time unit.
 
-- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/provision.yml``: installed locations of the ROM, discovery firmware and DKMS module.
+- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/provision.yml``: installed locations of the ROM, discovery firmware and DKMS module.
 
 - ``tests/test_modprobe_params.sh``: regression check for the parameter set.
 
@@ -265,7 +263,7 @@ Update the guest script, the tables above and the check that runs on that script
 Related pages
 -------------
 
-- Topology and payload fields: :doc:`topology_schema`
+- Topology and vHost fields: :doc:`topology_schema`
 
 - Troubleshooting related failures: :doc:`known_issues`
 
@@ -274,5 +272,3 @@ Related pages
 - Guest driver requirements: :ref:`sim-guest-driver`
 
 - GPU address translation: :ref:`sim-gem5-address-translation`
-
-- Standalone gem5 full-system simulation: :ref:`appendix-standalone-gem5`

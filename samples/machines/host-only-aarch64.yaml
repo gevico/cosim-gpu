@@ -1,8 +1,0 @@
-# SPDX-License-Identifier: Apache-2.0
-version: 1
-imports: [hosts/qemu.yaml, hosts/host-arm-tcg.yaml]
-templates:
-  host-arm-node:
-    host: {use: host-arm-tcg}
-machines:
-  - {id: m0, use: host-arm-node}

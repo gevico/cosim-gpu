@@ -14,7 +14,7 @@ import uuid
 import yaml
 
 from ci_lifecycle import Lifecycle
-from run_rocm import Inputs, archive, payload, stop, topology
+from run_rocm import Inputs, archive, stop, topology
 from runtime_artifact import ROOT
 
 
@@ -43,10 +43,10 @@ class LauncherLifecycleTests(unittest.TestCase):
                     generated = topology(inputs, directory)
                     generated_machine = generated["machines"][0]
                     self.assertEqual(
-                        generated_machine["host"]["memory"], inputs.memory
+                        generated_machine["vhost"]["memory"], inputs.memory
                     )
                     self.assertEqual(
-                        generated_machine["host"]["cpus"], inputs.cpus
+                        generated_machine["vhost"]["cpus"], inputs.cpus
                     )
                     device = generated_machine["devices"][0]
                     region = device["memory_regions"][0]
@@ -55,24 +55,26 @@ class LauncherLifecycleTests(unittest.TestCase):
                     config.write_text(yaml.safe_dump({
                         "version": 1,
                         "imports": [
-                            str(ROOT / "samples/hosts/qemu.yaml"),
-                            str(ROOT / "samples/hosts/host-x86-tcg.yaml"),
+                            str(ROOT / "resources/vhosts/qemu.yaml"),
+                            str(ROOT / "resources/vhosts/vhost-x86-tcg.yaml"),
                         ],
                         "machines": [{
                             "id": "m0",
-                            "host": {
-                                "use": "host-x86-tcg",
+                            "vhost": {
+                                "use": "vhost-x86-tcg",
+                                "image": "ubuntu/24.04/x86_64/rocm/7.0",
+                                "cmdline": (
+                                    "console=ttyS0 root=/dev/vda1 rw nokaslr "
+                                    "modprobe.blacklist=amdgpu"
+                                ),
                                 "runtime": {"binary": str(inputs.qemu)},
                                 "memory": inputs.memory,
                                 "cpus": inputs.cpus,
                             },
                         }],
                     }))
-                    payload_path = directory / "payload.yaml"
-                    payload_path.write_text(yaml.safe_dump(payload()))
                     plan = json.loads(subprocess.check_output([
                         str(launcher), "run", str(config),
-                        "--payload", str(payload_path),
                         "--dry-run",
                         "--run-dir", str(directory / "run"),
                     ]))
@@ -81,12 +83,12 @@ class LauncherLifecycleTests(unittest.TestCase):
                         budget,
                     )
                     self.assertEqual(
-                        plan["image"]["recipe"]["id"],
-                        "ubuntu/24.04/x86_64/rocm7_0",
+                        plan["images"][0]["recipe"]["id"],
+                        "ubuntu/24.04/x86_64/rocm/7.0",
                     )
-                    host = next(p for p in plan["launch"]["processes"]
-                                if p["role"] == "host")
-                    argv = host["argv"]
+                    vhost = next(p for p in plan["launch"]["processes"]
+                                 if p["role"] == "vhost")
+                    argv = vhost["argv"]
                     self.assertEqual(
                         argv[argv.index("-smp") + 1], str(inputs.cpus)
                     )
@@ -97,9 +99,9 @@ class LauncherLifecycleTests(unittest.TestCase):
         ))
         launcher = launcher / "release/cosim"
         if platform.machine() == "aarch64":
-            host_template = "host-arm-tcg"
+            vhost_template = "vhost-arm-tcg"
         else:
-            host_template = "host-x86-tcg"
+            vhost_template = "vhost-x86-tcg"
         output = ROOT / "artifacts/ci-check" / uuid.uuid4().hex[:8]
         output.mkdir(parents=True)
         session_parent = ROOT / ".cosim"
@@ -116,10 +118,12 @@ class LauncherLifecycleTests(unittest.TestCase):
                 config = directory / "topology.yaml"
                 config.write_text(yaml.safe_dump({
                     "version": 1,
-                    "imports": [str(ROOT / "samples/hosts" / path) for path in
-                                ("qemu.yaml", f"{host_template}.yaml")],
-                    "machines": [{"id": "m0", "host": {
-                        "use": host_template,
+                    "imports": [
+                        str(ROOT / "resources/vhosts" / path)
+                        for path in ("qemu.yaml", f"{vhost_template}.yaml")
+                    ],
+                    "machines": [{"id": "m0", "vhost": {
+                        "use": vhost_template,
                         "args": [
                             "-S", "-nodefaults", "-pidfile", str(pid_file)
                         ],
@@ -138,7 +142,7 @@ class LauncherLifecycleTests(unittest.TestCase):
                             try:
                                 deadline = time.monotonic() + 20
                                 while (
-                                    b"ready: m0.host"
+                                    b"ready: m0.vhost"
                                     not in log_path.read_bytes()
                                 ):
                                     if process.poll() is not None:
@@ -167,8 +171,8 @@ class LauncherLifecycleTests(unittest.TestCase):
                 self.assertEqual(verdict["status"], "PASS")
                 self.assertTrue(verdict["users_stopped"])
                 self.assertEqual(verdict["cleanup_errors"], [])
-                host_log = output / "session/m0/host/output.log"
-                self.assertTrue(host_log.exists())
+                vhost_log = output / "session/m0/vhost/output.log"
+                self.assertTrue(vhost_log.exists())
         finally:
             os.close(reader)
             if writer >= 0:

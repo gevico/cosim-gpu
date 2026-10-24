@@ -5,7 +5,7 @@
 //! The crate reads only topology documents. Values that depend on the
 //! executing system, such as page size, `PATH` and session paths, are
 //! supplied by callers through [`PageSize`], [`DeviceContext`] and
-//! [`HostContext`].
+//! [`VhostContext`].
 
 mod adapter;
 mod graph;
@@ -17,48 +17,26 @@ mod resolve;
 mod size;
 
 pub use adapter::{
-    Adapter, CommandTemplate, DeviceContext, Gem5Mi300x, HostContext, HostDevice, HostDisk, Launch,
-    Probe, QemuDevice, TemplateDevice,
+    Adapter, CommandTemplate, DeviceContext, Gem5Mi300x, Launch, Probe, QemuDevice, TemplateDevice,
+    VhostContext, VhostDevice, VhostDisk,
 };
 pub use graph::graph;
 pub use layout::{DeviceRegions, GuestRange, MemoryLayout, PageSize, Region};
-pub use loader::{load, load_payload, load_payload_with_workspace, load_with_workspace};
+pub use loader::{load, load_with_workspace};
 pub use model::{
-    Device, DeviceModel, DirectBoot, Disk, DiskBus, DiskFormat, DiskMode, GuestHints, Host,
-    Identifier, ImageRecipe, Machine, MemoryRegion, Payload, Pci, Program, Role, SerialReady,
-    Topology,
+    Device, DeviceModel, DirectBoot, Disk, DiskBus, DiskFormat, DiskMode, GuestHints, Identifier,
+    ImageRecipe, Machine, MemoryRegion, Pci, Program, Role, SerialReady, Topology, Vhost,
 };
 pub use size::ByteSize;
 
-/// Validates optional payload constraints that depend on a topology.
-pub fn validate_payload(topology: &Topology, payload: Option<&Payload>) -> anyhow::Result<()> {
-    resolve::validate_payload(topology, payload)
-}
-
-/// Adds the verified kernel and root disk selected by a payload image recipe.
+/// Adds the verified kernel and root disk selected by one vHost image recipe.
 pub fn materialize_image_recipe(
-    payload: &mut Payload,
+    vhost: &mut Vhost,
     kernel: Option<std::path::PathBuf>,
     disk: std::path::PathBuf,
-    disk_id: &str,
     disk_format: DiskFormat,
-    disk_bus: DiskBus,
-    kernel_cmdline: Option<String>,
 ) -> anyhow::Result<()> {
-    resolve::materialize_image_recipe(
-        payload,
-        kernel,
-        disk,
-        disk_id,
-        disk_format,
-        disk_bus,
-        kernel_cmdline,
-    )
-}
-
-/// Generates the JSON Schema of standalone payload documents.
-pub fn payload_schema() -> schemars::Schema {
-    schemars::schema_for!(raw::PayloadDocument)
+    resolve::materialize_image_recipe(vhost, kernel, disk, disk_format)
 }
 
 /// Generates the JSON Schema of topology documents.

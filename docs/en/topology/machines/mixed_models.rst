@@ -16,20 +16,20 @@ Topology
 
 .. code-block:: yaml
 
-   # samples/machines/mixed-models.yaml
+   # resources/machines/mixed-models.yaml
    version: 1
    imports:
-     - hosts/qemu.yaml
+     - vhosts/qemu.yaml
      - devices/gpu/mi300x.yaml
      - devices/pci/qemu-edu.yaml
    machines:
      - id: m0
-       host: {use: host-x86}
+       vhost: {use: vhost-x86}
        devices:
          - {use: mi300x, count: 2}
          - {use: qemu-edu, count: 2}
 
-- Machine count: one (``m0``); the host uses the default ``host-x86``.
+- Machine count: one (``m0``); the host uses the default ``vhost-x86``.
 - Device identifiers: ``mi300x-0``, ``mi300x-1``, ``qemu-edu-0``, ``qemu-edu-1``.
 - ``qemu-edu`` declares no private memory region; the pool accumulates only 2 × 16 GiB of VRAM.
 
@@ -44,16 +44,16 @@ Hardware resources
      - Source
    * - Machine
      - 1 (``m0``)
-     - ``samples/machines/mixed-models.yaml``
-   * - Host profile
-     - ``host-x86``: ``q35``, ``kvm``, 8 GiB RAM, 4 vCPU
-     - ``samples/hosts/qemu.yaml``
+     - ``resources/machines/mixed-models.yaml``
+   * - vHost profile
+     - ``vhost-x86``: ``q35``, ``kvm``, 8 GiB RAM, 4 vCPU
+     - ``resources/vhosts/qemu.yaml``
    * - gem5 devices
      - 2 × ``mi300x``, 16 GiB VRAM and 40 CU each
-     - ``samples/devices/gpu/mi300x.yaml``
+     - ``resources/devices/gpu/mi300x.yaml``
    * - QEMU devices
      - 2 × ``qemu-edu`` with ``args.device`` set to ``{driver: edu}``
-     - ``samples/devices/pci/qemu-edu.yaml``
+     - ``resources/devices/pci/qemu-edu.yaml``
    * - Memory pool
      - 40 GiB = 8 GiB RAM + 32 GiB VRAM
      - ``crates/cosim-topology/src/layout.rs``
@@ -75,7 +75,7 @@ Software stack
      - Description
    * - Guest OS
      - Ubuntu 24.04.2 LTS, kernel 6.8.0-124-generic
-     - Payload optional; without a guest only the hardware and process composition are validated
+     - vHost optional; without a guest only the hardware and process composition are validated
    * - GPU driver
      - ``amdgpu`` with fixed parameters
      - Applies to the gem5 MI300X devices only
@@ -86,7 +86,7 @@ Software stack
      - gem5 performance model + QEMU functional model
      - QEMU devices start with ``-machine x-remote`` and ``x-vfio-user-server``
    * - Guest initialization
-     - ``cosim-gpu-setup.service``
+     - ``cosim-gpu-initialize.service``
      - Handles AMD PCI devices only
 
 Running this machine
@@ -95,13 +95,13 @@ Running this machine
 .. code-block:: bash
 
    # Validate and preview
-   just run-cli validate samples/machines/mixed-models.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --assets
-   just run-cli plan samples/machines/mixed-models.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-cli validate resources/machines/mixed-models.yaml  --assets
+   just run-topology resources/machines/mixed-models.yaml --dry-run
    # Start a session
-   just run-topology samples/machines/mixed-models.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-topology resources/machines/mixed-models.yaml
 
 - QEMU device processes need the QEMU built by ``just build-qemu`` with vfio-user support.
-- The host starts only after all four devices are ready and have handed over their leases; on shutdown the host stops first and the devices exit afterwards.
+- The vHost starts only after all four devices are ready and have handed over their leases; on shutdown the vHost stops first and the devices exit afterwards.
 - Lifecycle and readiness probes are described in :ref:`launcher-session-lifecycle`.
 
 Verification
@@ -123,8 +123,8 @@ Related pages
 -------------
 
 - Device catalog: :doc:`../devices/index`
-- Host profiles: :doc:`../hosts/index`
-- Payloads: :doc:`../payloads/index`
+- vHost profiles: :doc:`../hosts/index`
+- vHost: :ref:`ref-topology-schema`
 - Machine catalog: :doc:`index`
 - Chapter 4: :ref:`sim-gem5-model`, :ref:`sim-qemu-device-models`
-- Sources: ``samples/machines/mixed-models.yaml``, ``samples/devices/gpu/mi300x.yaml``, ``samples/devices/pci/qemu-edu.yaml``
+- Sources: ``resources/machines/mixed-models.yaml``, ``resources/devices/gpu/mi300x.yaml``, ``resources/devices/pci/qemu-edu.yaml``

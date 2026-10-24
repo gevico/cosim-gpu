@@ -31,8 +31,6 @@ to that worktree's top-level `build/` directory.
 - default gem5 output: `build/gem5/<Host-architecture>/VEGA_X86/`
 - QEMU source: `third_party/qemu/`
 - default QEMU output: `build/qemu/`
-- m5 source: `third_party/gem5/util/m5/`
-- m5 output: `build/m5/`
 
 `GEM5_BUILD_DIR` selects an output location under `build/`. The build recipe
 does not accept a separate gem5 source directory. A standalone worktree created

@@ -9,29 +9,31 @@ single-gpu machine
 Overview
 --------
 
-``single-gpu`` is the canonical one-GPU guest board: one machine, one ``host-x86`` QEMU host and one gem5 MI300X device sharing a 24 GiB memory pool. The quick start tutorial uses this combination for its first session.
+``single-gpu`` is the canonical one-GPU guest board: one machine, one
+``vhost-x86-rocm`` QEMU vHost and one gem5 MI300X device sharing a 24 GiB
+memory pool.
 
 Topology
 --------
 
 .. code-block:: yaml
 
-   # samples/machines/single-gpu.yaml
+   # resources/machines/single-gpu.yaml
    version: 1
    imports:
-     - hosts/qemu.yaml
+     - vhosts/qemu.yaml
      - devices/gpu/mi300x.yaml
    templates:
      node1:
-       host: {use: host-x86}
+       vhost: {use: vhost-x86-rocm}
        devices:
          - {use: mi300x}
    machines:
      - {id: m0, use: node1}
 
 - Machine count: one (``m0``); both host and device come from imported templates.
-- ``node1`` combines the default ``host-x86`` with the default ``mi300x``; the sample overrides no field.
-- A run may additionally select ``ubuntu-rocm7_0`` with ``--payload``; the payload is not part of the topology document.
+- ``node1`` combines ``vhost-x86-rocm`` with the default ``mi300x``. The
+  vHost template selects ``ubuntu/24.04/x86_64/rocm/7.0``.
 
 Hardware resources
 ------------------
@@ -44,22 +46,22 @@ Hardware resources
      - Source
    * - Machine
      - 1 (``m0``)
-     - ``samples/machines/single-gpu.yaml``
-   * - Host profile
-     - ``host-x86``: ``q35``, ``kvm``, ``host`` CPU, 4 vCPU
-     - ``samples/hosts/qemu.yaml``
+     - ``resources/machines/single-gpu.yaml``
+   * - vHost profile
+     - ``vhost-x86``: ``q35``, ``kvm``, ``host`` CPU, 4 vCPU
+     - ``resources/vhosts/qemu.yaml``
    * - Guest RAM
      - 8 GiB; the x86_64 PCI hole is rendered by ``memory_map``
-     - ``samples/hosts/qemu.yaml``
+     - ``resources/vhosts/qemu.yaml``
    * - Device
      - 1 × ``mi300x``: 16 GiB VRAM, 40 CU
-     - ``samples/devices/gpu/mi300x.yaml``
+     - ``resources/devices/gpu/mi300x.yaml``
    * - Memory pool
      - 24 GiB = 8 GiB RAM + 16 GiB VRAM
      - ``crates/cosim-topology/src/layout.rs``
    * - PCIe topology
      - One ``pcie-root-port`` per device (slots from ``0x10``), optional option ROM
-     - ``samples/hosts/qemu.yaml``
+     - ``resources/vhosts/qemu.yaml``
    * - Executables
      - QEMU ``build/qemu/qemu-system-x86_64``; gem5 ``build/gem5/x86_64/VEGA_X86/gem5.opt``
      - The two templates
@@ -75,7 +77,7 @@ Software stack
      - Description
    * - Guest OS
      - Ubuntu 24.04.2 LTS, kernel 6.8.0-124-generic
-     - Direct kernel boot through the payload
+     - Direct kernel boot through the vHost
    * - GPU driver
      - ``amdgpu`` with fixed parameters
      - ``ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2``
@@ -86,7 +88,7 @@ Software stack
      - gem5 MI300X (``MI300XVfioUser``)
      - Partial PM4, SDMA and CU behavior; model details are in chapter 4
    * - Guest initialization
-     - ``cosim-gpu-setup.service``
+     - ``cosim-gpu-initialize.service``
      - Writes the ROM with ``dd`` and loads ``amdgpu`` after boot
 
 Running this machine
@@ -95,14 +97,14 @@ Running this machine
 .. code-block:: bash
 
    # Validate and preview only
-   just run-cli validate samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml --assets
-   just run-cli plan samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-cli validate resources/machines/single-gpu.yaml  --assets
+   just run-topology resources/machines/single-gpu.yaml --dry-run
    # Start a session
-   just run-topology samples/machines/single-gpu.yaml --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-topology resources/machines/single-gpu.yaml
 
 - The serial console, login and shutdown flow are in :ref:`gs-first-session`.
 - A host exiting with status 0 ends its machine; SIGINT or SIGTERM starts a graceful shutdown.
-- ``--assets`` checks that the QEMU and gem5 binaries, the payload kernel and the disk image exist.
+- ``--assets`` checks that the QEMU and gem5 binaries, the vHost kernel and the disk image exist.
 
 Verification
 ------------
@@ -124,10 +126,10 @@ Limitations
 Related pages
 -------------
 
-- Host profiles: :doc:`../hosts/index`
+- vHost profiles: :doc:`../hosts/index`
 - Device catalog: :doc:`../devices/index`
-- Payloads: :doc:`../payloads/index`
+- vHost: :ref:`ref-topology-schema`
 - Machine catalog: :doc:`index`
 - Reference: :ref:`ref-topology-schema`, :ref:`ref-device-adapters`
 - Chapter 4: :ref:`sim-gem5-pci`, :ref:`sim-gem5-model`, :ref:`sim-guest-driver`
-- Sources: ``samples/machines/single-gpu.yaml``, ``samples/devices/gpu/mi300x.yaml``
+- Sources: ``resources/machines/single-gpu.yaml``, ``resources/devices/gpu/mi300x.yaml``

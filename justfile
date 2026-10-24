@@ -12,12 +12,11 @@ host_arch_input := env("COSIM_HOST_ARCH", arch())
 host_arch := if host_arch_input == "aarch64" { "aarch64" } else if host_arch_input == "x86_64" { "x86_64" } else { error("COSIM_HOST_ARCH must be aarch64 or x86_64") }
 container_platform := if host_arch == "aarch64" { "linux/arm64" } else { "linux/amd64" }
 gem5_build_dir := env("GEM5_BUILD_DIR", "build/gem5/" + host_arch + "/VEGA_X86")
-rocm_recipe := "ubuntu/24.04/x86_64/rocm7_0"
+rocm_recipe := "ubuntu/24.04/x86_64/rocm/7.0"
 rocm_image_dir := "build/images/" + rocm_recipe
 dev_image := env("COSIM_DEV_IMAGE", "cosim-dev:local")
 gpu_fs_image := env("GPU_APP_BUILD_IMAGE", "ghcr.io/gem5/gpu-fs:latest")
 build_jobs := env("JOBS", num_cpus())
-m5_abi := if host_arch == "aarch64" { "arm64" } else { "x86" }
 
 # Recipes that use {{ dev }} run on the Host or in a temporary development
 # container, as selected by COSIM_ENV.
@@ -59,11 +58,6 @@ build-qemu jobs=build_jobs:
 build-gem5 jobs=build_jobs *scons_args:
     {{ dev }} scripts/host/build.sh gem5 {{ gem5_build_dir }} "$@"
 
-# Build the m5 utility under the top-level build directory
-[group('build')]
-build-m5 abi=m5_abi: dev-gem5-source
-    {{ dev }} scripts/host/build.sh m5 "$1"
-
 # Initialize gem5 sources while preserving the existing worktree
 [group('dev')]
 dev-gem5-source:
@@ -71,19 +65,17 @@ dev-gem5-source:
 
 # Initialize gem5-resources for GPU applications and image firmware inputs
 [group('dev')]
-dev-rocm-sources: dev-gem5-source
+dev-rocm-sources:
     if [ ! -e third_party/gem5-resources/.git ]; then git submodule update --init third_party/gem5-resources; fi
 
 # Build the x86 vHost OS disk image and kernel (needs Linux KVM, QEMU, ~60 GB disk)
 [group('build')]
 build-disk: dev-rocm-sources
-    just build-m5 x86
     scripts/host/cosim-image build {{ rocm_recipe }}
 
 # Build a reusable kernel/disk bundle from the vHost image recipe library
 [group('build')]
 build-rocm-assets: dev-rocm-sources
-    just build-m5 x86
     scripts/host/cosim-image build {{ rocm_recipe }}
 
 # Prepare disk capacity and dependencies on a disposable CI image builder
@@ -93,8 +85,22 @@ ci-prepare-image-host:
 
 # Build a GPU application from third_party/gem5-resources/src/gpu
 [group('build')]
-build-gpu-app name="square":
-    ./scripts/host/run_mi300x_fs.sh build-app "$1"
+build-gpu-app name="square": dev-rocm-sources
+    app_src="$PWD/third_party/gem5-resources/src/gpu/$1"; \
+    app_output="$PWD/build/apps/$1"; \
+    test -d "$app_src"; \
+    mkdir -p "$app_output"; \
+    if command -v docker >/dev/null && docker info >/dev/null 2>&1; then \
+        docker run --rm -u "$(id -u):$(id -g)" \
+            -v "$PWD:$PWD" -w "$app_src" {{ gpu_fs_image }} \
+            make -f Makefile.default "BIN_DIR=$app_output"; \
+    elif command -v hipcc >/dev/null; then \
+        make -C "$app_src" -f Makefile.default "BIN_DIR=$app_output"; \
+    else \
+        echo "Need Docker or hipcc (ROCm) to build GPU apps" >&2; \
+        exit 1; \
+    fi; \
+    test -f "$app_output/$1.default"
 
 # Compile the HIP test kernels under tests/ in the ROCm container
 [group('build')]
@@ -106,7 +112,7 @@ build-gpu-tests:
 
 # Build everything needed to launch co-simulation
 [group('build')]
-build-all: build-qemu build-gem5 build-m5 build-disk build-gpu-app build-cosim
+build-all: build-qemu build-gem5 build-disk build-gpu-app build-cosim
 
 # Build the topology launcher
 [group('build')]
@@ -181,17 +187,12 @@ check-rocm-syntax:
 # Check the resource scripts used by the image producer
 [group('check')]
 check-rocm-build-scripts:
-    shellcheck scripts/host/cosim-image resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/files/*.sh
+    shellcheck scripts/host/cosim-image resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/files/*.sh
 
 # Exercise reuse and corruption rejection against a real built ROCm bundle
 [group('test')]
 test-rocm-assets output=rocm_image_dir:
     python3 -m scripts.ci.verify_rocm_assets "$1"
-
-# Show which build artifacts are present
-[group('build')]
-build-status:
-    ./scripts/host/run_mi300x_fs.sh status
 
 # ---------------------------------------------------------------------------
 # Run
@@ -199,12 +200,12 @@ build-status:
 
 # Launch a YAML topology
 [group('run')]
-run-topology topology="samples/machines/single-gpu.yaml" *args:
+run-topology topology="resources/machines/single-gpu.yaml" *args:
     {{ dev }} cargo run --locked --release -q -p cosim-cli -- run "$@"
 
 # Launch a YAML topology with the development build
 [group('run')]
-run-topology-dev topology="samples/machines/single-gpu.yaml" *args:
+run-topology-dev topology="resources/machines/single-gpu.yaml" *args:
     {{ dev }} cargo run --locked -q -p cosim-cli -- run "$@"
 
 # Inspect or operate a topology through any cosim subcommand
@@ -236,16 +237,6 @@ run-preflight:
 [group('run')]
 run-clean-orphans:
     ./scripts/host/cosim_launch.sh --force-clean --confirm
-
-# Run standalone gem5 full-system simulation with the stdlib config
-[group('run')]
-run-gem5-fs app="":
-    ./scripts/host/run_mi300x_fs.sh run ${1:+"$1"}
-
-# Run standalone gem5 full-system simulation with the legacy gpufs config
-[group('run')]
-run-gem5-fs-legacy app="":
-    ./scripts/host/run_mi300x_fs.sh run-legacy ${1:+"$1"}
 
 # ---------------------------------------------------------------------------
 # Checks
@@ -286,11 +277,6 @@ check-gem5-message message:
 [group('check')]
 check-gem5-ci:
     actionlint .github/workflows/build.yml third_party/gem5/.github/workflows/mi300x-ci.yaml
-
-# Check the legacy build entry against the Host's Docker daemon
-[group('test')]
-test-legacy-build-image output="artifacts/ci-check":
-    python3 scripts/ci/verify_legacy_image.py "$1"
 
 # Verify CI cancellation through the real Rust launcher and QEMU
 [group('test')]
@@ -359,7 +345,7 @@ check-shell:
     shellcheck \
         scripts/host/*.sh \
         scripts/ci/*.sh \
-        resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/files/*.sh \
+        resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/files/*.sh \
         tests/run_tests.sh tests/test_modprobe_params.sh
 
 # Check that cosim modprobe commands carry the required amdgpu parameters

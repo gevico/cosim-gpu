@@ -13,18 +13,18 @@ Image and Driver Prerequisites
 - The guest image needs an amdgpu DKMS module matching the kernel (ROCm 7.0) together with companion modules such as ``amddrm_exec``; a missing module makes TTM initialization fail.
 - The IP discovery firmware lives at ``/usr/lib/firmware/amdgpu/mi300_discovery``, so ``discovery=2`` can read IP information from a file on disk.
 - The VBIOS file lives at ``/root/roms/mi300.rom`` and must be written into shared memory before the driver loads.
-- Automatic loading is provided by ``/etc/systemd/system/cosim-gpu-setup.service`` and ``/usr/local/bin/cosim-gpu-setup.sh``: write the ROM first, then run ``modprobe``.
+- Automatic loading is provided by ``/lib/systemd/system/cosim-gpu-initialize.service`` and ``/usr/local/bin/cosim-gpu-initialize.sh``: write the ROM first, then run ``modprobe``.
 
 Kernel Command Line
 --------------------
 
-The sample payload ``samples/payloads/ubuntu-rocm7_0.yaml`` uses the following command line:
+The sample vHost template ``resources/vhosts/qemu.yaml`` uses the following command line:
 
 .. code-block:: text
 
    console=ttyS0 root=/dev/vda1 rw nokaslr modprobe.blacklist=amdgpu
 
-``modprobe.blacklist=amdgpu`` prevents the PCI subsystem from loading the driver before the ROM is written into shared memory. The host template joins the payload ``boot.cmdline`` with device ``guest_hints.cmdline`` values and passes the result to QEMU ``-append``.
+``modprobe.blacklist=amdgpu`` prevents the PCI subsystem from loading the driver before the ROM is written into shared memory. The vHost template joins the vHost ``cmdline`` with device ``guest_hints.cmdline`` values and passes the result to QEMU ``-append``.
 
 Driver Parameters
 ------------------
@@ -69,7 +69,7 @@ This writes the 128 KiB MI300X VBIOS to physical addresses ``0xC0000`` to ``0xDF
 Automatic Loading and Manual Recovery
 --------------------------------------
 
-On a normal boot ``cosim-gpu-setup.service`` performs the ROM write and the driver load. For manual recovery:
+On a normal boot ``cosim-gpu-initialize.service`` performs the ROM write and the driver load. For manual recovery:
 
 .. code-block:: bash
 
@@ -89,7 +89,7 @@ Verification
    rocminfo | head -40
    rocm-smi
    # Did the automatic setup service succeed?
-   systemctl status cosim-gpu-setup.service
+   systemctl status cosim-gpu-initialize.service
 
 Seeing the MI300X device, the ``gfx942`` agent and usable ROCm queues means the functional path works. The first HIP program is covered in :ref:`gs-verify-guest`.
 
@@ -114,15 +114,15 @@ Common Failures
    * - ``insmod`` reports a kernel version mismatch
      - The DKMS modules and ``uname -r``
      - Rebuild or replace the image with a matching kernel.
-   * - ``cosim-gpu-setup.service`` fails
-     - ``journalctl -u cosim-gpu-setup``
+   * - ``cosim-gpu-initialize.service`` fails
+     - ``journalctl -u cosim-gpu-initialize``
      - Fix according to the log, then run the manual commands.
 
 Sources
 --------
 
-- Automatic setup scripts: ``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/files/cosim_gpu_setup.sh`` and ``load_amdgpu.sh``.
-- Boot payload: ``samples/payloads/ubuntu-rocm7_0.yaml``.
+- Automatic initialization script: ``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/files/cosim_gpu_initialize.sh``.
+- Boot vHost: ``resources/vhosts/qemu.yaml``.
 - Driver-side ROM read: ``readROM()`` in ``third_party/gem5/src/dev/amdgpu/amdgpu_device.cc``.
 - Canonical parameter reference: :ref:`ref-guest-parameters`.
 

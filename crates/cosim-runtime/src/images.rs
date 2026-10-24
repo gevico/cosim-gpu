@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result, ensure};
-use cosim_topology::{DiskBus, DiskFormat, ImageRecipe, Payload};
+use cosim_topology::{DiskFormat, Topology};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -18,10 +18,7 @@ pub struct ImageState {
     pub artifact_directory: PathBuf,
     pub disk: PathBuf,
     pub disk_format: String,
-    pub disk_id: String,
-    pub disk_bus: String,
     pub kernel: Option<PathBuf>,
-    pub kernel_cmdline: Option<String>,
     pub reasons: Vec<String>,
     pub commands: Vec<Vec<String>>,
 }
@@ -29,50 +26,55 @@ pub struct ImageState {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RecipeSummary {
     pub id: String,
-    pub role: String,
     pub distribution: String,
     pub release: String,
     pub architecture: String,
+    pub software: String,
+    pub software_release: String,
 }
 
-/// Inspects a selected recipe and adds its verified disk and kernel to the payload.
-pub fn prepare_image_recipe(
-    payload: &mut Payload,
+/// Inspects selected recipes and adds each result to its owning vHost.
+pub fn prepare_image_recipes(
+    topology: &mut Topology,
     workspace: &Path,
     build: bool,
-) -> Result<Option<ImageState>> {
-    let Some(ImageRecipe { recipe, .. }) = payload.image.as_ref() else {
-        return Ok(None);
-    };
-    let mut state = inspect_recipe_with_policy(workspace, recipe, build)?;
-    if build && state.status != "ready" {
-        run_builder(workspace, "build", recipe, false)?;
-        state = inspect_recipe_with_policy(workspace, recipe, build)?;
+) -> Result<Vec<ImageState>> {
+    let mut states = Vec::new();
+    for machine in &mut topology.machines {
+        let Some(recipe) = machine
+            .vhost
+            .image
+            .as_ref()
+            .map(|image| image.recipe.clone())
+        else {
+            continue;
+        };
+        let mut state = inspect_recipe_with_policy(workspace, &recipe, build)?;
+        if build && state.status != "ready" {
+            run_builder(workspace, "build", &recipe, false)?;
+            state = inspect_recipe_with_policy(workspace, &recipe, build)?;
+        }
+        if build {
+            ensure!(
+                state.status == "ready",
+                "image recipe {} is not ready: {}",
+                recipe,
+                state.reasons.join("; ")
+            );
+        }
+        let disk_format = serde_json::from_value::<DiskFormat>(serde_json::Value::String(
+            state.disk_format.clone(),
+        ))
+        .context("decode image recipe disk format")?;
+        cosim_topology::materialize_image_recipe(
+            &mut machine.vhost,
+            state.kernel.clone(),
+            state.disk.clone(),
+            disk_format,
+        )?;
+        states.push(state);
     }
-    if build {
-        ensure!(
-            state.status == "ready",
-            "image recipe {} is not ready: {}",
-            recipe,
-            state.reasons.join("; ")
-        );
-    }
-    let disk_format =
-        serde_json::from_value::<DiskFormat>(serde_json::Value::String(state.disk_format.clone()))
-            .context("decode image recipe disk format")?;
-    let disk_bus =
-        serde_json::from_value::<DiskBus>(serde_json::Value::String(state.disk_bus.clone()))
-            .context("decode image recipe disk bus")?;
-    cosim_topology::materialize_image_recipe(
-        payload,
-        state.kernel.clone(),
-        state.disk.clone(),
-        &state.disk_id,
-        disk_format,
-        disk_bus,
-        state.kernel_cmdline.clone(),
-    )?;
-    Ok(Some(state))
+    Ok(states)
 }
 
 /// Reads recipe and cache state without creating files or starting Packer.

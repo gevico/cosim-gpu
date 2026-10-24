@@ -3468,7 +3468,7 @@ sub process {
 	if ($clean == 0 && $quiet == 0) {
 		print "$vname has style problems, please review.  If any of these errors\n";
 		print "are false positives report them in a cosim-gpu issue, see\n";
-		print "docs/en/contributing.md.\n";
+		print "docs/en/contributing/patch_check.rst.\n";
 	}
 
 	return ($no_warnings ? $clean : $cnt_error == 0);

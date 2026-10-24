@@ -36,7 +36,7 @@
    * - GPU 模型
      - MI300X，gfx942，PCI ``0x1002`` 与 ``0x74a0``
      - 固定值
-     - ``samples/devices/gpu/mi300x.yaml``
+     - ``resources/devices/gpu/mi300x.yaml``
    * - 一致性协议
      - ``GPU_VIPER``
      - 固定值
@@ -93,7 +93,7 @@ QEMU 的子模块记录值是 v11.1.2 的发布提交。工作树中的 ``qemu``
      - 开发容器镜像；同时是 legacy shell launcher 的 gem5 容器默认镜像
      - ``just dev-image``，基于 ``scripts/host/Dockerfile.dev`` （Ubuntu 24.04、third_party/gem5/QEMU 构建依赖、Rust、QEMU、``qemu-img``）
    * - ``ghcr.io/third_party/gem5/gpu-fs:latest``
-     - 客户机 GPU 测试程序的编译镜像；``just build-gpu-tests`` 与 ``scripts/host/run_mi300x_fs.sh`` 的 ``GPU_APP_BUILD_IMAGE`` 默认值
+     - 客户机 GPU 测试程序的编译镜像；``just build-gpu-tests`` 与 ``just build-gpu-app`` 的 ``GPU_APP_BUILD_IMAGE`` 默认值
      - 外部镜像；可用 ``GPU_APP_BUILD_IMAGE`` 覆盖
    * - 客户机内核与磁盘
      - ``build/rocm-local-installed/kernel`` 与 ``build/rocm-local-installed/disk``
@@ -112,11 +112,11 @@ QEMU 的子模块记录值是 v11.1.2 的发布提交。工作树中的 ``qemu``
    * - 项目
      - 值
    * - 配方标识
-     - ``vhost-ubuntu-24.04-x86_64-rocm7_0``
+     - ``ubuntu/24.04/x86_64/rocm/7.0``
    * - 角色与架构
      - ``vhost``，``x86_64``
    * - 目录
-     - ``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/``
+     - ``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/``
    * - 构建入口
      - ``build.sh``；模板 ``image.pkr.hcl``；provisioning ``provision.yml``
    * - 产物
@@ -156,9 +156,9 @@ provenance 与校验
 
 - ``Cargo.toml``：Rust 最低版本。
 
-- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/recipe.toml``：客户机 OS 与内核。
+- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/recipe.toml``：客户机 OS 与内核。
 
-- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm7_0/provision.yml`` 与 ``build.sh``、``image.pkr.hcl``：ROCm、PyTorch 通道、ROM 与构建工具版本。
+- ``resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/provision.yml`` 与 ``build.sh``、``image.pkr.hcl``：ROCm、PyTorch 通道、ROM 与构建工具版本。
 
 相关页面
 --------

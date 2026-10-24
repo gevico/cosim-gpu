@@ -14,6 +14,7 @@ and link here so that no table is maintained twice.
 
    topology_schema
    device_adapters
+   vhost_image_recipe
    guest_parameters
    version_matrix
    files_and_artifacts
@@ -33,6 +34,8 @@ Recommended reading paths
 - Reproducing a build or checking version drift: start from
   :doc:`version_matrix`, then locate artifacts, logs and sources with
   :doc:`files_and_artifacts`.
+- Adding or reviewing a vHost image recipe: see :doc:`vhost_image_recipe` for
+  fields and artifacts, then :ref:`contrib-add-vhost-recipe` for the workflow.
 - Debugging GPU address translation and GART tables: :doc:`gart_format` has
   the entry and register formats; the translation flow is in
   :ref:`sim-gem5-address-translation`.
@@ -49,11 +52,14 @@ Canonical ownership
      - Owned content
      - Primary source
    * - :doc:`topology_schema`
-     - Topology and payload fields, types, defaults and limits
+     - Topology and vHost fields, types, defaults and limits
      - ``crates/cosim-topology/src/raw.rs``, ``resolve.rs``
    * - :doc:`device_adapters`
      - Adapter parameters, argv and readiness probes
      - ``crates/cosim-topology/src/adapter/``
+   * - :doc:`vhost_image_recipe`
+     - vHost image recipe directories, fields, input identity and bundle format
+     - ``resources/images/recipe.py``, ``identity.py``, ``bundle.py``
    * - :doc:`guest_parameters`
      - amdgpu module parameters, ROM write, kernel cmdline, IP block mask
      - ``tests/test_modprobe_params.sh``, image recipe

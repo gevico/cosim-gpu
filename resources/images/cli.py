@@ -63,7 +63,8 @@ def main() -> int:
                 recipe = load_recipe(workspace, identifier)
                 print(
                     f"{identifier}\t{recipe.distribution} "
-                    f"{recipe.release}\t{recipe.architecture}"
+                    f"{recipe.release}\t{recipe.architecture}\t"
+                    f"{recipe.software} {recipe.software_release}"
                 )
         elif arguments.operation == "inspect":
             state = inspect_recipe(

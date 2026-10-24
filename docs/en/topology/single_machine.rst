@@ -6,7 +6,8 @@
 Single-machine topologies
 =========================
 
-A single-machine topology declares one machine: a QEMU host, the device processes connected to it, and one shared memory pool. This page explains how a machine is composed, how processes fan out and how the pool is computed; directly runnable samples are in the machine catalog.
+A single-machine topology declares one machine: a QEMU vHost, the device
+processes connected to it, and one shared memory pool.
 
 Composition of a machine
 ------------------------
@@ -20,18 +21,15 @@ Composition of a machine
    * - Machine
      - One independent host in a session
      - An entry with ``id`` in the ``machines`` list
-   * - Host
+   * - vHost
      - QEMU that runs the guest; binds the pool and provides QMP, serial and PCIe root ports
-     - ``host.use`` selects a host template; fields such as ``memory`` and ``cpus`` can be overridden
+     - ``vhost.use`` selects a vHost template; image, boot, memory and CPU fields can be overridden
    * - Devices
      - PCI devices exported to the host over vfio-user
      - ``use`` or ``kind`` entries in ``devices``, plus ``count``
    * - Memory pool
      - One file per machine: guest RAM plus device memory regions
      - Derived from host ``memory`` and device ``memory_regions``; never declared directly
-   * - Payload
-     - Guest kernel, command line and disks
-     - Not part of the topology; selected with ``--payload`` when validating or running
 
 .. mermaid::
 
@@ -48,7 +46,8 @@ Process fan-out
 
 - A machine has exactly one host process; every device is a separate process, so ``count: 8`` yields eight device processes.
 - The gem5 MI300X adapter starts one GPU per process (``--num-gpus=1``); more GPUs means more device entries.
-- Devices start before the host: a ready device hands a lease to each host that depends on it, and exits only after its last lease is released.
+- Devices start before the vHost: a ready device hands a lease to each vHost
+  that depends on it, and exits only after its last lease is released.
 - There is no waiting between machines; several machines in one document are independent, see :doc:`multi_machine`.
 
 Pool arithmetic
@@ -96,22 +95,22 @@ A minimal single-machine example
 
    version: 1
    imports:
-     - hosts/qemu.yaml
+     - vhosts/qemu.yaml
      - devices/gpu/mi300x.yaml
    machines:
      - id: m0
-       host: {use: host-x86}
+       vhost: {use: vhost-x86}
        devices:
          - {use: mi300x}
 
-``samples/machines/single-gpu.yaml`` reuses the same composition through a template; the full authoring rules are in :doc:`write_topology`.
+``resources/machines/single-gpu.yaml`` reuses the same composition through a template; the full authoring rules are in :doc:`write_topology`.
 
 Sources and evidence
 --------------------
 
-- Samples: every machine file under ``samples/machines/``.
+- Samples: every machine file under ``resources/machines/``.
 - Implementation: ``crates/cosim-topology/src/layout.rs`` (pool layout) and ``crates/cosim-runtime/src/layout.rs`` (session paths).
-- Commands: ``cosim validate``, ``cosim plan`` and ``cosim graph``.
+- Commands: ``cosim validate``, ``cosim run --dry-run`` and ``cosim graph``.
 
 Related pages
 -------------

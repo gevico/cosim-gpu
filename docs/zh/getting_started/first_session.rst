@@ -5,7 +5,7 @@
 首次会话
 ========
 
-本页用 ``single-gpu`` 机器和 ``ubuntu-rocm7_0`` payload 启动第一次联合仿真
+本页用 vHost 选择 ``ubuntu/24.04/x86_64/rocm/7.0`` 的 ``single-gpu`` 机器启动第一次联合仿真
 会话，连接客户机串口并正常关闭。
 
 前置条件
@@ -22,10 +22,10 @@
 
 .. code-block:: bash
 
-   just run-topology samples/machines/single-gpu.yaml \
-       --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-topology resources/machines/single-gpu.yaml \
 
-recipe 调用 Rust ``cosim`` launcher，加载拓扑与 payload，检查本机输入文件，
+
+recipe 调用 Rust ``cosim`` launcher，加载拓扑与 vHost，检查本机输入文件，
 然后按 :doc:`../architecture/execution_flow` 描述的顺序启动进程。launcher 会
 先打印会话目录，例如 ``session: .cosim/1f0c3a4b5c6d``。
 
@@ -38,7 +38,7 @@ recipe 调用 Rust ``cosim`` launcher，加载拓扑与 payload，检查本机�
 4. 创建共享内存池并预留容量，准备根磁盘的 qcow2 overlay；
 5. 启动 gem5 MI300X 设备进程，等待其 vfio-user socket 与监听标记；
 6. 启动 host QEMU，完成 QMP 握手，客户机从直接内核启动；
-7. 客户机启动后，``cosim-gpu-setup.service`` 约 40 秒完成 GPU 初始化。
+7. 客户机启动后，``cosim-gpu-initialize.service`` 约 40 秒完成 GPU 初始化。
 
 .. note::
 
@@ -60,7 +60,7 @@ host 把串口暴露为 Unix socket，同时写日志文件。用任意 Unix soc
 
 .. code-block:: bash
 
-   tail -f .cosim/<session>/m0/host/serial.log
+   tail -f .cosim/<session>/m0/vhost/serial.log
 
 客户机 root 串口自动登录，可以直接执行命令。首次登录后建议先确认 GPU 状态，
 见 :doc:`verify_guest`。
@@ -81,9 +81,9 @@ host 把串口暴露为 Unix socket，同时写日志文件。用任意 Unix soc
      - 会话资源清单与最终 verdict
    * - ``m0/layout.json``
      - 每台机器的内存池区域布局
-   * - ``m0/serial.sock``、``m0/host/serial.log``
+   * - ``m0/serial.sock``、``m0/vhost/serial.log``
      - 客户机串口与串口日志
-   * - ``m0/host/output.log``、``m0/mi300x-0/output.log``
+   * - ``m0/vhost/output.log``、``m0/mi300x-0/output.log``
      - host 与各设备进程的输出日志
 
 关闭会话

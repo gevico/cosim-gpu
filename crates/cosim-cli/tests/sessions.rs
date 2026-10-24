@@ -27,8 +27,8 @@ fn workspace() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-fn samples() -> PathBuf {
-    workspace().join("samples")
+fn resources() -> PathBuf {
+    workspace().join("resources")
 }
 
 fn directory_entries(path: &Path) -> Vec<PathBuf> {
@@ -53,29 +53,29 @@ fn directory() -> tempfile::TempDir {
         .unwrap()
 }
 
-/// Returns the Host template file and name for this architecture.
-fn host_template() -> (&'static str, &'static str) {
+/// Returns the vHost template file and name for this architecture.
+fn vhost_template() -> (&'static str, &'static str) {
     if cfg!(target_arch = "aarch64") {
-        ("hosts/host-arm-tcg.yaml", "host-arm-tcg")
+        ("vhosts/vhost-arm-tcg.yaml", "vhost-arm-tcg")
     } else {
-        ("hosts/host-x86-tcg.yaml", "host-x86-tcg")
+        ("vhosts/vhost-x86-tcg.yaml", "vhost-x86-tcg")
     }
 }
 
-/// Writes a topology with paused TCG hosts that record their process IDs.
+/// Writes a topology with paused TCG vHosts that record their process IDs.
 ///
-/// Each machine is `(id, extra host fields, device list)`.
+/// Each machine is `(id, extra vHost fields, device list)`.
 fn topology(root: &Path, machines: &[(&str, &str, &str)], extra: &str) -> PathBuf {
-    let (host_file, template) = host_template();
+    let (vhost_file, template) = vhost_template();
     let mut text = format!(
         "version: 1\nimports: [{}, {}]\n{extra}machines:\n",
-        samples().join("hosts/qemu.yaml").display(),
-        samples().join(host_file).display()
+        resources().join("vhosts/qemu.yaml").display(),
+        resources().join(vhost_file).display()
     );
-    for (id, host, devices) in machines {
+    for (id, vhost, devices) in machines {
         let pid = root.join(format!("{id}.pid"));
         text.push_str(&format!(
-            "  - id: {id}\n    host: {{use: {template}, args: [-S, -nodefaults, -pidfile, {}]{host}}}\n",
+            "  - id: {id}\n    vhost: {{use: {template}, args: [-S, -nodefaults, -pidfile, {}]{vhost}}}\n",
             pid.display()
         ));
         if !devices.is_empty() {
@@ -88,17 +88,17 @@ fn topology(root: &Path, machines: &[(&str, &str, &str)], extra: &str) -> PathBu
 }
 
 #[test]
-fn validate_dry_run_and_run_reject_guest_hints_without_payload() {
+fn validate_dry_run_and_run_reject_guest_hints_without_vhost_image() {
     let root = directory();
-    let (host_file, host) = host_template();
+    let (vhost_file, vhost) = vhost_template();
     let topology = root.path().join("topology.yaml");
     fs::write(
         &topology,
         format!(
-            "version: 1\nimports: [{}, {}, {}]\nmachines:\n  - id: m0\n    host: {{use: {host}}}\n    devices: [{{use: mi300x, guest_hints: {{cmdline: quiet}}}}]\n",
-            samples().join("hosts/qemu.yaml").display(),
-            samples().join(host_file).display(),
-            samples().join("devices/gpu/mi300x.yaml").display(),
+            "version: 1\nimports: [{}, {}, {}]\nmachines:\n  - id: m0\n    vhost: {{use: {vhost}}}\n    devices: [{{use: mi300x, guest_hints: {{cmdline: quiet}}}}]\n",
+            resources().join("vhosts/qemu.yaml").display(),
+            resources().join(vhost_file).display(),
+            resources().join("devices/gpu/mi300x.yaml").display(),
         ),
     )
     .unwrap();
@@ -118,7 +118,8 @@ fn validate_dry_run_and_run_reject_guest_hints_without_payload() {
         assert!(
             output
                 .iter()
-                .any(|line| line.contains("guest_hints.cmdline requires payload boot.kernel")),
+                .any(|line| line
+                    .contains("guest_hints.cmdline requires vhost.image or vhost.kernel")),
             "{command}: {output:#?}"
         );
     }
@@ -127,9 +128,16 @@ fn validate_dry_run_and_run_reject_guest_hints_without_payload() {
 #[test]
 fn run_dry_run_displays_image_and_launch_plan_without_writing_outputs() {
     let root = directory();
-    let topology = samples().join("machines/host-only.yaml");
-    let payload = samples().join("payloads/ubuntu-rocm7_0.yaml");
-    let image_dir = workspace().join("build/images/ubuntu/24.04/x86_64/rocm7_0");
+    let topology = root.path().join("topology.yaml");
+    fs::write(
+        &topology,
+        format!(
+            "version: 1\nimports: [{}]\nmachines:\n  - id: m0\n    vhost: {{use: vhost-x86-rocm}}\n",
+            resources().join("vhosts/qemu.yaml").display(),
+        ),
+    )
+    .unwrap();
+    let image_dir = workspace().join("build/images/ubuntu/24.04/x86_64/rocm/7.0");
     let image_existed = image_dir.exists();
     let dry_run_dir = workspace().join(".r");
     let dry_run_dir_existed = dry_run_dir.exists();
@@ -139,8 +147,6 @@ fn run_dry_run_displays_image_and_launch_plan_without_writing_outputs() {
     let args = [
         OsString::from("run"),
         topology.into(),
-        OsString::from("--payload"),
-        payload.into(),
         OsString::from("--run-dir"),
         dry_run_dir.clone().into_os_string(),
         "--dry-run".into(),
@@ -155,8 +161,11 @@ fn run_dry_run_displays_image_and_launch_plan_without_writing_outputs() {
         .join("\n");
     let plan: Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(plan["dry_run"], true);
-    assert_eq!(plan["image"]["recipe"]["id"], "ubuntu/24.04/x86_64/rocm7_0");
-    assert!(plan["launch"]["processes"].is_array());
+    assert_eq!(
+        plan["images"][0]["recipe"]["id"],
+        "ubuntu/24.04/x86_64/rocm/7.0"
+    );
+    assert_eq!(plan["launch"]["processes"].as_array().unwrap().len(), 1);
     assert_eq!(image_dir.exists(), image_existed);
     assert_eq!(dry_run_dir.exists(), dry_run_dir_existed);
     assert_eq!(verification_cache.exists(), verification_cache_existed);
@@ -164,12 +173,6 @@ fn run_dry_run_displays_image_and_launch_plan_without_writing_outputs() {
         directory_entries(&verification_cache),
         verification_cache_before
     );
-}
-
-fn payload(root: &Path, fields: &str) -> PathBuf {
-    let path = root.join("payload.yaml");
-    fs::write(&path, format!("version: 1\n{fields}\n")).unwrap();
-    path
 }
 
 /// A running `cosim` process and its output lines.
@@ -194,8 +197,8 @@ impl Launcher {
         };
         let mut child = command
             .current_dir(workspace())
-            .arg("--samples")
-            .arg(samples())
+            .arg("--resources")
+            .arg(resources())
             .args(args)
             .env("COSIM_DISK_LOCK_DIR", root.join("locks"))
             .stdin(stdin)
@@ -230,19 +233,6 @@ impl Launcher {
         let mut args = vec![
             OsString::from("run"),
             topology.into(),
-            "--run-dir".into(),
-            root.join("r").into(),
-        ];
-        args.extend(extra.iter().map(OsString::from));
-        Self::start(root, &args, Stdio::null())
-    }
-
-    fn run_with_payload(root: &Path, topology: &Path, payload: &Path, extra: &[&str]) -> Self {
-        let mut args = vec![
-            OsString::from("run"),
-            topology.into(),
-            "--payload".into(),
-            payload.into(),
             "--run-dir".into(),
             root.join("r").into(),
         ];
@@ -364,12 +354,12 @@ fn hosts_run_for_a_duration_and_release_session_resources() {
     let (status, output) = launcher.finish();
     assert!(status.success(), "{output:#?}");
     assert_eq!(verdict(&output)["status"], "PASS");
-    assert!(output.iter().any(|line| line == "ready: a.host"));
-    assert!(output.iter().any(|line| line == "ready: b.host"));
+    assert!(output.iter().any(|line| line == "ready: a.vhost"));
+    assert!(output.iter().any(|line| line == "ready: b.vhost"));
     let run = root.join("r");
     assert!(!pool_dir(root).exists(), "the pool directory remains");
     assert!(!run.join("a/qmp.sock").exists());
-    assert!(run.join("a/host/output.log").is_file());
+    assert!(run.join("a/vhost/output.log").is_file());
     assert!(run.join("a/layout.json").is_file());
     let recorded: Value =
         serde_json::from_slice(&fs::read(run.join("verdict.json")).unwrap()).unwrap();
@@ -385,7 +375,7 @@ fn a_second_signal_forces_shutdown_of_a_stopped_host() {
     let root = root.path();
     let topology = topology(root, &[("m0", "", "")], "");
     let mut launcher = Launcher::run(root, &topology, &[]);
-    launcher.wait_for("ready: m0.host");
+    launcher.wait_for("ready: m0.vhost");
     let qemu = read_pid(&root.join("m0.pid"));
     signal::kill(qemu, Signal::SIGSTOP).unwrap();
     signal::kill(launcher.pid(), Signal::SIGTERM).unwrap();
@@ -410,7 +400,7 @@ fn launcher_death_kills_its_children_and_clean_removes_resources() {
     let root = root.path();
     let topology = topology(root, &[("m0", "", "")], "");
     let mut launcher = Launcher::run(root, &topology, &[]);
-    launcher.wait_for("ready: m0.host");
+    launcher.wait_for("ready: m0.vhost");
     let qemu = read_pid(&root.join("m0.pid"));
     let run = root.join("r");
     #[cfg(target_os = "linux")]
@@ -441,7 +431,7 @@ fn launcher_death_kills_its_children_and_clean_removes_resources() {
     assert!(status.success(), "{output:#?}");
     assert!(!pool.exists());
     assert!(!run.join("m0/qmp.sock").exists());
-    assert!(run.join("m0/host/output.log").is_file());
+    assert!(run.join("m0/vhost/output.log").is_file());
 }
 
 #[cfg(target_os = "linux")]
@@ -458,8 +448,8 @@ fn interrupted_metadata_does_not_publish_or_block_the_run_directory() {
     let output = Command::new("prlimit")
         .args(["--core=0:0", "--fsize=0:0", "--"])
         .arg(env!("CARGO_BIN_EXE_cosim"))
-        .arg("--samples")
-        .arg(samples())
+        .arg("--resources")
+        .arg(resources())
         .arg("run")
         .arg(&topology)
         .arg("--run-dir")
@@ -500,7 +490,7 @@ fn bounded_memory_pool_rejects_a_competing_session_and_releases_capacity() {
     let first_topology = topology(&first_dir, &[("m0", "", "")], "");
     let second_topology = topology(&second_dir, &[("m1", "", "")], "");
     let mut first = Launcher::run(&first_dir, &first_topology, &[]);
-    first.wait_for("ready: m0.host");
+    first.wait_for("ready: m0.vhost");
     let first_qemu = read_pid(&first_dir.join("m0.pid"));
 
     let (status, output) =
@@ -552,7 +542,7 @@ fn cleaning_a_finished_session_keeps_a_later_pool_with_the_same_name() {
     let (status, output) = start("first", &["--run-for", "1"]).finish();
     assert!(status.success(), "{output:#?}");
     let mut second = start("second", &[]);
-    second.wait_for("ready: m0.host");
+    second.wait_for("ready: m0.vhost");
 
     let clean = Launcher::start(
         root,
@@ -586,11 +576,11 @@ fn closed_standard_input_ends_a_lifeline_session() {
     ];
     // scripts/host/dev.sh enables the lifeline with this variable.
     let mut launcher = Launcher::spawn(root, &args, Stdio::piped(), Some("1"));
-    launcher.wait_for("ready: m0.host");
+    launcher.wait_for("ready: m0.vhost");
     drop(launcher.child.stdin.take());
     let (status, output) = launcher.finish();
     assert!(status.success(), "{output:#?}");
-    assert!(output.iter().any(|line| line == "stopped: m0.host"));
+    assert!(output.iter().any(|line| line == "stopped: m0.vhost"));
     assert!(!pool_dir(root).exists());
 }
 
@@ -620,7 +610,7 @@ fn a_failed_device_prevents_the_host_start_and_releases_resources() {
             .contains("before it was ready"),
         "{verdict}"
     );
-    assert!(!output.iter().any(|line| line == "started: m0.host"));
+    assert!(!output.iter().any(|line| line == "started: m0.vhost"));
     for expected in ["started: m0.dev", "stopped: m0.dev"] {
         assert_eq!(output.iter().filter(|line| *line == expected).count(), 1);
     }
@@ -639,20 +629,20 @@ fn cancellation_and_timeout_before_readiness_emit_stopped_once() {
             "",
         );
         let mut launcher = Launcher::run(root, &topology, &["--ready-timeout", "1"]);
-        launcher.wait_for("started: m0.host");
+        launcher.wait_for("started: m0.vhost");
         if cancelled {
             signal::kill(launcher.pid(), Signal::SIGTERM).unwrap();
         }
         let (status, output) = launcher.finish();
         assert_eq!(status.success(), cancelled, "{output:#?}");
-        for expected in ["started: m0.host", "stopped: m0.host"] {
+        for expected in ["started: m0.vhost", "stopped: m0.vhost"] {
             assert_eq!(
                 output.iter().filter(|line| *line == expected).count(),
                 1,
                 "{output:#?}"
             );
         }
-        assert!(!output.iter().any(|line| line == "ready: m0.host"));
+        assert!(!output.iter().any(|line| line == "ready: m0.vhost"));
         let verdict = verdict(&output);
         assert_eq!(verdict["users_stopped"], true);
         assert_eq!(verdict["cleanup_errors"], serde_json::json!([]));
@@ -686,14 +676,11 @@ fn invalid_explicit_image_helpers_leave_paths_available_for_retry() {
             fs::copy(&installed, &helper).unwrap();
             fs::set_permissions(&helper, fs::Permissions::from_mode(0o644)).unwrap();
         }
-        let payload = payload(
-            root,
-            &format!(
-                "disks: [{{id: data, path: {}, format: raw, create: true, size: 1M, readonly: true}}]",
-                image.display()
-            ),
+        let vhost = format!(
+            ", disks: [{{id: data, path: {}, format: raw, create: true, size: 1M, readonly: true}}]",
+            image.display()
         );
-        let topology = topology(root, &[("m0", "", "")], "");
+        let topology = topology(root, &[("m0", &vhost, "")], "");
         let extra = [
             "--qemu-img",
             helper.to_str().unwrap(),
@@ -703,8 +690,7 @@ fn invalid_explicit_image_helpers_leave_paths_available_for_retry() {
             "1",
         ];
         for _ in 0..2 {
-            let (status, output) =
-                Launcher::run_with_payload(root, &topology, &payload, &extra).finish();
+            let (status, output) = Launcher::run(root, &topology, &extra).finish();
             assert!(!status.success(), "{output:#?}");
             assert!(
                 output
@@ -720,8 +706,7 @@ fn invalid_explicit_image_helpers_leave_paths_available_for_retry() {
             fs::copy(&installed, &helper).unwrap();
         }
         fs::set_permissions(&helper, fs::Permissions::from_mode(0o755)).unwrap();
-        let (status, output) =
-            Launcher::run_with_payload(root, &topology, &payload, &extra).finish();
+        let (status, output) = Launcher::run(root, &topology, &extra).finish();
         assert!(status.success(), "{output:#?}");
         assert_eq!(verdict(&output)["status"], "PASS");
         assert_eq!(fs::metadata(&image).unwrap().len(), 1 << 20);
@@ -739,20 +724,17 @@ fn disks_use_overlays_and_creation_without_touching_base_images() {
     let base = images.join("base.raw");
     fs::write(&base, vec![7u8; 1 << 20]).unwrap();
     let created = images.join("data.raw");
-    let payload = payload(
-        root,
-        &format!(
-            "disks: [{{id: root, backing: {}, format: raw, boot: true}}, \
-             {{id: data, path: {}, format: raw, create: true, size: 2M, readonly: true}}]",
-            base.display(),
-            created.display()
-        ),
+    let vhost = format!(
+        ", disks: [{{id: root, backing: {}, format: raw, boot: true}}, \
+         {{id: data, path: {}, format: raw, create: true, size: 2M, readonly: true}}]",
+        base.display(),
+        created.display()
     );
-    let topology = topology(root, &[("m0", "", "")], "");
-    let mut launcher = Launcher::run_with_payload(root, &topology, &payload, &["--run-for", "2"]);
-    launcher.wait_for("ready: m0.host");
+    let topology = topology(root, &[("m0", &vhost, "")], "");
+    let mut launcher = Launcher::run(root, &topology, &["--run-for", "2"]);
+    launcher.wait_for("ready: m0.vhost");
     let overlay = root.join("r/m0/root.qcow2");
-    assert!(overlay.is_file(), "the overlay exists while the host runs");
+    assert!(overlay.is_file(), "the overlay exists while the vHost runs");
     let (status, output) = launcher.finish();
     assert!(status.success(), "{output:#?}");
     assert!(!overlay.exists(), "the overlay remains after shutdown");
@@ -780,17 +762,13 @@ fn image_leases_exclude_readers_while_a_direct_writer_runs() {
     fs::hard_link(&image, &alias).unwrap();
     let locks = writer_root.path().join("locks");
 
-    let writer_payload = payload(
-        writer_root.path(),
-        &format!(
-            "disks: [{{id: d, path: {}, format: raw, readonly: false, shared: false}}]",
-            image.display()
-        ),
+    let writer_vhost = format!(
+        ", disks: [{{id: d, path: {}, format: raw, readonly: false, shared: false}}]",
+        image.display()
     );
-    let writer_topology = topology(writer_root.path(), &[("w", "", "")], "");
-    let mut writer =
-        Launcher::run_with_payload(writer_root.path(), &writer_topology, &writer_payload, &[]);
-    writer.wait_for("ready: w.host");
+    let writer_topology = topology(writer_root.path(), &[("w", &writer_vhost, "")], "");
+    let mut writer = Launcher::run(writer_root.path(), &writer_topology, &[]);
+    writer.wait_for("ready: w.vhost");
     #[cfg(target_os = "linux")]
     {
         use std::os::unix::fs::MetadataExt;
@@ -799,23 +777,18 @@ fn image_leases_exclude_readers_while_a_direct_writer_runs() {
         let qemu = read_pid(&writer_root.path().join("w.pid"));
         assert!(
             holds(qemu, &lease),
-            "the host does not hold its image lease"
+            "the vHost does not hold its image lease"
         );
     }
 
-    let reader_payload = payload(
-        reader_root.path(),
-        &format!(
-            "disks: [{{id: d, path: {}, format: raw, readonly: true}}]",
-            alias.display()
-        ),
+    let reader_vhost = format!(
+        ", disks: [{{id: d, path: {}, format: raw, readonly: true}}]",
+        alias.display()
     );
-    let reader_topology = topology(reader_root.path(), &[("r", "", "")], "");
+    let reader_topology = topology(reader_root.path(), &[("r", &reader_vhost, "")], "");
     let args = [
         OsString::from("run"),
         reader_topology.into(),
-        "--payload".into(),
-        reader_payload.into(),
         "--run-dir".into(),
         reader_root.path().join("r").into(),
     ];
@@ -841,7 +814,7 @@ fn vfio_user_devices_start_before_the_host_and_stop_after_it() {
     };
     let root = directory();
     let root = root.path();
-    let launcher = Launcher::run(root, &samples().join(sample), &["--run-for", "1"]);
+    let launcher = Launcher::run(root, &resources().join(sample), &["--run-for", "1"]);
     let (status, output) = launcher.finish();
     assert!(status.success(), "{output:#?}");
     let position = |matches: &dyn Fn(&str) -> bool| {
@@ -850,13 +823,13 @@ fn vfio_user_devices_start_before_the_host_and_stop_after_it() {
             .position(|line| matches(line))
             .unwrap_or_else(|| panic!("missing event: {output:#?}"))
     };
-    let device = |line: &str, event: &str| line.starts_with(event) && !line.ends_with(".host");
+    let device = |line: &str, event: &str| line.starts_with(event) && !line.ends_with(".vhost");
     let device_ready = position(&|line| device(line, "ready: m0."));
-    let host_started = position(&|line| line == "started: m0.host");
-    let host_stopped = position(&|line| line == "stopped: m0.host");
+    let vhost_started = position(&|line| line == "started: m0.vhost");
+    let vhost_stopped = position(&|line| line == "stopped: m0.vhost");
     let device_stopped = position(&|line| device(line, "stopped: m0."));
-    assert!(device_ready < host_started, "{output:#?}");
-    assert!(host_stopped < device_stopped, "{output:#?}");
+    assert!(device_ready < vhost_started, "{output:#?}");
+    assert!(vhost_stopped < device_stopped, "{output:#?}");
     assert!(!pool_dir(root).exists());
 }
 
@@ -865,7 +838,7 @@ fn vfio_user_devices_start_before_the_host_and_stop_after_it() {
 fn vfio_user_option_rom_is_checked_and_exposed() {
     let root = directory();
     let root = root.path();
-    let (host_file, host) = host_template();
+    let (vhost_file, vhost) = vhost_template();
     let (arch, device) = if cfg!(target_arch = "aarch64") {
         ("aarch64", "qemu-edu-aarch64")
     } else {
@@ -881,13 +854,13 @@ fn vfio_user_option_rom_is_checked_and_exposed() {
 imports: [{}, {}, {}]
 machines:
   - id: m0
-    host: {{use: {host}, runtime: {{binary: {}}}}}
+    vhost: {{use: {vhost}, runtime: {{binary: {}}}}}
     devices:
       - {{id: edu, use: {device}, pci: {{rom: {rom}}}}}
 "#,
-            samples().join("hosts/qemu.yaml").display(),
-            samples().join(host_file).display(),
-            samples().join("devices/pci/qemu-edu.yaml").display(),
+            resources().join("vhosts/qemu.yaml").display(),
+            resources().join(vhost_file).display(),
+            resources().join("devices/pci/qemu-edu.yaml").display(),
             serde_json::to_string(&qemu).unwrap(),
             rom = serde_json::to_string(&rom).unwrap(),
         ),
@@ -924,7 +897,7 @@ machines:
     }
     fs::set_permissions(&rom, permissions).unwrap();
     let mut launcher = Launcher::run(root, &source, &[]);
-    launcher.wait_for("ready: m0.host");
+    launcher.wait_for("ready: m0.vhost");
     let stream = UnixStream::connect(root.join("r/m0/qmp.sock")).unwrap();
     stream.set_read_timeout(Some(TIMEOUT)).unwrap();
     stream.set_write_timeout(Some(TIMEOUT)).unwrap();

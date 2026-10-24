@@ -59,7 +59,7 @@ External host parameters
 
 Host executable, machine, accelerator, CPU, memory, boot, storage, display,
 monitoring and additional QEMU arguments come from YAML or imported templates;
-keep sample defaults in ``samples/hosts/``.
+keep sample defaults in ``resources/vhosts/``.
 
 - Select ``qemu-system-aarch64`` for ARM64 hosts and
   ``qemu-system-x86_64`` for x86_64 hosts. Keep CPU, machine, boot images and
@@ -72,7 +72,7 @@ keep sample defaults in ``samples/hosts/``.
   renders a JSON string array. Each element becomes one process argument;
   execution uses no shell interpretation.
 - The host adapter must bind the generated memory pool and expose the declared
-  QMP and serial endpoints. ``cosim plan`` contains the exact executable,
+  QMP and serial endpoints. ``cosim run --dry-run`` contains the exact executable,
   arguments, environment and resources that ``run`` consumes.
 - Every device process runs natively in the execution environment, which is the
   Linux host or the development container. Every process an adapter starts runs

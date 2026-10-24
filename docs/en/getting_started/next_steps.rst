@@ -41,7 +41,7 @@ driver requirements are in chapter 4:
 Write your own topology
 -----------------------
 
-Machine catalog, host and device configuration, payloads and how to write a
+Machine catalog, host and device configuration, vHost and how to write a
 topology YAML are in chapter 5:
 
 - :ref:`Topology and hardware support <topo-index>`

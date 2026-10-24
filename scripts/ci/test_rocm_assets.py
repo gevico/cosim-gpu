@@ -3,25 +3,37 @@
 from pathlib import Path
 import shutil
 import tempfile
+import tomllib
 import unittest
 
 from resources.images.recipe import RecipeError, list_recipes, load_recipe
 
 
 WORKSPACE = Path(__file__).resolve().parents[2]
-RECIPE = "ubuntu/24.04/x86_64/rocm7_0"
+RECIPE = "ubuntu/24.04/x86_64/rocm/7.0"
 
 
 class ImageRecipeTests(unittest.TestCase):
-    def test_rocm_recipe_is_discoverable_and_has_a_pinned_base_image(self):
+    def test_recipe_identity_comes_from_its_directory(self):
         self.assertIn(RECIPE, list_recipes(WORKSPACE))
         recipe = load_recipe(WORKSPACE, RECIPE)
-        self.assertEqual(recipe.role, "vhost")
         self.assertEqual(recipe.distribution, "ubuntu")
         self.assertEqual(recipe.release, "24.04")
         self.assertEqual(recipe.architecture, "x86_64")
+        self.assertEqual(recipe.software, "rocm")
+        self.assertEqual(recipe.software_release, "7.0")
         self.assertEqual(len(recipe.base_sha256), 64)
-        self.assertEqual(recipe.kernel_artifact, "kernel")
+        self.assertEqual(recipe.kernel_file, "kernel")
+
+        metadata = tomllib.loads(
+            recipe.recipe_file.read_text(encoding="utf-8")
+        )
+        for duplicate in (
+            "id", "role", "distribution", "release", "architecture",
+        ):
+            with self.subTest(duplicate=duplicate):
+                self.assertNotIn(duplicate, metadata)
+        self.assertNotIn("rocm_release", metadata["provision"]["variables"])
 
     def test_recipe_outputs_and_sources_stay_in_the_workspace(self):
         recipe = load_recipe(WORKSPACE, RECIPE)
@@ -29,9 +41,28 @@ class ImageRecipeTests(unittest.TestCase):
             recipe.output_path(WORKSPACE).is_relative_to(WORKSPACE)
         )
         self.assertTrue(recipe.playbook_file.is_relative_to(WORKSPACE))
-        self.assertTrue(recipe.tasks_file.is_relative_to(WORKSPACE))
-        for path in recipe.inputs.values():
+        for path in recipe.provision_files.values():
             self.assertTrue(path.is_relative_to(WORKSPACE))
+
+    def test_recipe_uses_one_ansible_playbook(self):
+        recipe = load_recipe(WORKSPACE, RECIPE)
+        self.assertEqual(recipe.playbook_file.name, "provision.yml")
+        self.assertFalse((recipe.directory / "tasks.yml").exists())
+        playbook = recipe.playbook_file.read_text(encoding="utf-8")
+        self.assertIn("  tasks:\n", playbook)
+        self.assertIn("Fetch declared result files", playbook)
+
+    def test_recipe_has_no_standalone_gem5_guest_inputs(self):
+        recipe = load_recipe(WORKSPACE, RECIPE)
+        standalone_inputs = {
+            "m5",
+            "run_gem5_app",
+            "load_amdgpu",
+            "gem5_wmi_source",
+            "gem5_wmi_makefile",
+            "amd_bsd_license",
+        }
+        self.assertTrue(standalone_inputs.isdisjoint(recipe.provision_files))
 
     def test_recipe_image_inputs_are_present_at_declared_paths(self):
         recipe = load_recipe(WORKSPACE, RECIPE)
@@ -42,11 +73,9 @@ class ImageRecipeTests(unittest.TestCase):
             "mi350_discovery": "mi350_discovery",
         }
         self.assertLessEqual(
-            external_firmware_inputs.keys(), recipe.inputs.keys()
+            external_firmware_inputs.keys(), recipe.provision_files.keys()
         )
-        for name, path in recipe.inputs.items():
-            if name in recipe.reuse_optional_inputs:
-                continue
+        for name, path in recipe.provision_files.items():
             with self.subTest(input_name=name):
                 if name in external_firmware_inputs:
                     expected = (
@@ -73,29 +102,22 @@ class ImageRecipeTests(unittest.TestCase):
         with self.assertRaises(RecipeError):
             load_recipe(WORKSPACE, "../../outside")
 
-    def test_recipe_rejects_non_vhost_role(self):
+    def test_recipe_identifier_requires_the_five_level_hierarchy(self):
         recipe = load_recipe(WORKSPACE, RECIPE)
         with tempfile.TemporaryDirectory() as name:
             workspace = Path(name)
             recipe_directory = (
-                workspace / "resources/images/recipes" / RECIPE
+                workspace / "resources/images/recipes/ubuntu/24.04/x86_64/rocm"
             )
             recipe_directory.parent.mkdir(parents=True)
             shutil.copytree(recipe.directory, recipe_directory)
-            recipe_file = recipe_directory / "recipe.toml"
-            content = recipe_file.read_text(encoding="utf-8")
-            self.assertIn('role = "vhost"', content)
-            recipe_file.write_text(
-                content.replace('role = "vhost"', 'role = "host"', 1),
-                encoding="utf-8",
-            )
 
             with self.assertRaisesRegex(
-                RecipeError, "recipe.role must be vhost"
+                RecipeError, "five path components"
             ):
-                load_recipe(workspace, RECIPE)
+                load_recipe(workspace, "ubuntu/24.04/x86_64/rocm")
 
-    def test_payload_disk_format_must_match_the_builder_output_format(self):
+    def test_result_kernel_must_name_a_declared_result_file(self):
         recipe = load_recipe(WORKSPACE, RECIPE)
         with tempfile.TemporaryDirectory() as name:
             workspace = Path(name)
@@ -106,8 +128,8 @@ class ImageRecipeTests(unittest.TestCase):
             shutil.copytree(recipe.directory, recipe_directory)
             recipe_file = recipe_directory / "recipe.toml"
             content = recipe_file.read_text(encoding="utf-8")
-            current = '[payload]\ndisk_id = "root"\ndisk_format = "qcow2"'
-            mismatch = '[payload]\ndisk_id = "root"\ndisk_format = "raw"'
+            current = '[result]\nkernel = "kernel"'
+            mismatch = '[result]\nkernel = "missing"'
             self.assertIn(current, content)
             recipe_file.write_text(
                 content.replace(current, mismatch, 1), encoding="utf-8"
@@ -115,7 +137,7 @@ class ImageRecipeTests(unittest.TestCase):
 
             with self.assertRaisesRegex(
                 RecipeError,
-                "payload.disk_format must match builder.disk_format",
+                "result.kernel must name a declared result file",
             ):
                 load_recipe(workspace, RECIPE)
 

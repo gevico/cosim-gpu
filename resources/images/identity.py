@@ -102,8 +102,6 @@ def reusable_input_issues(
         relative = resolved.relative_to(workspace).as_posix()
         current_files.add(relative)
         if not resolved.is_file():
-            if name in recipe.reuse_optional_inputs:
-                continue
             issues.append(f"missing image input ({name}): {path}")
             continue
         expected_hash = stored_files.get(relative)
@@ -161,7 +159,7 @@ def _input_candidates(
         ),
         ("resources/images/cli.py", workspace / "resources/images/cli.py"),
         *recipe_source_files(workspace, recipe),
-        *recipe.inputs.items(),
+        *recipe.provision_files.items(),
     ])
     return candidates
 
@@ -180,9 +178,8 @@ def missing_inputs(workspace: Path, recipe: ImageRecipe) -> list[str]:
         ("identity helper", workspace / "resources/images/identity.py"),
         ("image CLI", workspace / "resources/images/cli.py"),
         ("recipe playbook", recipe.playbook_file),
-        ("recipe tasks", recipe.tasks_file),
         ("recipe metadata", recipe.recipe_file),
-        *recipe.inputs.items(),
+        *recipe.provision_files.items(),
     ]
     missing = []
     for label, path in sources:
@@ -193,13 +190,7 @@ def missing_inputs(workspace: Path, recipe: ImageRecipe) -> list[str]:
                 missing.append(f"input escapes workspace ({label}): {path}")
             continue
         if not path.is_file():
-            if label == "m5":
-                missing.append(
-                    f"x86 m5 utility is missing at {path}; "
-                    "build it with just build-m5 x86"
-                )
-            else:
-                missing.append(f"{label}: {path}")
+            missing.append(f"{label}: {path}")
             continue
         if not path.resolve().is_relative_to(workspace):
             missing.append(f"input escapes workspace ({label}): {path}")
@@ -223,7 +214,6 @@ def missing_recipe_files(workspace: Path, recipe: ImageRecipe) -> list[str]:
         workspace / ANSIBLE_REQUIREMENTS,
         recipe.recipe_file,
         recipe.playbook_file,
-        recipe.tasks_file,
         *(workspace / name for name in names),
     ]
     return [str(path) for path in paths if not path.is_file()]
@@ -260,7 +250,11 @@ def recipe_source_files(
         for name in result.stdout.split(b"\0")
         if name
     ]
-    return [(path.as_posix(), workspace / path) for path in sorted(paths)]
+    return [
+        (path.as_posix(), workspace / path)
+        for path in sorted(paths)
+        if (workspace / path).is_file()
+    ]
 
 
 def stage_recipe(
@@ -290,9 +284,8 @@ def stage_recipe(
         directory=staged_directory.resolve(),
         recipe_file=staged_path(recipe.recipe_file),
         playbook_file=staged_path(recipe.playbook_file),
-        tasks_file=staged_path(recipe.tasks_file),
-        inputs={
+        provision_files={
             name: staged_path(path)
-            for name, path in recipe.inputs.items()
+            for name, path in recipe.provision_files.items()
         },
     )

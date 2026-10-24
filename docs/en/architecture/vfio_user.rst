@@ -38,10 +38,10 @@ Connection and lifecycle
   session directory, for example ``<run-dir>/<machine>/<device>.sock``;
 - Unix sockets and shared file mappings require host and device processes on
   the same system; there is no network transport;
-- the host QEMU command is rendered by the host template: one PCIe root port
+- the QEMU vHost command is rendered by the vHost template: one PCIe root port
   and one ``vfio-user-pci`` client per device, with the socket path and an
   optional ``romfile``;
-- devices start first and the host starts only after the listening log and
+- devices start first and the vHost starts only after the listening log and
   socket existence probes pass; shutdown stops the host, then the devices,
   and finally deletes the sockets;
 - device capabilities must be registered before the vfio-user context is

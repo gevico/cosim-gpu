@@ -10,7 +10,7 @@ This page is the single source of truth for the shell launcher ``scripts/host/co
 Scope
 -----
 
-``scripts/host/cosim_launch.sh`` is invoked through ``just run-launch`` and starts one guest and one gem5 container connected over vfio-user; ``just test-gpu`` and ``scripts/host/run_cosim_tests.sh`` use the same path. The current documented main path is the YAML launcher, and the two must not share options: the tables below describe the shell launcher and the gem5 configuration it calls. Standalone gem5 full-system simulation is a separate script path, see :ref:`appendix-standalone-gem5`.
+``scripts/host/cosim_launch.sh`` is invoked through ``just run-launch`` and starts one guest and one gem5 container connected over vfio-user; ``just test-gpu`` and ``scripts/host/run_cosim_tests.sh`` use the same path. The current documented main path is the YAML launcher, and the two must not share options: the tables below describe the shell launcher and the gem5 configuration it calls.
 
 Shell launcher options
 ----------------------
@@ -184,7 +184,7 @@ Differences from the YAML launcher
      - ``just run-topology``
    * - Input
      - command-line options plus fixed disk and kernel paths
-     - topology YAML plus a separate payload YAML
+     - one topology YAML containing each machine's vHost
    * - Multiple GPUs
      - ``--num-gpus N``, multiple GPUs inside one gem5 process
      - one device process per GPU
@@ -236,5 +236,3 @@ Related pages
 - Guest parameters: :doc:`guest_parameters`
 
 - Related known issues: :doc:`known_issues`
-
-- Standalone gem5 full-system simulation: :ref:`appendix-standalone-gem5`

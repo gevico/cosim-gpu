@@ -18,7 +18,7 @@ pub use qemu_device::QemuDevice;
 pub use template::{CommandTemplate, TemplateDevice};
 
 use crate::layout::MemoryLayout;
-use crate::model::{Device, DirectBoot, Disk, DiskFormat, Host, Machine};
+use crate::model::{Device, DirectBoot, Disk, DiskFormat, Machine, Vhost};
 
 /// The launch contract of a device process.
 #[derive(Clone, Debug, Serialize)]
@@ -88,9 +88,9 @@ pub struct DeviceContext<'a> {
     pub run_dir: &'a Path,
 }
 
-/// A disk as the host process opens it.
+/// A disk as the vHost process opens it.
 #[derive(Clone, Copy, Debug)]
-pub struct HostDisk<'a> {
+pub struct VhostDisk<'a> {
     /// Disk declaration.
     pub disk: &'a Disk,
     /// File passed to QEMU: the source or a session overlay.
@@ -101,18 +101,18 @@ pub struct HostDisk<'a> {
     pub readonly: bool,
 }
 
-/// A device endpoint the host connects to.
+/// A device endpoint the vHost connects to.
 #[derive(Clone, Copy, Debug)]
-pub struct HostDevice<'a> {
+pub struct VhostDevice<'a> {
     /// Device declaration.
     pub device: &'a Device,
     /// vfio-user socket served by the device.
     pub socket: &'a Path,
 }
 
-/// Session paths assigned to the host process.
+/// Session paths assigned to the vHost process.
 #[derive(Clone, Debug)]
-pub struct HostContext<'a> {
+pub struct VhostContext<'a> {
     /// Owning machine.
     pub machine: &'a Machine,
     /// Memory layout of the machine pool.
@@ -129,12 +129,12 @@ pub struct HostContext<'a> {
     pub node_dir: &'a Path,
     /// Session directory.
     pub run_dir: &'a Path,
-    /// Optional boot configuration supplied by a payload document.
+    /// Optional direct-boot configuration owned by the vHost.
     pub boot: Option<&'a DirectBoot>,
     /// Disks in declaration order.
-    pub disks: Vec<HostDisk<'a>>,
+    pub disks: Vec<VhostDisk<'a>>,
     /// Device endpoints in declaration order.
-    pub devices: Vec<HostDevice<'a>>,
+    pub devices: Vec<VhostDevice<'a>>,
 }
 
 impl Device {
@@ -149,9 +149,9 @@ impl Device {
     }
 }
 
-impl Host {
-    /// Renders the host arguments and readiness conditions.
-    pub fn launch(&self, context: &HostContext<'_>) -> Result<Launch> {
+impl Vhost {
+    /// Renders the vHost arguments and readiness conditions.
+    pub fn launch(&self, context: &VhostContext<'_>) -> Result<Launch> {
         let disks = context
             .disks
             .iter()
@@ -168,7 +168,7 @@ impl Host {
                     "model": device.device.model, "pci": device.device.pci})
             })
             .collect::<Vec<_>>();
-        let template_context = json!({"host": self, "machine": context.machine.id,
+        let template_context = json!({"vhost": self, "machine": context.machine.id,
             "pool": context.pool, "ram": context.layout.ram,
             "guest_ranges": context.layout.guest_ranges, "disks": disks,
             "devices": devices, "qmp": context.qmp, "serial": context.serial,
@@ -178,7 +178,7 @@ impl Host {
         let argv = self
             .command
             .render(&template_context)
-            .with_context(|| format!("host adapter {}", self.kind))?;
+            .with_context(|| format!("vhost adapter {}", self.kind))?;
         let mut probes = vec![
             Probe::Socket {
                 path: context.serial.to_path_buf(),

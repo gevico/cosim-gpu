@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+version: 1
+imports:
+  - vhosts/qemu.yaml
+  - devices/gpu/mi300x.yaml
+templates:
+  node8:
+    vhost:
+      use: vhost-x86-rocm
+      memory: 32G
+      cpus: 16
+    devices:
+      - use: mi300x
+        count: 8
+        memory_regions:
+          - {name: vram, size: 8G, align: 2M}
+machines:
+  - {id: m0, use: node8}

@@ -31,8 +31,8 @@
      - 自定义 ``argv`` 或 ``command`` 的扩展点；仓库样例尚未使用
      - :ref:`ref-device-adapters`
 
-- ``samples/devices/gpu/mi300x.yaml`` 提供 ``mi300x`` 与 ``mi300x-aarch64`` 两个模板；后者只覆盖 gem5 二进制。
-- ``samples/devices/pci/qemu-edu.yaml`` 提供 ``qemu-edu`` 与 ``qemu-edu-aarch64`` 两个模板；前者需要带 vfio-user 支持的 QEMU。
+- ``resources/devices/gpu/mi300x.yaml`` 提供 ``mi300x`` 与 ``mi300x-aarch64`` 两个模板；后者只覆盖 gem5 二进制。
+- ``resources/devices/pci/qemu-edu.yaml`` 提供 ``qemu-edu`` 与 ``qemu-edu-aarch64`` 两个模板；前者需要带 vfio-user 支持的 QEMU。
 
 设备字段
 --------
@@ -72,7 +72,7 @@
      - 适配器参数，见 :ref:`ref-device-adapters`
    * - ``guest_hints``
      - 否
-     - modprobe 参数与 cmdline 提示；cmdline 要求 payload 含 boot.kernel
+     - modprobe 参数与 cmdline 提示；cmdline 要求 vHost 声明镜像或内核
    * - ``pci.rom``
      - 否
      - host 侧 option ROM，作为 vfio-user 客户端的 romfile 暴露
@@ -105,7 +105,7 @@
 --------
 
 - 机器目录：:doc:`../machines/index`
-- 主机配置：:doc:`../hosts/index`
+- vHost 配置：:doc:`../hosts/index`
 - 编写拓扑：:doc:`../write_topology`
 - 适配器契约：:ref:`ref-device-adapters`
-- 源码：``samples/devices/gpu/mi300x.yaml``\ 、``samples/devices/pci/qemu-edu.yaml``\ 、``crates/cosim-topology/src/adapter/``
+- 源码：``resources/devices/gpu/mi300x.yaml``\ 、``resources/devices/pci/qemu-edu.yaml``\ 、``crates/cosim-topology/src/adapter/``

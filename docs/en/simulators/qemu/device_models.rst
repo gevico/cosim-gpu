@@ -30,13 +30,13 @@ The ``qemu-device`` adapter renders ``args.device`` into QEMU device properties 
 Example: the edu Device
 ------------------------
 
-``samples/devices/pci/qemu-edu.yaml`` uses the ``edu`` educational PCI device shipped with QEMU. It provides configuration space, BARs, DMA and interrupts, enough to exercise the vfio-user configuration, MMIO and interrupt paths. The matching machine sample is ``samples/machines/qemu-device.yaml``: a paused x86_64 TCG host connected to one ``edu`` device.
+``resources/devices/pci/qemu-edu.yaml`` uses the ``edu`` educational PCI device shipped with QEMU. It provides configuration space, BARs, DMA and interrupts, enough to exercise the vfio-user configuration, MMIO and interrupt paths. The matching machine sample is ``resources/machines/qemu-device.yaml``: a paused x86_64 TCG host connected to one ``edu`` device.
 
 Readiness and Lifetime
 -----------------------
 
 - Readiness probes are: an optional ``ready_log`` marker, the existence of the Unix socket, and QMP capability negotiation.
-- Devices start before the host, and the host starts once every device is ready.
+- Devices start before the vHost, and the vHost starts once every device is ready.
 - The host stops first; the launcher then stops the device processes. Each side has its own QMP socket and logs.
 - The device process has no guest memory view; DMA and configuration accesses are exchanged with the host over vfio-user.
 
@@ -51,7 +51,7 @@ Sources
 --------
 
 - Adapter implementation: ``crates/cosim-topology/src/adapter/qemu_device.rs``.
-- Example device template: ``samples/devices/pci/qemu-edu.yaml``.
+- Example device template: ``resources/devices/pci/qemu-edu.yaml``.
 - QEMU vfio-user server: ``third_party/qemu/hw/remote/vfio-user-obj.c``.
 - edu device: ``third_party/qemu/hw/misc/edu.c``.
 

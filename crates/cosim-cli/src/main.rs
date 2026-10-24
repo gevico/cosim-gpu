@@ -22,8 +22,8 @@ use tokio::sync::mpsc;
 )]
 struct Cli {
     /// Directory searched for imports that are not relative to the importing file.
-    #[arg(long, global = true, default_value = "samples")]
-    samples: PathBuf,
+    #[arg(long, global = true, default_value = "resources")]
+    resources: PathBuf,
     #[command(subcommand)]
     command: Command,
 }
@@ -33,20 +33,13 @@ enum Command {
     /// Validate a topology; --assets also checks local input files.
     Validate {
         topology: PathBuf,
-        /// Optional guest boot and storage inputs stored separately from the topology.
-        #[arg(long)]
-        payload: Option<PathBuf>,
         #[arg(long)]
         assets: bool,
     },
     /// Print machines and device connections as a Mermaid flowchart.
     Graph { topology: PathBuf },
     /// Print the JSON Schema of topology documents.
-    Schema {
-        /// Print the schema for a standalone payload document.
-        #[arg(long)]
-        payload: bool,
-    },
+    Schema,
     /// Start every process and supervise the session until it ends.
     Run {
         #[command(flatten)]
@@ -79,9 +72,6 @@ enum Command {
 #[derive(Args)]
 struct Target {
     topology: PathBuf,
-    /// Guest boot and storage inputs stored separately from machine hardware.
-    #[arg(long)]
-    payload: Option<PathBuf>,
     /// New session directory; defaults to .cosim/<random name>.
     #[arg(long)]
     run_dir: Option<PathBuf>,
@@ -116,21 +106,10 @@ fn main() -> ExitCode {
 
 async fn execute(cli: Cli) -> Result<ExitCode> {
     match cli.command {
-        Command::Validate {
-            topology,
-            payload,
-            assets,
-        } => {
-            let topology = cosim_topology::load(&topology, &cli.samples)?;
-            let mut payload = payload
-                .as_deref()
-                .map(cosim_topology::load_payload)
-                .transpose()?;
-            if let Some(payload) = &mut payload {
-                let workspace = image_workspace()?;
-                cosim_runtime::prepare_image_recipe(payload, &workspace, false)?;
-            }
-            cosim_topology::validate_payload(&topology, payload.as_ref())?;
+        Command::Validate { topology, assets } => {
+            let mut topology = cosim_topology::load(&topology, &cli.resources)?;
+            let workspace = image_workspace()?;
+            cosim_runtime::prepare_image_recipes(&mut topology, &workspace, false)?;
             SessionLayout::check_identifiers(&topology)?;
             let page_size = cosim_runtime::page_size()?;
             for machine in &topology.machines {
@@ -139,7 +118,7 @@ async fn execute(cli: Cli) -> Result<ExitCode> {
                     .with_context(|| format!("machine {}", machine.id))?;
             }
             if assets {
-                cosim_runtime::check_assets(&topology, payload.as_ref())?;
+                cosim_runtime::check_assets(&topology)?;
             }
             println!(
                 "valid: {} machines, {} devices",
@@ -148,15 +127,11 @@ async fn execute(cli: Cli) -> Result<ExitCode> {
             );
         }
         Command::Graph { topology } => {
-            let topology = cosim_topology::load(&topology, &cli.samples)?;
+            let topology = cosim_topology::load(&topology, &cli.resources)?;
             print!("{}", cosim_topology::graph(&topology));
         }
-        Command::Schema { payload } => {
-            let schema = if payload {
-                cosim_topology::payload_schema()
-            } else {
-                cosim_topology::schema()
-            };
+        Command::Schema => {
+            let schema = cosim_topology::schema();
             println!("{}", serde_json::to_string_pretty(&schema)?);
         }
         Command::Run {
@@ -167,38 +142,26 @@ async fn execute(cli: Cli) -> Result<ExitCode> {
             qemu_img,
             stdin_lifeline,
         } => {
-            let topology = cosim_topology::load(&target.topology, &cli.samples)?;
-            let mut payload = target
-                .payload
-                .as_deref()
-                .map(cosim_topology::load_payload)
-                .transpose()?;
-            let original_payload = payload.clone();
-            let image = if let Some(payload) = &mut payload {
-                let workspace = image_workspace()?;
-                cosim_runtime::prepare_image_recipe(payload, &workspace, !dry_run)?
+            let mut topology = cosim_topology::load(&target.topology, &cli.resources)?;
+            let original_topology = topology.clone();
+            let workspace = image_workspace()?;
+            let images = cosim_runtime::prepare_image_recipes(&mut topology, &workspace, !dry_run)?;
+            let assets_topology = if dry_run && images.iter().any(|image| image.status != "ready") {
+                &original_topology
             } else {
-                None
+                &topology
             };
-            cosim_topology::validate_payload(&topology, payload.as_ref())?;
-            let assets_payload =
-                if dry_run && image.as_ref().is_some_and(|image| image.status != "ready") {
-                    original_payload.as_ref()
-                } else {
-                    payload.as_ref()
-                };
-            cosim_runtime::check_assets(&topology, assets_payload)?;
+            cosim_runtime::check_assets(assets_topology)?;
             let layout = target.layout(if dry_run {
                 Purpose::DryRun
             } else {
                 Purpose::Run
             })?;
-            let plan =
-                cosim_runtime::plan(&topology, payload.as_ref(), &ExecEnv::local()?, &layout)?;
+            let plan = cosim_runtime::plan(&topology, &ExecEnv::local()?, &layout)?;
             if dry_run {
                 let output = serde_json::json!({
                     "dry_run": true,
-                    "image": image.as_ref(),
+                    "images": images,
                     "launch": plan,
                 });
                 println!("{}", serde_json::to_string_pretty(&output)?);

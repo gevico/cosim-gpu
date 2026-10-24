@@ -286,7 +286,7 @@ pub(crate) enum LeaseKind {
 
 /// An image lock keyed by device and inode in the shared lock directory.
 ///
-/// The host and the helpers that use the image receive the lock descriptor,
+/// The vHost and the helpers that use the image receive the lock descriptor,
 /// so the lease lasts while any process that may use the image is alive. Lock
 /// files remain after release so that every session locks the same file.
 pub(crate) struct DiskLease {

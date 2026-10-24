@@ -60,5 +60,4 @@ Chinese is the primary language and this English tree is kept in sync.
    reference/index
    contributing/index
    glossary
-   appendix/standalone_gem5
    appendix/sst_and_placement

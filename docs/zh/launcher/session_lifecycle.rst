@@ -70,7 +70,7 @@
 -------------------
 
 - ``readonly: true``\ 以只读方式打开源镜像；``readonly: false``\ 要求同时写 ``shared: false``\ ，并直接写入 ``path``\ 。
-- 磁盘声明 ``backing``\ 或 payload 设置 ``snapshot: true``\ 时，改为在会话目录中为每台机器写入一个 qcow2 overlay。
+- 磁盘声明 ``backing``\ 或 vHost 设置 ``snapshot: true``\ 时，改为在会话目录中为每台机器写入一个 qcow2 overlay。
 - 未写出 ``readonly``\ 的磁盘同样为每台机器写入一个 qcow2 overlay；``shared: true``\ 要求 ``readonly: true``\ 。
 - ``create: true``\ 加 ``size``\ 使用 ``qemu-img``\ 创建缺失镜像：先以临时名称格式化，再通过链接发布，不会替换其他会话同时创建的镜像。
 - 磁盘锁目录由 ``COSIM_DISK_LOCK_DIR``\ 指定，默认 ``~/.cache/cosim-gpu/disk-locks``\ 。锁文件在会话结束后仍然保留，因此锁目录必须位于内存池目录之外。
@@ -99,7 +99,7 @@
      - 每台机器的内存区域名称、偏移和大小。
    * - ``<machine>/<node>/output.log``
      - 进程标准输出与标准错误的合并日志。
-   * - ``<machine>/host/serial.log``
+   * - ``<machine>/vhost/serial.log``
      - host QEMU 的串口日志。
    * - ``verdict.json``
      - 最终结果；同时由 ``[COSIM_VERDICT]``\ 行输出。

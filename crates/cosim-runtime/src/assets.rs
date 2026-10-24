@@ -7,38 +7,36 @@ use std::io::ErrorKind;
 use std::path::Path;
 
 use anyhow::{Context, Result, ensure};
-use cosim_topology::{Adapter, Payload, Topology};
+use cosim_topology::{Adapter, Topology};
 
 /// Checks boot images, disks, device configuration and PCI option ROMs.
-pub fn check_assets(topology: &Topology, payload: Option<&Payload>) -> Result<()> {
+pub fn check_assets(topology: &Topology) -> Result<()> {
     for machine in &topology.machines {
         let check = || -> Result<()> {
-            if let Some(payload) = payload {
-                if let Some(boot) = &payload.boot {
-                    for path in std::iter::once(&boot.kernel).chain(&boot.initrd) {
-                        file(path, "boot image")?;
-                    }
+            if let Some(boot) = &machine.vhost.boot {
+                for path in std::iter::once(&boot.kernel).chain(&boot.initrd) {
+                    file(path, "boot image")?;
                 }
-                for disk in &payload.disks {
-                    match fs::symlink_metadata(&disk.source) {
-                        Ok(_) => file(&disk.source, "disk source")?,
-                        Err(error) if error.kind() == ErrorKind::NotFound => {
-                            ensure!(
-                                disk.create.is_some(),
-                                "missing disk {}",
-                                disk.source.display()
-                            );
-                            let parent = disk.source.parent().context("disk has no parent")?;
-                            ensure!(
-                                parent.is_dir(),
-                                "missing disk directory {}",
-                                parent.display()
-                            );
-                        }
-                        Err(error) => {
-                            return Err(error)
-                                .with_context(|| format!("inspect {}", disk.source.display()));
-                        }
+            }
+            for disk in &machine.vhost.disks {
+                match fs::symlink_metadata(&disk.source) {
+                    Ok(_) => file(&disk.source, "disk source")?,
+                    Err(error) if error.kind() == ErrorKind::NotFound => {
+                        ensure!(
+                            disk.create.is_some(),
+                            "missing disk {}",
+                            disk.source.display()
+                        );
+                        let parent = disk.source.parent().context("disk has no parent")?;
+                        ensure!(
+                            parent.is_dir(),
+                            "missing disk directory {}",
+                            parent.display()
+                        );
+                    }
+                    Err(error) => {
+                        return Err(error)
+                            .with_context(|| format!("inspect {}", disk.source.display()));
                     }
                 }
             }

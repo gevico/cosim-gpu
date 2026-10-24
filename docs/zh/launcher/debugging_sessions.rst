@@ -12,7 +12,7 @@
 
 - ``run``\ 启动时打印 ``session: <run-dir>``\ ，随后按行输出 ``started``\ 、``ready``\ 、``exited``\ 和 ``stopped``\ 事件。
 - 每个进程的标准输出与标准错误写入自己的工作目录下的 ``output.log``\ ，gem5 的 ``m5out/``\ 也位于该目录。
-- host 的串口输出写入 ``<machine>/host/serial.log``\ ，同时由串口 socket 提供交互。
+- vHost 的串口输出写入 ``<machine>/vhost/serial.log``\ ，同时由串口 socket 提供交互。
 - ``verdict.json``\ 记录最终结果；同样的内容以 ``[COSIM_VERDICT]``\ 行打印在终端。
 
 .. code-block:: bash
@@ -21,8 +21,8 @@
    ls .cosim/<name>
    # 汇总各进程日志的尾部
    tail -n 50 .cosim/<name>/m0/mi300x-0/output.log
-   tail -n 50 .cosim/<name>/m0/host/output.log
-   tail -n 50 .cosim/<name>/m0/host/serial.log
+   tail -n 50 .cosim/<name>/m0/vhost/output.log
+   tail -n 50 .cosim/<name>/m0/vhost/serial.log
    cat .cosim/<name>/verdict.json
 
 阅读 verdict
@@ -64,8 +64,8 @@
      - YAML 字段名、模板名与 ``use``\ 引用
      - 按 ``cosim schema``\ 修正文档。
    * - 导入文件不存在
-     - 导入路径相对导入文件还是 ``--samples``\ 目录
-     - 修正相对路径或传入正确的 ``--samples``\ 。
+     - 导入路径相对导入文件还是 ``--resources``\ 目录
+     - 修正相对路径或传入正确的 ``--resources``\ 。
    * - 程序找不到
      - ``runtime.binary``\ 与 ``PATH``
      - 写工作区相对路径，或先构建对应二进制。

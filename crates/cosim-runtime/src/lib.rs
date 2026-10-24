@@ -23,7 +23,7 @@ mod session;
 
 pub use assets::check_assets;
 pub use env::{ExecEnv, page_size};
-pub use images::{ImageState, inspect_recipe, prepare_image_recipe};
+pub use images::{ImageState, inspect_recipe, prepare_image_recipes};
 pub use layout::SessionLayout;
 pub use manifest::clean;
 pub use plan::{DiskPlan, MachinePlan, NodeRole, Plan, ProcessPlan, plan};

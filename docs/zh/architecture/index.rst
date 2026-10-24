@@ -55,7 +55,7 @@
    * - QEMU 与 gem5
      - QEMU vhost/device model 与 gem5 MI300X 模型细节
    * - 拓扑与硬件支持
-     - 机器目录、host/device/payload 与 YAML 编写
+     - 机器目录、host/device/vHost 与 YAML 编写
 
 相关页面
 --------

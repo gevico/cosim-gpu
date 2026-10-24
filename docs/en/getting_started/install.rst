@@ -56,8 +56,6 @@ Build everything
      - ``build/qemu/qemu-system-x86_64`` with ``vfio-user-pci`` and KVM support
    * - ``just build-gem5``
      - ``build/gem5/<arch>/VEGA_X86/gem5.opt``
-   * - ``just build-m5``
-     - The ``m5`` utility used inside the guest image
    * - ``just build-disk``
      - ``build/rocm-local-installed/{disk,kernel}``
    * - ``just build-gpu-app``
@@ -65,8 +63,8 @@ Build everything
    * - ``just build-cosim``
      - The Rust ``cosim`` launcher
 
-The order has dependencies: the guest image build uses QEMU and m5, and the
-GPU application build runs in its own GPU container.
+The guest image build uses QEMU, and the GPU application build runs in its own
+GPU container.
 
 Build in steps
 --------------
@@ -79,7 +77,6 @@ The first build takes a long time, so components can be retried:
    just build-qemu 4               # limit the number of jobs
    just build-gem5                 # all host CPUs
    just build-gem5 1               # limit parallelism when linking OOMs
-   just build-m5
    just build-disk                 # needs /dev/kvm, QEMU and about 60 GB
    just build-cosim
 
@@ -98,13 +95,13 @@ Verify the build
 
 .. code-block:: bash
 
-   just run-cli validate samples/machines/single-gpu.yaml \
-       --payload samples/payloads/ubuntu-rocm7_0.yaml
+   just run-cli validate resources/machines/single-gpu.yaml \
+
    ls -l build/qemu/qemu-system-x86_64
    ls -l build/gem5/*/VEGA_X86/gem5.opt
    ls -l build/rocm-local-installed/disk build/rocm-local-installed/kernel
 
-``validate`` only checks the topology and payload; add ``--assets`` to also
+``validate`` only checks the topology and vHost; add ``--assets`` to also
 check the local input files.
 
 Related pages
