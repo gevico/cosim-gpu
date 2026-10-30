@@ -92,6 +92,7 @@
   status: maintained
   maintainers:
     - zevorn
+    - fengyuanyu1
   files-regex:
     - ^third_party/gem5$
   labels:
@@ -104,6 +105,7 @@
   status: maintained
   maintainers:
     - zevorn
+    - fengyuanyu1
   files:
     - configs/sst/
   labels:
@@ -116,6 +118,7 @@ Agent Skills:
   status: maintained
   maintainers:
     - zevorn
+    - fengyuanyu1
   files:
     - .agents/
     - AGENTS.md
@@ -129,6 +132,7 @@ Build System and CI:
   status: maintained
   maintainers:
     - zevorn
+    - fengyuanyu1
   files:
     - .github/
     - .gitignore
@@ -156,6 +160,7 @@ Documentation:
   status: maintained
   maintainers:
     - zevorn
+    - fengyuanyu1
   files:
     - docs/
     - LICENSE
@@ -172,6 +177,7 @@ vHost Image:
   status: maintained
   maintainers:
     - zevorn
+    - fengyuanyu1
   files:
     - resources/__init__.py
     - resources/images/
@@ -186,6 +192,7 @@ GPU Applications and Firmware Inputs:
   status: maintained
   maintainers:
     - zevorn
+    - fengyuanyu1
   files-regex:
     - ^samples/
     - ^third_party/gem5-resources$
@@ -199,6 +206,7 @@ vHost Tests:
   status: maintained
   maintainers:
     - zevorn
+    - fengyuanyu1
   files:
     - scripts/host/run_cosim_tests.sh
     - scripts/ci/guest_console.py
@@ -220,6 +228,7 @@ Patch Checking and Maintainers:
   status: maintained
   maintainers:
     - zevorn
+    - fengyuanyu1
   files:
     - MAINTAINERS.yml
     - scripts/host/check_patch.sh
@@ -236,6 +245,7 @@ QEMU Frontend:
   status: maintained
   maintainers:
     - zevorn
+    - fengyuanyu1
   files:
     - scripts/host/cosim_launch.sh
     - scripts/host/cosim_lib.sh
@@ -253,6 +263,7 @@ Topology and Runtime:
   status: maintained
   maintainers:
     - zevorn
+    - fengyuanyu1
   files:
     - Cargo.toml
     - Cargo.lock
