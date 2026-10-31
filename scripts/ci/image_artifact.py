@@ -19,7 +19,6 @@ from scripts.ci.ci_lifecycle import Lifecycle
 
 
 ROOT = Path(__file__).resolve().parents[2]
-ROCM_RECIPE = "ubuntu/24.04/x86_64/rocm/7.0"
 input_key = digest_json
 
 
@@ -96,11 +95,13 @@ def require_key(manifest: dict, key: str) -> None:
         raise ValueError("ROCm artifact does not match the requested inputs")
 
 
-def image_manifest_member(archive: zipfile.ZipFile) -> zipfile.ZipInfo | None:
+def image_manifest_member(
+    archive: zipfile.ZipFile, recipe: str,
+) -> zipfile.ZipInfo | None:
     for name in (
         "manifest.json",
-        "build/images/ubuntu/24.04/x86_64/rocm/7.0/manifest.json",
-        "images/ubuntu/24.04/x86_64/rocm/7.0/manifest.json",
+        f"build/images/{recipe}/manifest.json",
+        f"images/{recipe}/manifest.json",
     ):
         try:
             return archive.getinfo(name)
@@ -110,7 +111,7 @@ def image_manifest_member(archive: zipfile.ZipFile) -> zipfile.ZipInfo | None:
 
 
 def find_image(
-    key: str, scope: Scope, lifecycle: Lifecycle,
+    key: str, scope: Scope, lifecycle: Lifecycle, recipe: str,
 ) -> PublishedImage | None:
     endpoint = f"repos/{scope.repository}/actions/artifacts"
     pages = json.loads(github(
@@ -138,7 +139,7 @@ def find_image(
         except ArtifactMissing:
             continue
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
-            member = image_manifest_member(archive)
+            member = image_manifest_member(archive, recipe)
             if member is None:
                 continue
             if member.file_size > 64 * 1024:
@@ -186,9 +187,9 @@ def image_bundle_root(download: Path) -> Path:
     return bundle
 
 
-def verify_image(output: Path, key: str) -> tuple[Path, dict]:
+def verify_image(output: Path, key: str, identifier: str) -> tuple[Path, dict]:
     bundle = image_bundle_root(output)
-    recipe = load_recipe(ROOT, ROCM_RECIPE)
+    recipe = load_recipe(ROOT, identifier)
     manifest = verify_bundle(ROOT, recipe, bundle, key)
     require_key(manifest, key)
     return bundle, manifest
@@ -233,6 +234,8 @@ def main() -> None:
     adopter.add_argument("source", type=Path)
     adopter.add_argument("output", type=Path)
     adopter.add_argument("input_key")
+    for command in (finder, verifier, adopter):
+        command.add_argument("--recipe", required=True)
     discard = commands.add_parser("discard")
     discard.add_argument("record", type=Path)
     args = parser.parse_args()
@@ -240,18 +243,21 @@ def main() -> None:
         if args.operation == "discard":
             discard_download(args.record)
         elif args.operation == "adopt":
-            bundle, manifest = verify_image(args.source, args.input_key)
+            bundle, manifest = verify_image(
+                args.source, args.input_key, args.recipe
+            )
             lifecycle.check()
             if args.output.exists() or args.output.is_symlink():
                 raise FileExistsError(args.output)
             args.output.parent.mkdir(parents=True, exist_ok=True)
             bundle.rename(args.output)
-            recipe = load_recipe(ROOT, ROCM_RECIPE)
+            recipe = load_recipe(ROOT, args.recipe)
             mark_verified_bundle(ROOT, recipe, args.output, manifest)
         elif args.operation == "verify":
-            verify_image(args.output, args.input_key)
+            verify_image(args.output, args.input_key, args.recipe)
         else:
-            image = find_image(args.input_key, Scope.environment(), lifecycle)
+            image = find_image(args.input_key, Scope.environment(), lifecycle,
+                               args.recipe)
             directory = record_selection(image, args.record)
             print(f"artifact-id={image.artifact_id if image else ''}")
             print(f"run-id={image.run_id if image else ''}")
