@@ -26,8 +26,10 @@ Workflow overview
      - Host-side checks under five minutes that need no submodules
    * - ``build.yml``
      - Push/PR to ``main``, or manual dispatch
-     - Build gem5 ``VEGA_X86`` and the ROCm guest image, then call the
-       regression
+     - Select recipe checks and run gem5/full regression when required
+   * - ``image.yml``
+     - Called by ``build.yml`` via ``workflow_call``
+     - Independently validate, build or reuse one recipe and publish its image
    * - ``integration.yml``
      - Called by ``build.yml`` via ``workflow_call``
      - Full ROCm guest regression on a KVM runner
@@ -58,10 +60,36 @@ amend or rebase the commits, and force-push the branch. The docs workflow runs
 ``docs/scripts/verify_build.py``; builds from ``main`` are published to
 GitHub Pages.
 
+Selecting recipe checks
+-----------------------
+
+``build.yml`` compares the complete PR changes against the target branch, or
+the revisions before and after a push:
+
+- Changes only under ``docs/`` or to the two READMEs skip heavy checks.
+- Changes only to existing recipe directories and documentation run
+  ``image.yml`` once per affected recipe, without gem5 or full ROCm regression.
+- Shared files, workflows, unknown paths, and removed or moved recipes check
+  all existing recipes and retain full regression. Its producer supplies the
+  Ubuntu baseline image, avoiding a duplicate build.
+
+Recipes come from existing ``recipe.toml`` files; the full regression baseline
+comes from ``rocm_recipe`` in ``justfile``. An initial push without a previous
+revision runs the full pipeline; a failed comparison fails the check. For
+manual dispatch, set ``recipe`` to check just that recipe, or leave it empty
+for the full pipeline.
+
+The image job does not depend on gem5. It validates real Packer/Ansible
+configuration, builds or verifies the image, and checks artifact integrity and
+reuse isolation. Packer boots a temporary QEMU VM to install software; this
+does not prove the final image boots with its simulation topology or runs GPU
+workloads. Jobs currently use Ubuntu x86_64 runners. Recipes still need matching
+QEMU, firmware and acceleration; new platforms supply their environment setup.
+
 Build caches and artifacts
 --------------------------
 
-``build.yml`` has two producer jobs and one regression job:
+Full regression reuses the image producer defined in ``image.yml``:
 
 - ``Build gem5 (VEGA_X86)`` builds gem5 once. The cache key comes from
   ``just ci-gem5-key`` and covers the gem5 inputs, the related just recipes and
@@ -76,23 +104,25 @@ Build caches and artifacts
   development container image and a SHA-256 manifest; ``just ci-reuse-gem5``
   publishes it as this run's immutable artifact, and
   ``just test-runtime-artifact`` verifies its integrity and provenance.
-- ``Build ROCm guest image`` validates the real Packer builder and provisioners,
+- The ``Image`` job validates the recipe's real Packer builder and provisioners,
   then looks for a verified retained image from the same source branch. The
   image key covers source revisions, recipe contents, the QEMU version, the
   image builder and the disk format; reuse
   validates the input identity and every product hash. Changing
   ``COSIM_ROCM_IMAGE_EPOCH`` from its default ``1`` resolves packages again.
-  The finished image records the resolved Debian and Python package versions and
+  The finished image records the software versions declared by its recipe and
   the SHA-256 values in ``manifest.json``.
 - ``ROCm regression`` calls ``integration.yml`` with the gem5 artifact ID,
   the guest artifact ID and the image input key.
-- ``ROCm regression gate`` requires the gem5 build, the image build and the
-  guest execution to succeed; configure it as a required check in branch
-  protection.
+- ``ROCm regression gate`` always runs and rejects failed or cancelled jobs.
+  Jobs skipped by the selection conditions do not block it. Configure this gate
+  as a required check in branch protection.
 
 The ``gem5-runtime-*`` and ``rocm-guest-*`` artifacts are retained for two
 days; ``rocm-image-logs-*`` and the regression evidence are retained for fourteen
-days. Dispatch ``build.yml`` manually to repeat the complete pipeline.
+days. Dispatch ``build.yml`` manually for the full pipeline, or supply
+``recipe`` to check a single recipe. Image artifact names contain a digest of
+the recipe identifier so one run can publish several recipes independently.
 
 ROCm regression
 ---------------
