@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      recipe:
+        description: Recipe to validate alone; leave empty for full regression
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -17,7 +22,70 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  changes:
+    name: Select image and regression checks
+    runs-on: ubuntu-24.04
+    outputs:
+      baseline: ${{ steps.plan.outputs.baseline }}
+      recipes: ${{ steps.plan.outputs.recipes }}
+      regression: ${{ steps.plan.outputs.regression }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: extractions/setup-just@v4
+        with:
+          just-version: 1.51.0
+      - name: Select checks from all changed paths
+        id: plan
+        env:
+          CI_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_RECIPE: ${{ inputs.recipe }}
+        run: |
+          BASELINE="$(just --evaluate rocm_recipe)"
+          export BASELINE
+          python3 - <<'PYCODE' >> "$GITHUB_OUTPUT"
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          from resources.images.recipe import list_recipes
+
+          available = set(list_recipes(Path.cwd()))
+          baseline = os.environ["BASELINE"]
+          requested = os.environ["CI_RECIPE"]
+          selected = set()
+          full = False
+          if requested:
+              if requested not in available:
+                  raise ValueError(f"unknown recipe: {requested}")
+              selected.add(requested)
+          else:
+              base = os.environ["CI_BASE"]
+              if not base or set(base) == {"0"}:
+                  full = True
+              else:
+                  paths = subprocess.check_output([
+                      "git", "diff", "--no-renames", "--name-only", "-z", base, "HEAD",
+                  ]).split(b"\0")
+                  for path in map(os.fsdecode, filter(None, paths)):
+                      affected = {r for r in available
+                                  if path.startswith(f"resources/images/recipes/{r}/")}
+                      if affected:
+                          selected.update(affected)
+                      elif (not path.startswith("docs/")
+                            and path not in {"README.md", "README.zh.md"}):
+                          full = True
+              if full:
+                  selected = available - {baseline}
+          print("baseline=" + baseline)
+          print("regression=" + json.dumps(full))
+          print("recipes=" + json.dumps(sorted(selected), separators=(",", ":")))
+          PYCODE
+
   build-gem5:
+    needs: changes
+    if: needs.changes.outputs.regression == 'true'
     name: Build gem5 (VEGA_X86)
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -92,111 +160,29 @@ jobs:
           retention-days: 2
 
   build-rocm:
-    name: Build ROCm guest image
-    runs-on: ubuntu-24.04
-    timeout-minutes: 180
-    env:
-      COSIM_ENV: host
-      COSIM_ROCM_IMAGE_EPOCH: ${{ vars.COSIM_ROCM_IMAGE_EPOCH || '1' }}
-      COSIM_ARTIFACT_HEAD_REPO: ${{ github.event.pull_request.head.repo.id || github.repository_id }}
-      COSIM_ARTIFACT_BRANCH: ${{ github.head_ref || github.ref_name }}
-    outputs:
-      guest-artifact: ${{ steps.guest.outputs.artifact-id }}
-      image-key: ${{ steps.image-key.outputs.key }}
-      image-epoch: ${{ steps.image-key.outputs.epoch }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-      - uses: extractions/setup-just@v4
-        with:
-          just-version: 1.51.0
-      - name: Prepare dedicated image-build host
-        run: just ci-prepare-image-host
-      - name: Initialize image sources
-        run: |
-          git config --global url."https://github.com/".insteadOf "git@github.com:"
-          git submodule update --init --depth 1 third_party/gem5-resources
-      - name: Validate the real Packer builder and provisioners
-        run: just check-rocm-image
-      - name: Identify exact image inputs
-        id: image-key
-        run: |
-          echo "key=$(just ci-rocm-assets key ubuntu/24.04/x86_64/rocm/7.0)" >> "$GITHUB_OUTPUT"
-          echo "epoch=$COSIM_ROCM_IMAGE_EPOCH" >> "$GITHUB_OUTPUT"
-      - name: Find a verified image from the same source branch
-        id: retained
-        env:
-          GH_TOKEN: ${{ github.token }}
-          IMAGE_KEY: ${{ steps.image-key.outputs.key }}
-        run: just ci-find-rocm-artifact "$IMAGE_KEY" artifacts/rocm-selection.json >> "$GITHUB_OUTPUT"
-      - name: Download the retained image
-        if: steps.retained.outputs.artifact-id != ''
-        id: download-image
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          github-token: ${{ github.token }}
-          artifact-ids: ${{ steps.retained.outputs.artifact-id }}
-          run-id: ${{ steps.retained.outputs.run-id }}
-          path: ${{ steps.retained.outputs.download-dir }}
-          merge-multiple: true
-      - name: Remove the incomplete retained download
-        if: steps.download-image.outcome == 'failure'
-        run: just ci-discard-rocm-download artifacts/rocm-selection.json
-      - name: Verify and adopt the downloaded image
-        if: steps.download-image.outcome == 'success'
-        env:
-          IMAGE_KEY: ${{ steps.image-key.outputs.key }}
-          DOWNLOAD_DIR: ${{ steps.retained.outputs.download-dir }}
-        run: just ci-adopt-rocm-artifact "$DOWNLOAD_DIR" build/images/ubuntu/24.04/x86_64/rocm/7.0 "$IMAGE_KEY"
-      - name: Build or verify the paired ROCm disk and kernel
-        run: just build-rocm-assets
-      - name: Verify reuse and corruption rejection with the built image
-        run: just test-rocm-assets
-      - uses: actions/upload-artifact@v4
-        id: guest
-        with:
-          name: rocm-guest-${{ github.run_id }}-${{ github.run_attempt }}
-          path: build/images/ubuntu/24.04/x86_64/rocm/7.0/
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 2
-      - name: Preserve image build diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rocm-image-logs-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            artifacts/rocm-selection.json
-            build/images/ubuntu/24.04/x86_64/rocm/build-7.0-*/logs/*.log
-            build/images/ubuntu/24.04/x86_64/rocm/7.0/*.log
-            build/images/ubuntu/24.04/x86_64/rocm/7.0/manifest.json
-            build/images/ubuntu/24.04/x86_64/rocm/7.0/image-packages.tsv
-            build/images/ubuntu/24.04/x86_64/rocm/7.0/kernel-release
-            build/images/ubuntu/24.04/x86_64/rocm/7.0/python-packages.json
-            build/images/ubuntu/24.04/x86_64/rocm/7.0/amdgpu-module.txt
-            build/images/ubuntu/24.04/x86_64/rocm/7.0/hipcc-version.txt
-            build/images/ubuntu/24.04/x86_64/rocm/7.0/os-release
-          if-no-files-found: warn
-          retention-days: 14
-      - name: Verify published image selection and source isolation
-        env:
-          GH_TOKEN: ${{ github.token }}
-          IMAGE_KEY: ${{ steps.image-key.outputs.key }}
-        run: just test-rocm-artifact "$IMAGE_KEY" artifacts/rocm-artifact-check
-      - name: Preserve image selection evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rocm-artifact-check-${{ github.run_id }}-${{ github.run_attempt }}
-          path: artifacts/rocm-artifact-check/
-          if-no-files-found: warn
-          retention-days: 14
+    name: Build regression image
+    needs: changes
+    if: needs.changes.outputs.regression == 'true'
+    uses: ./.github/workflows/image.yml
+    with:
+      recipe: ${{ needs.changes.outputs.baseline }}
+
+  recipes:
+    name: Check recipe (${{ matrix.recipe }})
+    needs: changes
+    if: needs.changes.outputs.recipes != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        recipe: ${{ fromJSON(needs.changes.outputs.recipes) }}
+    uses: ./.github/workflows/image.yml
+    with:
+      recipe: ${{ matrix.recipe }}
 
   rocm:
     name: ROCm regression
-    needs: [build-gem5, build-rocm]
+    needs: [changes, build-gem5, build-rocm]
+    if: needs.changes.outputs.regression == 'true'
     uses: ./.github/workflows/integration.yml
     with:
       runtime-artifact: ${{ needs.build-gem5.outputs.runtime-artifact }}
@@ -207,15 +193,10 @@ jobs:
   regression:
     name: ROCm regression gate
     if: always()
-    needs: [build-gem5, build-rocm, rocm]
+    needs: [changes, recipes, build-gem5, build-rocm, rocm]
     runs-on: ubuntu-24.04
     steps:
-      - name: Require build and guest execution
+      - name: Require successful checks
         env:
-          BUILD_RESULT: ${{ needs.build-gem5.result }}
-          IMAGE_RESULT: ${{ needs.build-rocm.result }}
-          ROCM_RESULT: ${{ needs.rocm.result }}
-        run: |
-          test "$BUILD_RESULT" = success
-          test "$IMAGE_RESULT" = success
-          test "$ROCM_RESULT" = success
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: test "$FAILED" = false
