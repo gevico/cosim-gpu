@@ -9,8 +9,17 @@ if [ "${GITHUB_ACTIONS:-}" != true ] ||
     exit 1
 fi
 test "$(uname -m)" = x86_64
-test -c /dev/kvm
-sudo chmod a+rw /dev/kvm
+accelerator="$(python3 - "$1" <<'PY'
+from pathlib import Path
+import sys
+from resources.images.recipe import load_recipe
+print(load_recipe(Path.cwd(), sys.argv[1]).accelerator)
+PY
+)"
+if [ "$accelerator" = kvm ]; then
+    test -c /dev/kvm
+    sudo chmod a+rw /dev/kvm
+fi
 
 # Remove unused toolchains from the dedicated image-build VM.
 sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \

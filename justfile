@@ -75,13 +75,13 @@ build-disk: dev-rocm-sources
 
 # Build a reusable kernel/disk bundle from the vHost image recipe library
 [group('build')]
-build-rocm-assets: dev-rocm-sources
-    scripts/host/cosim-image build {{ rocm_recipe }}
+build-rocm-assets recipe=rocm_recipe: dev-rocm-sources
+    scripts/host/cosim-image build "$1"
 
 # Prepare disk capacity and dependencies on a disposable CI image builder
 [group('ci')]
-ci-prepare-image-host:
-    bash scripts/ci/prepare_image_host.sh
+ci-prepare-image-host recipe=rocm_recipe:
+    bash scripts/ci/prepare_image_host.sh "$1"
 
 # Build a GPU application from third_party/gem5-resources/src/gpu
 [group('build')]
@@ -131,13 +131,13 @@ ci-gem5-key:
 
 # Find a retained ROCm image from the same source repository and branch
 [group('ci')]
-ci-find-rocm-artifact key record:
-    python3 -m scripts.ci.image_artifact find "$@"
+ci-find-rocm-artifact key record recipe=rocm_recipe:
+    python3 -m scripts.ci.image_artifact find "$1" "$2" --recipe "$3"
 
 # Publish a fully verified downloaded image into the build output directory
 [group('ci')]
-ci-adopt-rocm-artifact source output key:
-    python3 -m scripts.ci.image_artifact adopt "$@"
+ci-adopt-rocm-artifact source output key recipe=rocm_recipe:
+    python3 -m scripts.ci.image_artifact adopt "$1" "$2" "$3" --recipe "$4"
 
 # Remove only the failed download directory recorded by artifact selection
 [group('ci')]
@@ -146,13 +146,13 @@ ci-discard-rocm-download record:
 
 # Validate the selected input identity and the complete downloaded image
 [group('ci')]
-ci-verify-rocm-artifact output key:
-    {{ dev }} python3 -m scripts.ci.image_artifact verify "$@"
+ci-verify-rocm-artifact output key recipe=rocm_recipe:
+    {{ dev }} python3 -m scripts.ci.image_artifact verify "$1" "$2" --recipe "$3"
 
 # Exercise image selection and isolation against actual published artifacts
 [group('test')]
-test-rocm-artifact key output:
-    python3 -m scripts.ci.verify_image_artifact "$@"
+test-rocm-artifact key output recipe=rocm_recipe:
+    python3 -m scripts.ci.verify_image_artifact "$1" "$2" --recipe "$3"
 
 # Republish a matching cached build while retaining original build provenance
 [group('ci')]
@@ -176,13 +176,13 @@ ci-rocm-assets operation *args:
 
 # Validate the complete image configuration with real Packer plugins
 [group('check')]
-check-rocm-image:
-    scripts/host/cosim-image validate {{ rocm_recipe }}
+check-rocm-image recipe=rocm_recipe:
+    scripts/host/cosim-image validate "$1"
 
 # Check Packer HCL and Ansible syntax on a supported Host
 [group('check')]
-check-rocm-syntax:
-    scripts/host/cosim-image validate {{ rocm_recipe }} --syntax-only
+check-rocm-syntax recipe=rocm_recipe:
+    scripts/host/cosim-image validate "$1" --syntax-only
 
 # Check the resource scripts used by the image producer
 [group('check')]
@@ -191,8 +191,8 @@ check-rocm-build-scripts:
 
 # Exercise reuse and corruption rejection against a real built ROCm bundle
 [group('test')]
-test-rocm-assets output=rocm_image_dir:
-    python3 -m scripts.ci.verify_rocm_assets "$1"
+test-rocm-assets output=rocm_image_dir recipe=rocm_recipe:
+    python3 -m scripts.ci.verify_rocm_assets "$1" --recipe "$2"
 
 # ---------------------------------------------------------------------------
 # Run

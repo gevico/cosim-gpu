@@ -14,10 +14,10 @@ from scripts.ci.image_artifact import (
 from scripts.ci.image_artifact import input_key
 
 
-def check(key: str, output: Path) -> None:
+def check(key: str, output: Path, recipe: str) -> None:
     scope = Scope.environment()
     with Lifecycle().installed() as lifecycle:
-        image = find_image(key, scope, lifecycle)
+        image = find_image(key, scope, lifecycle, recipe)
         if image is None:
             raise AssertionError("no real matching image artifact was found")
         require_key(image.manifest, key)
@@ -29,13 +29,13 @@ def check(key: str, output: Path) -> None:
             pass
         else:
             raise AssertionError("consumer accepted different image inputs")
-        if find_image(input_key(changed), scope, lifecycle) is not None:
+        if find_image(input_key(changed), scope, lifecycle, recipe) is not None:
             raise AssertionError("different inputs reused an image artifact")
         for other in (
             replace(scope, branch="image-check-" + token),
             replace(scope, head_repository=-1),
         ):
-            if find_image(key, other, lifecycle) is not None:
+            if find_image(key, other, lifecycle, recipe) is not None:
                 raise AssertionError("another source scope reused the image")
         try:
             github([
@@ -80,5 +80,6 @@ if __name__ == "__main__":
     )
     parser.add_argument("input_key")
     parser.add_argument("output", type=Path)
+    parser.add_argument("--recipe", required=True)
     args = parser.parse_args()
-    check(args.input_key, args.output.resolve())
+    check(args.input_key, args.output.resolve(), args.recipe)
