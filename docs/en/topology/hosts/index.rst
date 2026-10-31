@@ -88,7 +88,7 @@ vHost fields
 Shipped profiles
 ----------------
 
-The five profiles are defined under ``resources/vhosts/`` and selected by a machine through ``use``.
+The six profiles are defined under ``resources/vhosts/`` and selected by a machine through ``use``.
 
 .. _topo-vhost-x86:
 
@@ -117,6 +117,16 @@ vhost-arm
 - ``virt,gic-version=3``, ``kvm``, ``host`` CPU, 8 GiB RAM, 4 vCPU; binary ``build/qemu/qemu-system-aarch64``.
 - ``memory_map`` places RAM at 1 GiB.
 - No sample uses this KVM profile directly; it is only the base template of ``vhost-arm-tcg``.
+
+.. _topo-vhost-riscv:
+
+vhost-riscv
+~~~~~~~~~~~
+
+- ``virt,aia=aplic-imsic``, ``tcg``, ``rva23s64,sv48=on`` CPU, 4 GiB RAM,
+  2 vCPU; binary ``build/qemu/qemu-system-riscv64``.
+- ``memory_map`` places RAM at 2 GiB (``0x80000000``); its shared-pool offset
+  starts at zero. Device backends receive the guest physical address ranges.
 
 .. _topo-vhost-x86-tcg:
 

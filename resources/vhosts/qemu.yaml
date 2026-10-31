@@ -109,3 +109,17 @@ templates:
     accel: kvm
     cpu: host
     memory_map: '[{"start": 1073741824, "size": {{ ram.size }} }]'
+
+  vhost-riscv:
+    use: qemu-vhost
+    # IMSIC supplies the MSI/MSI-X interrupt domain required by PCIe GPUs.
+    machine: virt,aia=aplic-imsic
+    runtime:
+      binary: build/qemu/qemu-system-riscv64
+    memory: 4G
+    cpus: 2
+    accel: tcg
+    cpu: rva23s64,sv48=on
+    # RISC-V virt places all guest RAM above 2 GiB; offsets in the shared
+    # pool still start at zero. Device backends receive these GPA ranges.
+    memory_map: '[{"start": 2147483648, "size": {{ ram.size }} }]'

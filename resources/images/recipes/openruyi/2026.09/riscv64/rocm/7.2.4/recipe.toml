@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: Apache-2.0
+
+schema = 2
+
+[base]
+url = "https://releases.openruyi.cn/creek/2026.09/rva23/openRuyi-2026.09-Server-cloud.qcow2"
+sha256 = "2045e94d448ec12dbd3d7613c68005e8fdbe0748faf837f6e212af475dc8bc47"
+format = "qcow2"
+
+[provision]
+image_name = "cosim-rocm7-2-4"
+disk_size = "16000M"
+disk_format = "qcow2"
+cpus = 2
+memory_mb = 4096
+ssh_username = "openruyi"
+accelerator = "tcg"
+machine_type = "virt,aia=aplic-imsic"
+cpu_model = "rva23s64,sv48=on"
+playbook = "provision.yml"
+
+[provision.variables]
+
+[provision.files]
+mi300_discovery = "third_party/gem5-resources/src/x86-ubuntu-gpu-ml/files/mi300_discovery"
+efi_firmware_code = "build/qemu/pc-bios/edk2-riscv-code.fd"
+efi_firmware_vars = "build/qemu/pc-bios/edk2-riscv-vars.fd"
+
+[result]
+kernel = "kernel"
+
+[[result.files]]
+name = "kernel"
+guest_path = "/boot/efi/openruyi/7.2.6-1.0_555.1.or/linux"
+
+[[result.files]]
+name = "os-release"
+guest_path = "/etc/os-release"
+
+[[result.files]]
+name = "image-packages.tsv"
+guest_path = "/opt/cosim/image-packages.tsv"
+
+[[result.files]]
+name = "hipcc-version.txt"
+guest_path = "/opt/cosim/hipcc-version.txt"

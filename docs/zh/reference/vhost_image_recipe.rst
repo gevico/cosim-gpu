@@ -143,6 +143,10 @@ Ansible 通过 ``cosim_recipe_variables.<变量名>`` 读取它们。软件包�
 构建器将它转换为绝对路径，以 ``cosim_provision_files.firmware`` 传给 Ansible。
 声明文件只是让构建器检查并记录输入，实际复制到哪里由 playbook 的 ``copy`` 步骤决定。
 
+使用 EFI 制作镜像时，``efi_firmware_code`` 和 ``efi_firmware_vars`` 别名指定
+Packer 使用的固件文件。Packer 为临时构建虚拟机复制变量存储；仿真会话的启动方式
+由拓扑单独选择。
+
 配方自带的脚本、服务和配置直接放在 ``files/``，通过
 ``{{ playbook_dir }}/files/<文件名>`` 引用。构建器会记录配方源文件和声明输入的内容，
 输入变化后重新判断已有镜像是否可以复用。
@@ -170,7 +174,8 @@ MI300X 设备模板、ROM 测试和回归记录使用同一份子模块中的 ``
    * - ``kernel``
      - 字符串 / 否
      - 用作直接启动内核的导出文件名，必须对应某个 ``result.files.name``。
-       该文件还会通过 ``readelf`` 检查 ELF 文件头；不导出直接启动内核时省略本字段。
+       ELF 内核通过 ``readelf`` 检查；RISC-V Linux Image 检查启动镜像头。
+       不导出直接启动内核时省略本字段。
    * - ``files``
      - 对象列表 / 否
      - 用 ``[[result.files]]`` 为每个导出文件添加一项；默认 ``[]``。

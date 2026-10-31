@@ -50,8 +50,8 @@ dev-shell:
 
 # Build QEMU with KVM and vfio-user support
 [group('build')]
-build-qemu jobs=build_jobs:
-    {{ dev }} scripts/host/build.sh qemu {{ host_arch }} "$1"
+build-qemu jobs=build_jobs target=host_arch:
+    {{ dev }} scripts/host/build.sh qemu "$2" "$1"
 
 # Build gem5 (VEGA_X86); use jobs=1 if linking is OOM-killed
 [group('build')]
@@ -75,8 +75,8 @@ build-disk: dev-rocm-sources
 
 # Build a reusable kernel/disk bundle from the vHost image recipe library
 [group('build')]
-build-rocm-assets: dev-rocm-sources
-    scripts/host/cosim-image build {{ rocm_recipe }}
+build-rocm-assets recipe=rocm_recipe: dev-rocm-sources
+    scripts/host/cosim-image build "$1"
 
 # Prepare disk capacity and dependencies on a disposable CI image builder
 [group('ci')]

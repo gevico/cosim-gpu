@@ -60,6 +60,7 @@ Machine pages
    :maxdepth: 1
 
    single_gpu
+   openruyi
    gpu_8
    mixed_models
    host_only

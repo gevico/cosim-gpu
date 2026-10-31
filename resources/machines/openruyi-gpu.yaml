@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+version: 1
+imports:
+  - vhosts/qemu.yaml
+  - devices/gpu/mi300x.yaml
+machines:
+  - id: m0
+    vhost:
+      use: vhost-riscv
+      image: openruyi/2026.09/riscv64/rocm/7.2.4
+      root_bus: virtio
+      cmdline: console=ttyS0 root=/dev/vda2 rw
+      serial:
+        wait_for: 'login:'
+        timeout: 600
+    devices:
+      - use: mi300x
+        memory_regions:
+          - {name: vram, size: 4G, align: 2M}
+        args:
+          num_compute_units: 4

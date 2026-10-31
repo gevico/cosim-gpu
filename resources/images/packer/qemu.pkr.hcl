@@ -93,6 +93,10 @@ variable "ansible_variables" {
   type = any
 }
 
+locals {
+  files = var.ansible_variables.cosim_provision_files
+}
+
 source "qemu" "base_image" {
   accelerator             = var.accelerator
   boot_wait                = "15s"
@@ -103,6 +107,8 @@ source "qemu" "base_image" {
     "user-data" = "#cloud-config\nusers:\n  - name: ${var.ssh_username}\n    ssh_authorized_keys:\n      - ${var.ssh_public_key}\n    lock_passwd: true\n    shell: /bin/bash\n    sudo: ALL=(ALL) NOPASSWD:ALL\n"
   }
   cd_label                 = "cidata"
+  efi_firmware_code        = lookup(local.files, "efi_firmware_code", "")
+  efi_firmware_vars        = lookup(local.files, "efi_firmware_vars", "")
   disk_image               = true
   disk_size                = var.disk_size
   format                   = var.disk_format

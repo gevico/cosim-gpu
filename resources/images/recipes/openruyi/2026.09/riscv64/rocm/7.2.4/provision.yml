@@ -1,0 +1,97 @@
+# SPDX-License-Identifier: Apache-2.0
+- name: Provision the openRuyi Server vHost
+  hosts: default
+  become: true
+  gather_facts: false
+  vars:
+    ansible_ssh_transfer_method: piped
+    ansible_pipelining: true
+  tasks:
+    - name: Validate the Server base distribution
+      ansible.builtin.command: grep -qi openruyi /etc/os-release
+      changed_when: false
+
+    - name: Install native ROCm and HIP development packages
+      ansible.builtin.command:
+        argv:
+          - dnf
+          - install
+          - -y
+          - --setopt=install_weak_deps=False
+          - gcc16
+          - hipcc-7.2.4
+          - rocm-hip-devel-7.2.4
+          - rocm-smi-7.2.4
+          - rocminfo
+          - libstdc++-devel-gcc16
+
+    - name: Create the GPU firmware and image record directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /usr/lib/firmware/amdgpu
+        - /opt/cosim
+
+    - name: Install the model's MI300 discovery table
+      ansible.builtin.copy:
+        src: "{{ cosim_provision_files.mi300_discovery }}"
+        dest: /usr/lib/firmware/amdgpu/ip_discovery.bin
+        mode: "0644"
+
+    - name: Install the three firmware blobs used by the modeled IP blocks
+      ansible.builtin.get_url:
+        url: >-
+          https://gitlab.com/kernel-firmware/linux-firmware/-/raw/20240410/{{ item.path }}
+        dest: "/usr/lib/firmware/{{ item.path }}"
+        checksum: "sha256:{{ item.sha256 }}"
+        mode: "0644"
+      loop:
+        - path: amdgpu/gc_9_4_3_rlc.bin
+          sha256: e064ae0e78196b9d7cd87fcab88dcc4c4bce72438b6be891b98fdc6c3eca2331
+        - path: amdgpu/gc_9_4_3_mec.bin
+          sha256: bef71b59d9183e39cef726a9ad137be2d8d90e0183e55c14961c1109e7aaae50
+        - path: amdgpu/sdma_4_4_2.bin
+          sha256: ff25a676a1697a4adee6c3d9bef97d15f8bec2d8a1a16fe4088a55b76a9a805c
+        - path: LICENSE.amdgpu
+          sha256: 33c0ba2ed43918f2602cfb7274757ff62a6c743082aeeec78ad636ff74200faf
+
+    - name: Configure the amdgpu model parameters
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/cosim-gpu.conf
+        mode: "0644"
+        content: |
+          options amdgpu ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0 discovery=2
+
+    - name: Configure native HIP compilation
+      ansible.builtin.copy:
+        dest: /etc/profile.d/cosim-gpu.sh
+        mode: "0644"
+        content: |
+          export HIP_CLANG_PATH=/usr/lib64/llvm22/bin
+
+    - name: Provide the libdrm name loaded by upstream rocm-smi
+      ansible.builtin.file:
+        src: libdrm_amdgpu.so.1
+        dest: /usr/lib64/libdrm_amdgpu.so
+        state: link
+
+    - name: Record installed package versions
+      ansible.builtin.shell: >-
+        rpm -qa --qf '%{NAME}\t%{VERSION}-%{RELEASE}\t%{ARCH}\n' |
+        sort > /opt/cosim/image-packages.tsv
+      changed_when: true
+
+    - name: Record the native HIP compiler version
+      ansible.builtin.shell: >-
+        . /etc/profile.d/cosim-gpu.sh;
+        hipcc --version > /opt/cosim/hipcc-version.txt
+      changed_when: true
+
+    - name: Export the recipe verification records
+      ansible.builtin.fetch:
+        src: "{{ item.guest_path }}"
+        dest: "{{ cosim_result_directory }}/{{ item.name }}"
+        flat: true
+      loop: "{{ cosim_result_files }}"
