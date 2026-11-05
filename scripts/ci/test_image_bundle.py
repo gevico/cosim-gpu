@@ -1,14 +1,20 @@
 # SPDX-License-Identifier: Apache-2.0
 
+from dataclasses import replace
 import os
 import json
 from pathlib import Path
+import shutil
+import subprocess
 import tempfile
 import unittest
 
-from resources.images.bundle import _stamp_matches, mark_verified_bundle
+from resources.images.bundle import (
+    _stamp_matches, mark_verified_bundle, verify_bundle, write_manifest,
+)
 from resources.images.fingerprint import digest_json, sha256_file
-from resources.images.recipe import load_recipe
+from resources.images.recipe import ResultFile, load_recipe
+from resources.images.toolchain import qemu_img_binary
 
 
 WORKSPACE = Path(__file__).resolve().parents[2]
@@ -56,6 +62,43 @@ class ImageBundleVerificationStampTests(unittest.TestCase):
             replacement.replace(disk)
 
             self.assertFalse(_stamp_matches(workspace, bundle, manifest))
+
+
+class ImageBootArtifactTests(unittest.TestCase):
+    def test_bundle_accepts_elf_and_riscv_boot_images(self):
+        qemu_img = qemu_img_binary(WORKSPACE)
+        if qemu_img is None or shutil.which("readelf") is None:
+            self.skipTest("qemu-img and readelf are required")
+        header = bytearray(64)
+        header[:2] = b"MZ"
+        header[16:24] = (64).to_bytes(8, "little")
+        header[56:60] = b"RSC\x05"
+        for architecture in ["x86_64", "riscv64"]:
+            with self.subTest(architecture=architecture):
+                with tempfile.TemporaryDirectory() as name:
+                    workspace = Path(name)
+                    bundle = workspace / "bundle"
+                    bundle.mkdir()
+                    recipe = replace(
+                        load_recipe(WORKSPACE, RECIPE_ID),
+                        architecture=architecture,
+                        result_files=(
+                            ResultFile("kernel", "/kernel"),
+                        ),
+                    )
+                    subprocess.run(
+                        [str(qemu_img), "create", "-q", "-f", "qcow2",
+                         str(bundle / "disk"), "1M"], check=True,
+                    )
+                    if architecture == "riscv64":
+                        (bundle / "kernel").write_bytes(header)
+                    else:
+                        shutil.copyfile("/bin/true", bundle / "kernel")
+                    inputs = {"recipe": recipe.identifier}
+                    write_manifest(recipe, {
+                        "inputs": inputs, "input_key": digest_json(inputs),
+                    }, bundle)
+                    verify_bundle(workspace, recipe, bundle)
 
 
 if __name__ == "__main__":

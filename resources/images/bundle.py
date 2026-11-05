@@ -93,14 +93,25 @@ def verify_bundle(
         )
     if recipe.kernel_file:
         kernel = directory / recipe.kernel_file
-        readelf = shutil.which("readelf")
-        if readelf is None:
-            raise ImageError("readelf is required to verify the recipe kernel")
-        subprocess.run(
-            [readelf, "--file-header", str(kernel)],
-            check=True,
-            stdout=subprocess.DEVNULL,
+        with kernel.open("rb") as stream:
+            header = stream.read(64)
+        # magic2 identifies the RISC-V Linux Image header, also with EFI stubs.
+        riscv_image = (
+            recipe.architecture == "riscv64"
+            and len(header) == 64
+            and header[56:60] == b"RSC\x05"
         )
+        if not riscv_image:
+            readelf = shutil.which("readelf")
+            if readelf is None:
+                raise ImageError(
+                    "readelf is required to verify the recipe kernel"
+                )
+            subprocess.run(
+                [readelf, "--file-header", str(kernel)],
+                check=True,
+                stdout=subprocess.DEVNULL,
+            )
     if write_stamp:
         mark_verified_bundle(workspace, recipe, directory, manifest)
     return manifest

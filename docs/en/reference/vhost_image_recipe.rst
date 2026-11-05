@@ -163,6 +163,11 @@ The builder converts each path to an absolute path and passes it to Ansible as
 ``cosim_provision_files.firmware``. Declaring a file makes the builder check
 and record the input; the playbook's ``copy`` step chooses its destination.
 
+For EFI-based provisioning, the aliases ``efi_firmware_code`` and
+``efi_firmware_vars`` select the firmware files used by Packer. Packer copies
+the variable store for the temporary build VM. The topology separately selects
+the boot method of simulation sessions.
+
 Keep recipe-owned scripts, services and configuration in ``files/`` and refer
 to them as ``{{ playbook_dir }}/files/<filename>``. The builder records recipe
 sources and declared input contents; changes cause it to re-evaluate whether
@@ -194,8 +199,9 @@ image. ``[result]`` may be empty; an omitted ``files`` defaults to an empty list
    * - ``kernel``
      - string / no
      - Name of the exported file used for direct kernel boot. It must match
-       a ``result.files.name``. Its ELF header is checked with ``readelf``;
-       omit this field when no direct-boot kernel is exported.
+       a ``result.files.name``. ELF kernels are checked with ``readelf``;
+       RISC-V Linux Images are checked by their boot image header.
+       Omit this field when no direct-boot kernel is exported.
    * - ``files``
      - list of objects / no
      - Add one ``[[result.files]]`` entry per exported file; defaults to ``[]``.

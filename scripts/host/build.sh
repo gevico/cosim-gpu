@@ -21,21 +21,39 @@ build_qemu() {
     local arch="$1" jobs="$2"
     local build_dir="$root/build/qemu"
     local binary="$build_dir/qemu-system-$arch"
+    local device_config="$build_dir/$arch-softmmu-config-devices.mak"
     mkdir -p "$build_dir/scratch"
     export TMPDIR="$build_dir/scratch"
-    if [ ! -f "$build_dir/build.ninja" ] ||
-        ! "$binary" -object help 2>/dev/null |
-            grep x-vfio-user-server >/dev/null; then
+    if [ ! -f "$build_dir/build.ninja" ] || [ ! -f "$device_config" ] ||
+        ! "$binary" -device help 2>/dev/null |
+            grep vfio-user-pci >/dev/null ||
+        { grep -qx 'CONFIG_VFIO_USER_SERVER=y' "$device_config" &&
+            ! "$binary" -object help 2>/dev/null |
+                grep x-vfio-user-server >/dev/null; }; then
+        local targets="$arch-softmmu" previous target
+        # Retain existing targets when adding a cross-architecture vHost.
+        if [ -f "$build_dir/config-host.mak" ]; then
+            previous="$(sed -n 's/^TARGET_DIRS=//p' \
+                "$build_dir/config-host.mak")"
+            for target in $previous; do
+                if [ "$target" != "$arch-softmmu" ]; then
+                    targets="$targets,$target"
+                fi
+            done
+        fi
         (
             cd "$build_dir"
             "$root/third_party/qemu/configure" \
-                --target-list="$arch-softmmu" --enable-kvm \
+                --target-list="$targets" --enable-kvm \
                 --enable-vfio-user-server --disable-docs
         )
     fi
     make -C "$build_dir" -j"$jobs"
     "$binary" -device help | grep vfio-user-pci >/dev/null
-    "$binary" -object help | grep x-vfio-user-server >/dev/null
+    # Check the server only when enabled for this build target.
+    if grep -qx 'CONFIG_VFIO_USER_SERVER=y' "$device_config"; then
+        "$binary" -object help | grep x-vfio-user-server >/dev/null
+    fi
     echo "QEMU built: build/qemu/qemu-system-$arch"
 }
 

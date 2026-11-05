@@ -1016,3 +1016,22 @@ fn repository_resources_render_every_process() {
     let schema = serde_json::to_value(cosim_topology::schema()).unwrap();
     assert!(schema["properties"]["machines"].is_object());
 }
+
+#[test]
+fn riscv_vhost_maps_shared_ram_at_the_virt_dram_base() {
+    let root = resources();
+    let topology = cosim_topology::load(&root.join("machines/openruyi-gpu.yaml"), &root).unwrap();
+    let machine = &topology.machines[0];
+    assert_eq!(machine.vhost.machine, "virt,aia=aplic-imsic");
+    assert_eq!(machine.vhost.accel, "tcg");
+    assert_eq!(machine.vhost.cpu.as_deref(), Some("rva23s64,sv48=on"));
+    let layout = machine.memory_layout(page()).unwrap();
+    let ranges = serde_json::to_value(&layout.guest_ranges).unwrap();
+    assert_eq!(ranges[0]["start"], json!(0x8000_0000u64));
+    assert_eq!(ranges[0]["size"], json!(4u64 << 30));
+    assert_eq!(layout.ram.offset, 0);
+    assert_eq!(
+        layout.regions_of(&machine.devices[0].id)[0].offset,
+        4u64 << 30
+    );
+}

@@ -50,8 +50,8 @@ dev-shell:
 
 # Build QEMU with KVM and vfio-user support
 [group('build')]
-build-qemu jobs=build_jobs:
-    {{ dev }} scripts/host/build.sh qemu {{ host_arch }} "$1"
+build-qemu jobs=build_jobs target=host_arch:
+    {{ dev }} scripts/host/build.sh qemu "$2" "$1"
 
 # Build gem5 (VEGA_X86); use jobs=1 if linking is OOM-killed
 [group('build')]

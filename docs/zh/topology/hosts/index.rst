@@ -6,7 +6,7 @@
 vHost 配置
 ==========
 
-每台机器有一个 QEMU vHost 进程。vHost 模板把 YAML 字段渲染成 QEMU 命令行，绑定内存池，并暴露 QMP 与串口。本页说明 vHost 在拓扑中的位置、字段、随仓库提供的 5 个 profile，以及 QEMU 命令契约、内存映射与串口就绪。完整字段表见 :ref:`ref-topology-schema`\ ，适配器实现位于 ``crates/cosim-topology/src/adapter/mod.rs``\ 。
+每台机器有一个 QEMU vHost 进程。vHost 模板把 YAML 字段渲染成 QEMU 命令行，绑定内存池，并暴露 QMP 与串口。本页说明 vHost 在拓扑中的位置、字段、随仓库提供的 6 个 profile，以及 QEMU 命令契约、内存映射与串口就绪。完整字段表见 :ref:`ref-topology-schema`\ ，适配器实现位于 ``crates/cosim-topology/src/adapter/mod.rs``\ 。
 
 vHost 在拓扑中的位置
 ---------------------
@@ -87,7 +87,7 @@ vHost 字段
 内置 profile
 ------------
 
-5 个 profile 定义在 ``resources/vhosts/`` 中，机器通过 ``use`` 选择。
+6 个 profile 定义在 ``resources/vhosts/`` 中，机器通过 ``use`` 选择。
 
 .. _topo-vhost-x86:
 
@@ -116,6 +116,16 @@ vhost-arm
 - ``virt,gic-version=3``\ 、``kvm``\ 、``host`` CPU、8 GiB RAM、4 vCPU；二进制为 ``build/qemu/qemu-system-aarch64``\ 。
 - ``memory_map`` 把 RAM 放在 1 GiB。
 - 没有样例直接使用该 KVM profile；它只作为 ``vhost-arm-tcg`` 的基础模板。
+
+.. _topo-vhost-riscv:
+
+vhost-riscv
+~~~~~~~~~~~
+
+- ``virt,aia=aplic-imsic``、``tcg``、``rva23s64,sv48=on`` CPU、4 GiB RAM、
+  2 vCPU；二进制为 ``build/qemu/qemu-system-riscv64``。
+- ``memory_map`` 把 RAM 放在 2 GiB（``0x80000000``），共享池偏移从零开始；
+  设备后端接收对应的来宾物理地址范围。
 
 .. _topo-vhost-x86-tcg:
 
