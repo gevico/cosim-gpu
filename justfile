@@ -51,15 +51,15 @@ dev-shell:
 # Build QEMU with KVM and vfio-user support
 [group('build')]
 build-qemu jobs=build_jobs target=host_arch:
-    {{ dev }} scripts/host/build.sh qemu "$2" "$1"
+    {{ dev }} scripts/host/build.sh qemu {{ host_arch }} "$1" "$2"
 
 # Prepare a CI host and build the pinned QEMU, including image tools
 [group('ci')]
-ci-build-qemu:
+ci-build-qemu target=host_arch:
     sudo apt-get update
     sudo apt-get install -y --no-install-recommends build-essential ninja-build pkg-config python3-venv python3-pip libglib2.0-dev libpixman-1-dev libslirp-dev libfdt-dev libjson-c-dev libcmocka-dev zlib1g-dev
     git -c 'url.https://github.com/.insteadOf=git@github.com:' submodule update --init --recursive --depth 1 third_party/qemu
-    COSIM_ENV=host just build-qemu
+    COSIM_ENV=host just build-qemu {{ build_jobs }} "$1"
 
 # Build gem5 (VEGA_X86); use jobs=1 if linking is OOM-killed
 [group('build')]
@@ -94,7 +94,18 @@ build-rocm-assets recipe=rocm_recipe: dev-rocm-sources
 # Prepare disk capacity and dependencies on a disposable CI image builder
 [group('ci')]
 ci-prepare-image-host recipe=rocm_recipe:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target="$(python3 - "$1" <<'PYTHON'
+    from pathlib import Path
+    import sys
+    from resources.images.recipe import load_recipe
+
+    print(load_recipe(Path.cwd(), sys.argv[1]).architecture)
+    PYTHON
+    )"
     bash scripts/ci/prepare_image_host.sh "$1"
+    just ci-build-qemu "$target"
 
 # Build a GPU application from third_party/gem5-resources/src/gpu
 [group('build')]

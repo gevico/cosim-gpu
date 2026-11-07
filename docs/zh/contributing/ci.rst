@@ -43,6 +43,11 @@ CI 与回归
 会话与镜像工具测试先运行 ``just ci-build-qemu``，从锁定的子模块构建
 ``build/qemu/`` 下的 QEMU 和镜像工具。
 
+镜像构建在 Packer 校验前执行 ``just ci-prepare-image-host <recipe>``。
+配方加载器读取客户机架构并调用 ``just ci-build-qemu <architecture>``，因此 RISC-V
+镜像会获得 ``build/qemu/qemu-system-riscv64`` 和同一源码构建的镜像工具。
+此架构选择不改变编译 Host 架构。
+
 - ``Rust Topology and Runtime``：运行 ``just check-cosim``、
   ``just test-cosim-integration`` 与 ``just test-cosim-memory``。
 - ``ROCm regression runner tests``：运行 ``python3 -m unittest discover

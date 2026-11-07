@@ -70,12 +70,18 @@
 
    just build-qemu                 # 使用全部 CPU
    just build-qemu 4               # 限制并行任务数
+   just build-qemu 4 riscv64       # 同时构建 RISC-V 客户机可执行文件
    just build-gem5                 # 使用全部 CPU
    just build-gem5 1               # 链接阶段内存不足时限制并行度
    just build-disk                 # 需要 /dev/kvm、QEMU 与约 60 GB 空间
    just build-cosim
 
 ``just build-gem5`` 的并行度默认等于 CPU 核数；被 OOM 杀死时把并行度降到 1。
+
+QEMU 的可选目标参数选择客户机 ISA：``x86_64``、``aarch64`` 或 ``riscv64``。
+它与选择编译 Host/容器架构的 ``COSIM_HOST_ARCH`` 分开。原生可执行文件继续提供
+KVM 与 vfio-user，额外的客户机目标使用 TCG；二者共用 ``build/qemu/`` 及其中的
+``qemu-img`` / ``qemu-io``。切换目标时根据 QEMU 已记录的目标列表重新配置构建。
 
 客户机资产
 ----------

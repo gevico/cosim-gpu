@@ -45,6 +45,12 @@ The jobs in ``ci.yml`` run on every push and pull request:
 Session and image-tool tests first run ``just ci-build-qemu`` to build QEMU
 and its image tools under ``build/qemu/`` from the pinned submodule.
 
+Image builders run ``just ci-prepare-image-host <recipe>`` before Packer
+validation. The recipe loader selects the guest architecture and invokes
+``just ci-build-qemu <architecture>`` so a RISC-V image receives
+``build/qemu/qemu-system-riscv64``, with matching source-built image tools.
+The architecture selector does not change the build Host architecture.
+
 - ``Rust Topology and Runtime``: ``just check-cosim``,
   ``just test-cosim-integration`` and ``just test-cosim-memory``.
 - ``ROCm regression runner tests``: ``python3 -m unittest discover
