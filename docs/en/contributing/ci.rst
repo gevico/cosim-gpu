@@ -23,7 +23,7 @@ Workflow overview
        Pages from ``main``
    * - ``ci.yml``
      - Push/PR to ``main``
-     - Host-side checks under five minutes that need no submodules
+     - Host-side checks; session and image-tool tests build the pinned QEMU submodule
    * - ``build.yml``
      - Push/PR to ``main``, or manual dispatch
      - Select recipe checks and run gem5/full regression when required
@@ -41,6 +41,9 @@ Fast checks
 -----------
 
 The jobs in ``ci.yml`` run on every push and pull request:
+
+Session and image-tool tests first run ``just ci-build-qemu`` to build QEMU
+and its image tools under ``build/qemu/`` from the pinned submodule.
 
 - ``Rust Topology and Runtime``: ``just check-cosim``,
   ``just test-cosim-integration`` and ``just test-cosim-memory``.

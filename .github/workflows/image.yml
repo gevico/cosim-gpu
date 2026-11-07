@@ -64,6 +64,8 @@ jobs:
           PYCODE
       - name: Prepare dedicated image-build host
         run: just ci-prepare-image-host "$RECIPE"
+      - name: Build the pinned QEMU for image creation and verification
+        run: just ci-build-qemu
       - name: Initialize image sources
         run: |
           git config --global url."https://github.com/".insteadOf "git@github.com:"

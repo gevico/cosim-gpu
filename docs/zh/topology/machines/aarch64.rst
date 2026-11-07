@@ -47,7 +47,7 @@ host-only-aarch64 机器
    just run-topology-dev resources/machines/host-only-aarch64.yaml --run-for 1
 
 - 机器数量：1（``m0``\ ）；一个 vHost，无设备。
-- 内存池 64 MiB；主机二进制 ``qemu-system-aarch64`` 从 ``PATH`` 查找。
+- 内存池 64 MiB；主机二进制使用 ``just build-qemu`` 构建的 ``build/qemu/qemu-system-aarch64``\ 。
 
 gem5-aarch64 机器
 -----------------

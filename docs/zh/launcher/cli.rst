@@ -62,7 +62,7 @@ run 选项
      - 无
      - 全部进程就绪后继续运行的秒数，到期即结束会话。
    * - ``--qemu-img``
-     - ``qemu-img``
+     - 工作区中的 ``build/qemu/qemu-img``
      - 创建缺失镜像和 overlay 的工具。
    * - ``--stdin-lifeline``
      - 环境变量 ``COSIM_STDIN_LIFELINE``

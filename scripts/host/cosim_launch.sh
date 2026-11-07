@@ -4,7 +4,7 @@
 #
 # gem5 Device Model runs inside Docker (GPU-only, no kernel), while Host-side
 # QEMU runs with KVM or TCG and connects through vfio-user. QEMU comes from the
-# third_party/qemu build (just build-qemu) when present, else from PATH.
+# third_party/qemu build (just build-qemu).
 #
 # Usage:
 #   ./scripts/host/cosim_launch.sh                         # vfio-user
@@ -39,15 +39,8 @@ GEM5_CONFIG="${GEM5_DIR}/configs/example/gpufs/mi300_cosim.py"
 GEM5_DOCKER_IMAGE="${GEM5_DOCKER_IMAGE:-cosim-dev:local}"
 GEM5_CONTAINER="$(cosim_container_name "$COSIM_RUN_ID")"
 
-# QEMU: $QEMU_BIN, else the qemu submodule build, else PATH
-QEMU_SUBMODULE_BIN="${COSIM_DIR}/build/qemu/qemu-system-x86_64"
-if [[ -z "${QEMU_BIN:-}" ]]; then
-    if [[ -x "$QEMU_SUBMODULE_BIN" ]]; then
-        QEMU_BIN="$QEMU_SUBMODULE_BIN"
-    else
-        QEMU_BIN="$(command -v qemu-system-x86_64 2>/dev/null || true)"
-    fi
-fi
+# QEMU and its image helper come from the same source build by default.
+QEMU_BIN="${QEMU_BIN:-${COSIM_DIR}/build/qemu/qemu-system-x86_64}"
 IMAGE_DIR="${COSIM_DIR}/build/images/ubuntu/24.04/x86_64/rocm/7.0"
 DISK_IMAGE="${IMAGE_DIR}/disk"
 KERNEL="${IMAGE_DIR}/kernel"
@@ -100,8 +93,7 @@ Options:
   --disk-image PATH       Disk image (default: build/images/<recipe>/disk)
   --kernel PATH           vmlinux
                           (default: build/images/<recipe>/kernel)
-  --qemu-bin PATH         QEMU binary (default: build/qemu/qemu-system-x86_64,
-                          else qemu-system-x86_64 from PATH)
+  --qemu-bin PATH         QEMU binary (default: build/qemu/qemu-system-x86_64)
   --gem5-bin PATH         gem5 binary
                          (default: build/gem5/<native>/VEGA_X86/gem5.opt)
   --gem5-docker IMAGE     Docker image for gem5 (default: cosim-dev:local)
@@ -201,10 +193,10 @@ C_GEM5_CONFIG="/gem5/configs/example/gpufs/mi300_cosim.py"
     error "gem5 not found: $GEM5_BIN\n" " Build: just build-gem5"
 [[ -n "$QEMU_BIN" && -x "$QEMU_BIN" ]] || \
     error "qemu-system-x86_64 not found.\n" \
-          " Build: just build-qemu (or install QEMU 10.1+, or pass --qemu-bin)"
+          " Build: just build-qemu (or pass --qemu-bin)"
 "$QEMU_BIN" -device help 2>/dev/null | grep 'vfio-user-pci' >/dev/null || \
     error "QEMU does not provide vfio-user-pci: $QEMU_BIN\n" \
-          " Build: just build-qemu (or pass a QEMU 10.1+ --qemu-bin)"
+          " Build: just build-qemu (or pass --qemu-bin)"
 [[ -f "$DISK_IMAGE" ]] || \
     error "Disk image not found: $DISK_IMAGE\n" " Build: just build-disk"
 [[ -f "$KERNEL" ]]     || \
@@ -443,11 +435,11 @@ echo ""
 
 # Build QEMU command
 QEMU_IMG_BIN="${QEMU_IMG:-${COSIM_DIR}/build/qemu/qemu-img}"
-if [[ ! -x "$QEMU_IMG_BIN" ]]; then
-    QEMU_IMG_BIN="$(command -v "${QEMU_IMG:-qemu-img}" 2>/dev/null || true)"
+if [[ -n "${QEMU_IMG:-}" && "$QEMU_IMG" != */* ]]; then
+    QEMU_IMG_BIN="$(command -v "$QEMU_IMG" 2>/dev/null || true)"
 fi
 [[ -n "$QEMU_IMG_BIN" && -x "$QEMU_IMG_BIN" ]] || \
-    error "qemu-img not found. Install qemu-utils or set QEMU_IMG."
+    error "qemu-img not found. Run just build-qemu or set QEMU_IMG."
 cosim_create_disk_overlay \
     "$QEMU_IMG_BIN" "$DISK_IMAGE" "$DISK_OVERLAY" >/dev/null
 manifest_add "runtime" "file" "$DISK_OVERLAY"

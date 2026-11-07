@@ -54,6 +54,8 @@ build_qemu() {
     if grep -qx 'CONFIG_VFIO_USER_SERVER=y' "$device_config"; then
         "$binary" -object help | grep x-vfio-user-server >/dev/null
     fi
+    "$build_dir/qemu-img" --version
+    "$build_dir/qemu-io" --version
     echo "QEMU built: build/qemu/qemu-system-$arch"
 }
 

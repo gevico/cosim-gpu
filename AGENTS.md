@@ -73,7 +73,8 @@ Host-side QEMU through vfio-user; the gem5 server uses libvfio-user. The
 `third_party/qemu` submodule tracks the
 `gevico/cosim-gpu` branch of gevico/qemu (QEMU v11.1.2, no co-simulation
 patches);
-`just build-qemu` builds it, and the launcher falls back to the system QEMU.
+`just build-qemu` builds the QEMU executables and image tools used by vHosts,
+device models, image recipes and tests under `build/qemu/`.
 vHost RAM and VRAM are shared through `/dev/shm/cosim-guest-ram` and
 `/dev/shm/mi300x-vram`. BAR layout: 0+1=VRAM, 2+3=Doorbell, 4=MSI-X, 5=MMIO.
 

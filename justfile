@@ -53,10 +53,23 @@ dev-shell:
 build-qemu jobs=build_jobs target=host_arch:
     {{ dev }} scripts/host/build.sh qemu "$2" "$1"
 
+# Prepare a CI host and build the pinned QEMU, including image tools
+[group('ci')]
+ci-build-qemu:
+    sudo apt-get update
+    sudo apt-get install -y --no-install-recommends build-essential ninja-build pkg-config python3-venv python3-pip libglib2.0-dev libpixman-1-dev libslirp-dev libfdt-dev libjson-c-dev libcmocka-dev zlib1g-dev
+    git -c 'url.https://github.com/.insteadOf=git@github.com:' submodule update --init --recursive --depth 1 third_party/qemu
+    COSIM_ENV=host just build-qemu
+
 # Build gem5 (VEGA_X86); use jobs=1 if linking is OOM-killed
 [group('build')]
 build-gem5 jobs=build_jobs *scons_args:
     {{ dev }} scripts/host/build.sh gem5 {{ gem5_build_dir }} "$@"
+
+# Check QEMU tool selection and image-builder helper execution
+[group('test')]
+test-qemu-toolchain:
+    python3 -m unittest discover -s scripts/ci -p 'test_qemu_toolchain.py' -v
 
 # Initialize gem5 sources while preserving the existing worktree
 [group('dev')]
@@ -277,6 +290,11 @@ check-gem5-message message:
 [group('check')]
 check-gem5-ci:
     actionlint .github/workflows/build.yml third_party/gem5/.github/workflows/mi300x-ci.yaml
+
+# Validate the top-level GitHub Actions workflows
+[group('check')]
+check-workflows:
+    actionlint .github/workflows/*.yml
 
 # Verify CI cancellation through the real Rust launcher and QEMU
 [group('test')]

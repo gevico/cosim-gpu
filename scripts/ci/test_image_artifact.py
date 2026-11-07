@@ -66,13 +66,17 @@ class ImageManifestMemberTests(unittest.TestCase):
             self.assertIsNone(image_manifest_member(archive, RECIPE_ID))
 
 
-@unittest.skipUnless(shutil.which("qemu-img"), "requires qemu-img")
 class RecipeArtifactVerificationTests(unittest.TestCase):
     def test_disk_only_recipe_verification_preserves_original_artifacts(self):
         recipe_id = "debian/13/x86_64/rocm/7.1"
         source = Path(__file__).resolve().parents[2]
+        qemu_img = source / "build/qemu/qemu-img"
+        self.assertTrue(qemu_img.is_file(), "run just build-qemu")
         with tempfile.TemporaryDirectory() as name:
             workspace = Path(name)
+            helper = workspace / "build/qemu/qemu-img"
+            helper.parent.mkdir(parents=True)
+            helper.symlink_to(qemu_img)
             directory = workspace / "resources/images/recipes" / recipe_id
             shutil.copytree(source / "resources/images/recipes" / RECIPE_ID,
                             directory)
@@ -82,7 +86,7 @@ class RecipeArtifactVerificationTests(unittest.TestCase):
             recipe = load_recipe(workspace, recipe_id)
             output = recipe.output_path(workspace)
             output.mkdir(parents=True)
-            subprocess.run(["qemu-img", "create", "-q", "-f", "qcow2",
+            subprocess.run([helper, "create", "-q", "-f", "qcow2",
                             str(output / "disk"), "1M"], check=True)
             inputs = {"recipe": recipe_id}
             key = digest_json(inputs)

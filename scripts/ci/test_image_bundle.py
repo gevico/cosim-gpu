@@ -77,6 +77,9 @@ class ImageBootArtifactTests(unittest.TestCase):
             with self.subTest(architecture=architecture):
                 with tempfile.TemporaryDirectory() as name:
                     workspace = Path(name)
+                    tools = workspace / "build/qemu"
+                    tools.mkdir(parents=True)
+                    (tools / "qemu-img").symlink_to(qemu_img)
                     bundle = workspace / "bundle"
                     bundle.mkdir()
                     recipe = replace(

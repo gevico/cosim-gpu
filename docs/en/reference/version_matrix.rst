@@ -21,10 +21,6 @@ Component versions
      - v11.1.2, commit ``4fc49f46``
      - recorded
      - ``third_party/qemu/VERSION``; ``git ls-tree HEAD qemu``
-   * - QEMU (system fallback, legacy launcher)
-     - 10.1 or newer with ``vfio-user-pci``
-     - minimum
-     - preflight check in ``scripts/host/cosim_launch.sh``
    * - gem5 (submodule)
      - ``gevico/gem5`` branch ``gevico/cosim-gpu``; current checkout ``v25.0.0.0-961-gcc9d5dd248``
      - recorded
@@ -91,7 +87,7 @@ Images and containers
      - Source
    * - ``cosim-dev:local``
      - development container image; also the default gem5 container image of the legacy shell launcher
-     - ``just dev-image`` from ``scripts/host/Dockerfile.dev`` (Ubuntu 24.04, third_party/gem5/QEMU build dependencies, Rust, QEMU, ``qemu-img``)
+     - ``just dev-image`` from ``scripts/host/Dockerfile.dev`` (Ubuntu 24.04, third_party/gem5/QEMU build dependencies, Rust)
    * - ``ghcr.io/third_party/gem5/gpu-fs:latest``
      - build image for guest GPU test programs; default of ``GPU_APP_BUILD_IMAGE`` for ``just build-gpu-tests`` and ``just build-gpu-app``
      - external image; override with ``GPU_APP_BUILD_IMAGE``

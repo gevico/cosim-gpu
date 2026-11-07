@@ -162,7 +162,9 @@ container from <code>scripts/host/Dockerfile.dev</code>. vHost image and HIP bui
 ### Linux Host sessions
 
 - glibc and <code>setpriv</code> from util-linux.
-- QEMU for the Host architecture and <code>qemu-img</code>.
+- <code>just build-qemu</code> builds QEMU for the Host architecture,
+  <code>qemu-img</code> and <code>qemu-io</code> from the pinned source into
+  <code>build/qemu/</code>.
 - x86_64 Hosts use <code>qemu-system-x86_64</code>; ARM64 Hosts use
   <code>qemu-system-aarch64</code>.
 - <code>COSIM_HOST_ARCH</code> selects the build architecture and defaults to

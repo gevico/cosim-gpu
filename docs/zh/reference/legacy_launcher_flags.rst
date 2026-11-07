@@ -30,7 +30,7 @@ shell launcher 参数
      - ``build/rocm-local-installed/kernel``
      - 客户机 vmlinux
    * - ``--qemu-bin PATH``
-     - ``build/qemu/qemu-system-x86_64``，否则 ``PATH`` 中的 ``qemu-system-x86_64``
+     - ``build/qemu/qemu-system-x86_64``
      - QEMU 二进制
    * - ``--gem5-bin PATH``
      - ``build/gem5/<arch>/VEGA_X86/gem5.opt``

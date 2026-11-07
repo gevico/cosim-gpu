@@ -53,7 +53,7 @@ Build everything
    * - Recipe
      - Output
    * - ``just build-qemu``
-     - ``build/qemu/qemu-system-x86_64`` with ``vfio-user-pci`` and KVM support
+     - ``build/qemu/qemu-system-x86_64`` with ``vfio-user-pci`` and KVM support, plus ``qemu-img`` and ``qemu-io``
    * - ``just build-gem5``
      - ``build/gem5/<arch>/VEGA_X86/gem5.opt``
    * - ``just build-disk``

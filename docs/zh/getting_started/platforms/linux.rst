@@ -45,7 +45,7 @@ Linux 主机
      - ``libcmocka-dev``、``python3-venv``
      - QEMU 单元测试与 Python 虚拟环境
    * - 镜像构建
-     - ``ansible-core``、``python3-tomli``、``qemu-utils``、``unzip``
+     - ``ansible-core``、``python3-tomli``、``unzip``
      - Packer/Ansible 客户机镜像构建
    * - Rust
      - Rust 1.95 及以上与 Cargo
@@ -88,7 +88,7 @@ WSL2 与嵌套虚拟化
    just --list
    docker info >/dev/null && echo docker-ok
    ls -l /dev/kvm
-   qemu-img --version
+   build/qemu/qemu-img --version
 
 以上检查通过后，按 :doc:`../install` 构建并进入 :doc:`../first_session`。
 

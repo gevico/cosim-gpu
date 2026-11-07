@@ -49,7 +49,7 @@
    * - recipe
      - 产物
    * - ``just build-qemu``
-     - ``build/qemu/qemu-system-x86_64``，带 ``vfio-user-pci`` 与 KVM 支持
+     - ``build/qemu/qemu-system-x86_64``，带 ``vfio-user-pci`` 与 KVM 支持；同时生成 ``qemu-img`` 与 ``qemu-io``
    * - ``just build-gem5``
      - ``build/gem5/<arch>/VEGA_X86/gem5.opt``
    * - ``just build-disk``

@@ -78,6 +78,9 @@ A rebuild needs:
   ``shasum`` and binutils;
 - network access to Canonical, AMD, HashiCorp and PyTorch package servers.
 
+QEMU and ``qemu-img`` come from the pinned source through ``just build-qemu``
+under ``build/qemu/``, sharing the build used by vHosts and device models.
+
 .. code-block:: bash
 
    just build-rocm-assets build/rocm-custom    # reusable bundle

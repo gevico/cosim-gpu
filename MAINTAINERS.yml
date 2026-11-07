@@ -143,6 +143,7 @@ Build System and CI:
     - scripts/host/Dockerfile.dev
     - scripts/ci/runtime_artifact.py
     - scripts/ci/test_runtime_artifact.py
+    - scripts/ci/test_qemu_toolchain.py
     - scripts/ci/verify_runtime_artifact.py
     - scripts/ci/image_artifact.py
     - scripts/ci/verify_image_artifact.py

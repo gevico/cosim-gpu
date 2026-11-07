@@ -13,7 +13,7 @@ Position
 ``scripts/host/cosim_launch.sh`` is an early one-command startup script exposed as the ``just run-launch`` recipe. It targets a single guest: gem5 runs only the GPU model inside a Docker container, QEMU runs the guest on the host with KVM, and the two communicate over a Unix socket using the standard vfio-user protocol.
 
 - gem5 uses the ``cosim-dev:local`` image with ``build/gem5/<native>/VEGA_X86/gem5.opt`` as the default binary and ``third_party/gem5/configs/example/gpufs/mi300_cosim.py`` as the configuration.
-- QEMU prefers ``build/qemu/qemu-system-x86_64`` and falls back to a system QEMU found in ``PATH``.
+- QEMU defaults to ``build/qemu/qemu-system-x86_64``, built by ``just build-qemu``.
 - Each run generates a ``COSIM_RUN_ID`` used in socket, shared memory and screen log names to reduce collisions between concurrent runs.
 - The guest kernel and disk default to ``build/rocm-local-installed/kernel`` and ``disk``.
 

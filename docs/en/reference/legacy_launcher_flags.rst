@@ -30,7 +30,7 @@ The defaults below are the effective values in the script. The ``--socket-path``
      - ``build/rocm-local-installed/kernel``
      - guest vmlinux
    * - ``--qemu-bin PATH``
-     - ``build/qemu/qemu-system-x86_64``, otherwise ``qemu-system-x86_64`` from ``PATH``
+     - ``build/qemu/qemu-system-x86_64``
      - QEMU binary
    * - ``--gem5-bin PATH``
      - ``build/gem5/<arch>/VEGA_X86/gem5.opt``

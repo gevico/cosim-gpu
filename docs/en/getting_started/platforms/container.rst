@@ -30,7 +30,8 @@ Build and select the environment
 
 ``just dev-image`` builds ``cosim-dev:local`` from
 ``scripts/host/Dockerfile.dev``: Ubuntu 24.04 with gem5 and QEMU build
-dependencies, the Rust toolchain, QEMU and ``qemu-img``. When ``COSIM_ENV``
+dependencies and the Rust toolchain. ``just build-qemu`` builds QEMU and its
+image tools into ``build/qemu/`` in the mounted workspace. When ``COSIM_ENV``
 is unset, Linux uses ``host`` and other systems use ``container``.
 
 How dev.sh behaves
