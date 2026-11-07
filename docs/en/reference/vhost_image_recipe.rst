@@ -29,6 +29,8 @@ platform and software version::
 
 For example, ``ubuntu/24.04/x86_64/rocm/7.0`` means Ubuntu 24.04 for x86_64
 with ROCm 7.0. Do not repeat those five values in ``recipe.toml``.
+In configuration and commands, separate components with a single ``/``;
+omit the trailing ``/`` and any ``./`` prefix.
 The parser accepts architecture names ``x86_64``, ``aarch64`` and ``riscv64``.
 An actual build also needs a matching base image, QEMU and installation steps.
 
