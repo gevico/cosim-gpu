@@ -20,7 +20,7 @@ Topology
    version: 1
    imports:
      - vhosts/qemu.yaml
-     - devices/gpu/mi300x.yaml
+     - devices/gpu/mi300x/gem5.yaml
    templates:
      node8:
        vhost:
@@ -59,7 +59,7 @@ Hardware resources
      - ``gpu-8.yaml``
    * - Devices
      - 8 × ``mi300x``, 8 GiB VRAM and 40 CU each
-     - ``resources/devices/gpu/mi300x.yaml``
+     - ``resources/devices/gpu/mi300x/gem5.yaml``
    * - Memory pool
      - 96 GiB = 32 GiB RAM + 64 GiB VRAM
      - ``crates/cosim-topology/src/layout.rs``
@@ -130,4 +130,4 @@ Related pages
 - vHost: :ref:`ref-topology-schema`
 - Machine catalog: :doc:`index`
 - Chapter 4: :ref:`sim-gem5-model`, :ref:`sim-gem5-multi-gpu`
-- Sources: ``resources/machines/gpu-8.yaml``, ``resources/devices/gpu/mi300x.yaml``
+- Sources: ``resources/machines/gpu-8.yaml``, ``resources/devices/gpu/mi300x/gem5.yaml``

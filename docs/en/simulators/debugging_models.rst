@@ -38,7 +38,7 @@ Enable flags through the device ``args.gem5_debug_flags`` in YAML; the adapter r
 
    templates:
      mi300x:
-       kind: gem5-mi300x
+       recipe: gpu/mi300x/gem5
        args:
          gem5_debug_flags: [MI300XCosim, AMDGPUDevice, PM4PacketProcessor]
 
@@ -90,7 +90,7 @@ Common Model Problems
      - Check the BAR setup in ``MI300XVfioUser`` and the VRAM size in the memory layout.
    * - Timer overflow crash
      - Whether RTC and PIT events are disabled
-     - ``mi300_cosim.py`` disables ``disable_rtc_events`` and ``disable_timer_events`` by default.
+     - ``gem5.py`` disables ``disable_rtc_events`` and ``disable_timer_events`` by default.
 
 Debugging Workflow
 -------------------

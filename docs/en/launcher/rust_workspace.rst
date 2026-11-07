@@ -34,7 +34,7 @@ Module Responsibilities
    * - ``crates/cosim-topology/src/loader.rs``, ``resolve.rs``
      - Imports, merge keys, template inheritance, workspace-relative resource paths, count expansion and validation.
    * - ``crates/cosim-topology/src/adapter/``
-     - The ``Adapter`` enum with the ``gem5-mi300x``, ``qemu-device`` and template adapters, host rendering and ``Probe``.
+     - The ``Adapter`` enum with QEMU and generic template adapters; the MI300X recipe uses templates, host rendering and ``Probe``.
    * - ``crates/cosim-topology/src/layout.rs``
      - Memory pools and guest physical ranges for a given ``PageSize``.
    * - ``crates/cosim-runtime/src/env.rs``, ``layout.rs``, ``plan.rs``
@@ -54,7 +54,7 @@ Public Interfaces
 Extension Points: Adapters and Command Templates
 -------------------------------------------------
 
-- The device adapter is expressed by the ``Adapter`` enum: ``gem5-mi300x`` runs one GPU per process, ``qemu-device`` exports a QEMU functional device, and the template adapter renders a command from YAML.
+- The ``Adapter`` enum represents QEMU devices and generic command templates. The MI300X recipe uses a template to run one GPU per process.
 - Readiness is expressed by ``Probe``: log markers, Unix socket existence and QMP negotiation. An adapter returns these probes in evaluation order.
 - vHost kinds render QEMU arguments from a YAML ``command`` template. A kind declared under ``kinds`` with ``role: device`` provides ``argv`` or ``command`` and requires ``ready_log``.
 - ``runtime.argv`` or ``runtime.command`` can replace the command of any device adapter, but the replacement must provide its own readiness contract and resource behavior.
@@ -82,7 +82,7 @@ Sources
 --------
 
 - Crate manifests and dependencies: ``crates/cosim-cli/Cargo.toml``, ``crates/cosim-runtime/Cargo.toml`` and ``crates/cosim-topology/Cargo.toml``.
-- Adapter implementations: ``crates/cosim-topology/src/adapter/gem5.rs``, ``qemu_device.rs`` and ``template.rs``.
+- Adapter implementations: ``crates/cosim-topology/src/recipe.rs``, ``qemu_device.rs`` and ``template.rs``.
 - Runtime exports: ``crates/cosim-runtime/src/lib.rs``.
 - Rust guidelines: ``docs/en/contributing/rust_guidelines.rst``.
 

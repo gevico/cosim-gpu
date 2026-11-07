@@ -76,15 +76,21 @@ def build_key() -> str:
             name: recipes["assignments"][name]
             for name in (
                 "host_arch_input", "host_arch", "container_platform",
+                "gem5_recipe", "gem5_config", "gem5_binary",
                 "gem5_build_dir", "dev", "dev_image", "build_jobs",
                 "COSIM_ENV", "COSIM_DEV_IMAGE", "COSIM_DEV_PLATFORM",
             )
         },
         "settings": recipes["settings"],
         "files": {name: sha256(ROOT / name) for name in (
-            "scripts/host/build.sh", "scripts/host/dev.sh",
+            "scripts/host/dev.sh",
             "scripts/host/Dockerfile.dev",
             "scripts/ci/runtime_artifact.py", ".gitmodules",
+            "resources/device_simulators/__init__.py",
+            "resources/device_simulators/cli.py",
+            "resources/device_simulators/recipe.py",
+            "resources/device_simulators/builder.py",
+            "resources/device_simulators/gem5/recipe.toml",
         )},
         "epoch": os.environ.get("COSIM_GEM5_CACHE_EPOCH", "1"),
         "environment": {name: os.environ.get(name) for name in (

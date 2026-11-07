@@ -14,6 +14,7 @@
    topology_schema
    device_adapters
    vhost_image_recipe
+   simulator_device_recipes
    guest_parameters
    version_matrix
    files_and_artifacts
@@ -71,7 +72,7 @@
      - 历史问题记录与驱动、模型行为
    * - :doc:`legacy_launcher_flags`
      - shell launcher 与 gem5 config 的修正参数表
-     - ``scripts/host/cosim_launch.sh``、``mi300_cosim.py``
+     - ``scripts/host/cosim_launch.sh``、``gem5.py``
 
 相关章节
 --------

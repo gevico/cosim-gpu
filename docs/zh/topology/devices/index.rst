@@ -28,10 +28,10 @@
      - :ref:`sim-qemu-device-models`
    * - 声明的 device kind
      - ``kinds`` 中的 ``role: device``
-     - 自定义 ``argv`` 或 ``command`` 的扩展点；仓库样例尚未使用
+     - 自定义 ``argv`` 或 ``command`` 的扩展点；MI300X 配方使用此机制
      - :ref:`ref-device-adapters`
 
-- ``resources/devices/gpu/mi300x.yaml`` 提供 ``mi300x`` 与 ``mi300x-aarch64`` 两个模板；后者只覆盖 gem5 二进制。
+- ``resources/devices/gpu/mi300x/gem5.yaml`` 提供 ``mi300x`` 与 ``mi300x-aarch64`` 两个模板；后者选择 ``host_arch: aarch64``。
 - ``resources/devices/pci/qemu-edu.yaml`` 提供 ``qemu-edu`` 与 ``qemu-edu-aarch64`` 两个模板；前者需要带 vfio-user 支持的 QEMU。
 
 设备字段
@@ -44,8 +44,8 @@
      - 必需
      - 说明
    * - ``kind``
-     - 是
-     - 内置 ``gem5-mi300x``\ 、``qemu-device``\ ，或 ``kinds`` 中声明的 device kind
+     - 未选择 recipe 时必需
+     - 内置 ``qemu-device`` 或声明的 device kind；MI300X kind 由配方声明
    * - ``id``
      - 否
      - 默认由 ``use`` 名称或 kind 加序号组成；显式 id 在 count 为 1 时保留
@@ -56,8 +56,8 @@
      - gem5-mi300x 必需
      - gem5 配置文件；``qemu-device`` 拒绝该字段
    * - ``runtime.binary``
-     - 除 gem5-mi300x 外必需
-     - gem5-mi300x 默认使用 ``gem5.opt``\ ；裸名从 ``PATH`` 查找
+     - 配方可提供
+     - MI300X 配方按 ``host_arch`` 推导构建路径；裸名从 ``PATH`` 查找
    * - ``runtime.argv``\ 、``runtime.command``
      - 否
      - 覆盖适配器命令；这类命令需要 ``ready_log``
@@ -80,7 +80,7 @@
 启动与就绪约定
 --------------
 
-- 内置适配器 ``gem5-mi300x`` 与 ``qemu-device`` 各自生成启动命令；声明的 device kind 提供 ``argv`` 或 ``command``\ 。
+- ``qemu-device`` 生成 QEMU 启动命令；MI300X 配方及其他声明的 device kind 提供命令模板。
 - 每个设备进程先于主机启动。就绪探测按顺序进行：输出日志标记（``ready_log``\ ，gem5 默认是 MI300X 的监听行）、socket 存在、QMP 协商（``qemu-device``\ ）。
 - 设备就绪后向每个依赖它的主机会交出租约；主机停止并释放租约后，最后一个租约释放时设备退出。
 - 每个设备程序必须在前台运行、把资源使用者保留在自己的进程组中并保持继承的文件描述符打开。
@@ -98,7 +98,7 @@
 
 - 需要 GPU 性能模型与 ``amdgpu`` 驱动路径：使用 ``gem5-mi300x``\ ，样例见 :doc:`../machines/single_gpu` 与 :doc:`../machines/gpu_8`\ 。
 - 需要验证 vfio-user 设备链路或 option ROM：使用 ``qemu-device`` 的 ``edu``\ ，样例见 :doc:`../machines/qemu_device`\ 。
-- 需要自定义启动命令：声明 device kind 并提供 ``ready_log``\ ；仓库样例尚未使用该路径，契约见 :ref:`ref-device-adapters`\ 。
+- 需要自定义启动命令：声明 device kind 并提供 ``ready_log``\ ；MI300X 配方复用该路径，契约见 :ref:`ref-device-adapters`\ 。
 - 模型细节统一看第 4 章：PCI/BAR 见 :ref:`sim-gem5-pci`\ ，性能模型见 :ref:`sim-gem5-model`\ ，QEMU 功能设备见 :ref:`sim-qemu-device-models`\ ，驱动要求见 :ref:`sim-guest-driver`\ 。
 
 相关页面
@@ -108,4 +108,4 @@
 - vHost 配置：:doc:`../hosts/index`
 - 编写拓扑：:doc:`../write_topology`
 - 适配器契约：:ref:`ref-device-adapters`
-- 源码：``resources/devices/gpu/mi300x.yaml``\ 、``resources/devices/pci/qemu-edu.yaml``\ 、``crates/cosim-topology/src/adapter/``
+- 源码：``resources/devices/gpu/mi300x/gem5.yaml``\ 、``resources/devices/pci/qemu-edu.yaml``\ 、``crates/cosim-topology/src/adapter/``

@@ -68,7 +68,8 @@ XGMI 模型
 
    # 单进程双 GPU，带 mesh 拓扑的 XGMI 链路（直接调用 gem5，不经过 YAML）
    build/gem5/x86_64/VEGA_X86/gem5.opt \
-     third_party/gem5/configs/example/gpufs/mi300_cosim.py \
+     resources/device_simulators/gem5/run.py \
+     --model-config resources/devices/gpu/mi300x/gem5.yaml \
      --num-gpus=2 --xgmi-topology=mesh \
      --socket-path=/tmp/gem5-mi300x --shmem-path=/mi300x-vram
 
@@ -93,7 +94,7 @@ SST 实验
 源码与依据
 -----------
 
-- 多 GPU 配置：``third_party/gem5/configs/example/gpufs/mi300_cosim.py``\ 。
+- 多 GPU 配置：``resources/devices/gpu/mi300x/gem5.py``\ 。
 - XGMI 桥：``third_party/gem5/src/dev/amdgpu/xgmi_bridge.{cc,hh}``\ 、``XGMIBridge.py``\ 。
 - 传输接口：``third_party/gem5/src/dev/amdgpu/xgmi_transport.hh``\ 。
 - SST 配置：``configs/sst/``\ 。

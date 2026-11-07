@@ -98,7 +98,7 @@ fn validate_dry_run_and_run_reject_guest_hints_without_vhost_image() {
             "version: 1\nimports: [{}, {}, {}]\nmachines:\n  - id: m0\n    vhost: {{use: {vhost}}}\n    devices: [{{use: mi300x, guest_hints: {{cmdline: quiet}}}}]\n",
             resources().join("vhosts/qemu.yaml").display(),
             resources().join(vhost_file).display(),
-            resources().join("devices/gpu/mi300x.yaml").display(),
+            resources().join("devices/gpu/mi300x/gem5.yaml").display(),
         ),
     )
     .unwrap();

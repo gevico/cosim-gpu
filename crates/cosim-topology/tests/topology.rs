@@ -59,6 +59,146 @@ fn resources() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../resources")
 }
 
+#[test]
+fn device_recipe_resolves_simulator_and_preserves_instance_overrides() {
+    let (_directory, root) = tempdir();
+    let source = document(
+        &root,
+        r#"
+machines:
+  - id: m
+    vhost: {use: base, memory_map: '[]'}
+    devices:
+      - recipe: gpu/mi300x/gem5
+        id: gpu
+        host_arch: aarch64
+        memory_regions: [{name: vram, size: 8G}]
+        args: {num_compute_units: 4}
+"#,
+    );
+    let topology = load_with_workspace(&source, &resources(), &root).unwrap();
+    let device = &topology.machines[0].devices[0];
+    assert_eq!(device.id.as_str(), "gpu");
+    assert_eq!(
+        device.program.binary,
+        root.join("build/gem5/aarch64/VEGA_X86/gem5.opt")
+            .to_string_lossy()
+    );
+    assert_eq!(device.pci.vendor_id, Some(0x1002));
+    assert_eq!(device.pci.device_id, Some(0x74a0));
+    assert_eq!(device.regions[0].size.bytes(), 8 << 30);
+    let Adapter::Template(adapter) = &device.adapter else {
+        panic!("device recipes use the common command renderer");
+    };
+    assert_eq!(adapter.args["num_compute_units"], 4);
+    assert_eq!(adapter.args["gem5_debug_flags"], json!([]));
+    assert!(
+        adapter
+            .config
+            .as_ref()
+            .unwrap()
+            .ends_with("devices/gpu/mi300x/gem5.yaml")
+    );
+}
+
+#[test]
+fn device_recipe_rejects_invalid_parameters_identity_and_paths() {
+    for (fields, expected) in [
+        ("args: {num_compute_units: 0}", "num_compute_units"),
+        ("args: {num_compute_units: 1025}", "num_compute_units"),
+        ("args: {num_compute_units: true}", "num_compute_units"),
+        ("args: {unknown: 1}", "unknown"),
+        ("args: {extra: []}", "unknown recipe parameter extra"),
+        (
+            "args: {extra: ['--num-gpus=8', '--model-config=other.yaml', '--shared-pool=/other']}",
+            "unknown recipe parameter extra",
+        ),
+        ("args: {gem5_debug_flags: [1]}", "gem5_debug_flags"),
+        ("pci: {device_id: 1}", "device_id"),
+        ("memory_regions: [{name: vram, size: 3G}]", "power of two"),
+        ("memory_regions: [{name: other, size: 1G}]", "vram"),
+        ("host_arch: invalid", "host_arch"),
+        ("entry: other.py", "cannot be replaced"),
+        ("config: other.yaml", "cannot be replaced"),
+    ] {
+        let (_directory, root) = tempdir();
+        let source = document(
+            &root,
+            &format!(
+                "machines:\n  - id: m\n    vhost: {{use: base, memory_map: '[]'}}\n    devices:\n      - recipe: gpu/mi300x/gem5\n        {fields}\n"
+            ),
+        );
+        let error = failure(load_with_workspace(&source, &resources(), &root));
+        assert!(error.contains(expected), "{fields}: {error}");
+    }
+    let (_directory, root) = tempdir();
+    let source = document(
+        &root,
+        "machines:\n  - id: m\n    vhost: {use: base}\n    devices: [{recipe: gpu/mi300x/gem5}]\n",
+    );
+    assert!(
+        failure(load_with_workspace(&source, &resources(), &root))
+            .contains("requires vhost.memory_map")
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn device_recipe_rejects_parent_traversal_and_escaping_recipe_files() {
+    let (_directory, root) = tempdir();
+    for identifier in ["../mi300x/gem5", "/gpu/mi300x/gem5", "gpu//mi300x/gem5"] {
+        let source = document(
+            &root,
+            &format!(
+                "machines:\n  - id: m\n    vhost: {{use: base, memory_map: '[]'}}\n    devices: [{{recipe: '{identifier}'}}]\n"
+            ),
+        );
+        assert!(
+            failure(load_with_workspace(&source, &resources(), &root))
+                .contains("relative recipe path")
+        );
+    }
+    let library = root.join("resources");
+    for name in [
+        "devices/gpu/mi300x/device.toml",
+        "devices/gpu/mi300x/gem5.yaml",
+        "devices/gpu/mi300x/gem5.py",
+        "device_simulators/gem5/run.py",
+        "device_simulators/gem5/recipe.toml",
+    ] {
+        write(
+            &library,
+            name,
+            &fs::read_to_string(resources().join(name)).unwrap(),
+        );
+    }
+    let identity = library.join("devices/gpu/mi300x/device.toml");
+    let outside = root.join("outside.toml");
+    fs::rename(&identity, &outside).unwrap();
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&outside, &identity).unwrap();
+    let source = document(
+        &root,
+        "machines:\n  - id: m\n    vhost: {use: base, memory_map: '[]'}\n    devices: [{recipe: gpu/mi300x/gem5}]\n",
+    );
+    assert!(failure(load_with_workspace(&source, &library, &root)).contains("escapes"));
+
+    fs::remove_file(&identity).unwrap();
+    fs::rename(&outside, &identity).unwrap();
+    let config = library.join("device_simulators/gem5/run.py");
+    let other = library.join("device_simulators/other/configs/model.py");
+    fs::create_dir_all(other.parent().unwrap()).unwrap();
+    fs::rename(&config, &other).unwrap();
+    std::os::unix::fs::symlink(&other, &config).unwrap();
+    assert!(failure(load_with_workspace(&source, &library, &root)).contains("escapes"));
+    fs::remove_file(&config).unwrap();
+    fs::rename(&other, &config).unwrap();
+    let model = library.join("devices/gpu/mi300x/gem5.py");
+    fs::rename(&model, &other).unwrap();
+    std::os::unix::fs::symlink(&other, &model).unwrap();
+    assert!(failure(load_with_workspace(&source, &library, &root)).contains("escapes"));
+}
+
 fn page() -> PageSize {
     PageSize::new(4096).unwrap()
 }
@@ -423,16 +563,6 @@ fn validation_rejects_inconsistent_declarations() {
         ),
         (
             "",
-            "[{kind: gem5-mi300x, config: c, memory_regions: [{name: vram, size: 1G}]}]",
-            "requires vhost.memory_map",
-        ),
-        (
-            ", memory_map: '[]'",
-            "[{kind: gem5-mi300x, config: c, memory_regions: [{name: vram, size: 3G}]}]",
-            "VRAM must be a power of two",
-        ),
-        (
-            "",
             "[{id: Gpu, kind: model, ready_log: up, runtime: {binary: m}}, \
              {id: gpu, kind: model, ready_log: up, runtime: {binary: m}}]",
             "duplicate device gpu",
@@ -764,10 +894,6 @@ fn builtin_adapters_render_pool_offsets_and_readiness() {
         format!("--pool-vram-offset={}", vram.offset),
         format!("--dgpu-mem-size={}B", 16u64 << 30),
         format!("--shared-pool={}", paths.pool.display()),
-        format!(
-            "--host-memory-ranges={}",
-            serde_json::to_string(&layout.guest_ranges).unwrap()
-        ),
         "--num-compute-units=40".to_owned(),
     ] {
         assert!(
@@ -776,11 +902,22 @@ fn builtin_adapters_render_pool_offsets_and_readiness() {
             launch.argv
         );
     }
+    let ranges = launch
+        .argv
+        .iter()
+        .find_map(|arg| arg.strip_prefix("--host-memory-ranges="))
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(ranges).unwrap(),
+        serde_json::to_value(&layout.guest_ranges).unwrap()
+    );
     let config = launch
         .argv
         .iter()
-        .position(|arg| arg.ends_with("mi300_cosim.py"))
+        .position(|arg| arg.ends_with("device_simulators/gem5/run.py"))
         .unwrap();
+    assert_eq!(launch.argv[config + 1], "--model-config");
+    assert!(launch.argv[config + 2].ends_with("devices/gpu/mi300x/gem5.yaml"));
     let listener = launch
         .argv
         .iter()

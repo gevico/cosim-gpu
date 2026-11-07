@@ -146,7 +146,7 @@
    * - 根因
      - QEMU Q35 在 8 GiB RAM 时把 ``below_4g`` 固定为 2 GiB，而 gem5 配置按 3 GiB 以下、5 GiB 以上处理，4 GiB 以上数据的文件偏移相差 1 GiB。
    * - 修复
-     - ``mi300_cosim.py`` 复刻 Q35 的拆分逻辑：``below_4g = min(total_mem, 0x80000000 if total_mem >= 0xB0000000 else 0xB0000000)``。
+     - ``gem5.py`` 复刻 Q35 的拆分逻辑：``below_4g = min(total_mem, 0x80000000 if total_mem >= 0xB0000000 else 0xB0000000)``。
 
 4.8 定时器溢出崩溃
 ~~~~~~~~~~~~~~~~~~
@@ -161,7 +161,7 @@
    * - 根因
      - RTC 与 PIT 定时器持续调度事件，在长期运行的 cosim 会话中耗尽 tick 计数。
    * - 修复
-     - ``Cmos`` 增加 ``disable_rtc_events`` 参数、``I8254`` 增加 ``disable_timer_events`` 参数，并在 ``mi300_cosim.py`` 中禁用；cosim 桥接的 keepalive 事件避免事件队列为空。
+     - ``Cmos`` 增加 ``disable_rtc_events`` 参数、``I8254`` 增加 ``disable_timer_events`` 参数，并在 ``gem5.py`` 中禁用；cosim 桥接的 keepalive 事件避免事件队列为空。
 
 4.9 PM4ReleaseMem.dataSelect panic
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

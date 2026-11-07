@@ -4,7 +4,6 @@
 # Build simulator components in the current environment.
 #
 # Usage: scripts/host/build.sh qemu HOST_ARCH JOBS [TARGET_ARCH]
-#        scripts/host/build.sh gem5 BUILD_DIR JOBS [SCONS_ARG...]
 #
 # Run it through scripts/host/dev.sh to select the Host or development
 # container.
@@ -58,43 +57,10 @@ build_qemu() {
     echo "QEMU built: $targets (build/qemu/)"
 }
 
-build_gem5() {
-    local build_dir="$1" jobs="$2"
-    shift 2
-    case "$build_dir" in
-        "$root"/build/*) ;;
-        build/*) build_dir="$root/$build_dir" ;;
-        *)
-            echo "gem5 build directory must be under" \
-                "$root/build: $build_dir" >&2
-            return 2
-            ;;
-    esac
-    case "/$build_dir/" in
-        *"/../"*)
-            echo "gem5 build directory must not contain" \
-                "parent traversal: $build_dir" >&2
-            return 2
-            ;;
-    esac
-    cd "$root/third_party/gem5"
-    mkdir -p "$build_dir/scratch"
-    export TMPDIR="$build_dir/scratch"
-    if [ ! -f "$build_dir/gem5.build/config" ]; then
-        scons defconfig "$build_dir" build_opts/VEGA_X86
-    fi
-    scons "$build_dir/gem5.opt" -j"$jobs" "$@"
-}
-
 case "${1:-}" in
     qemu)
         [ "$#" -ge 3 ] && [ "$#" -le 4 ] || { usage >&2; exit 2; }
         build_qemu "$2" "$3" "${4:-$2}"
-        ;;
-    gem5)
-        [ "$#" -ge 3 ] || { usage >&2; exit 2; }
-        shift
-        build_gem5 "$@"
         ;;
     -h | --help)
         usage

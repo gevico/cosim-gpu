@@ -21,15 +21,27 @@ class Gem5BuildKeyTests(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
         for name in (
-            "justfile", ".github/workflows/build.yml", ".gitmodules",
-            "scripts/host/build.sh", "scripts/host/dev.sh",
-            "scripts/host/Dockerfile.dev", "scripts/ci/runtime_artifact.py",
-            f"{RECIPE}/recipe.toml", f"{RECIPE}/provision.yml",
+            "justfile",
+            ".github/workflows/build.yml",
+            ".gitmodules",
+            "scripts/host/build.sh",
+            "scripts/host/dev.sh",
+            "scripts/host/Dockerfile.dev",
+            "scripts/ci/runtime_artifact.py",
+            f"{RECIPE}/recipe.toml",
+            f"{RECIPE}/provision.yml",
             "resources/vhosts/qemu.yaml",
+            "resources/devices/gpu/mi300x/gem5.yaml",
+            "resources/devices/gpu/mi300x/gem5.py",
         ):
             destination = self.root / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(runtime_artifact.ROOT / name, destination)
+        shutil.copytree(
+            runtime_artifact.ROOT / "resources/device_simulators",
+            self.root / "resources/device_simulators",
+            ignore=shutil.ignore_patterns("__pycache__"),
+        )
         self.identity = {"project": "project-a", "gem5": "gem5-a"}
         self.enterContext(patch.object(runtime_artifact, "ROOT", self.root))
         self.enterContext(patch.object(
@@ -83,18 +95,48 @@ class Gem5BuildKeyTests(unittest.TestCase):
                     self.identity["project"] = "project-with-vhost-change"
                     self.assertEqual(original_key, runtime_artifact.build_key())
 
+    def test_device_configuration_does_not_rebuild_the_simulator(self):
+        original_key = runtime_artifact.build_key()
+        for name in (
+            "resources/devices/gpu/mi300x/gem5.yaml",
+            "resources/devices/gpu/mi300x/gem5.py",
+            "resources/device_simulators/gem5/run.py",
+        ):
+            with self.subTest(file=name):
+                original = (self.root / name).read_text()
+                with self.changed(name, original + "\n# Runtime edit\n"):
+                    self.assertEqual(original_key, runtime_artifact.build_key())
+
     def test_gem5_build_inputs_still_invalidate_the_key(self):
         original_key = runtime_artifact.build_key()
         self.identity["gem5"] = "gem5-b"
         self.assertNotEqual(original_key, runtime_artifact.build_key())
         self.identity["gem5"] = "gem5-a"
         for name, before, after in (
-            ("justfile", '"/VEGA_X86"', '"/OTHER_TARGET"'),
-            ("justfile", 'dev := "scripts/host/dev.sh"',
-             'dev := "scripts/host/other-dev.sh"'),
+            (
+                "resources/device_simulators/gem5/recipe.toml",
+                'binary = "gem5.opt"',
+                'binary = "gem5.fast"',
+            ),
+            (
+                "resources/device_simulators/cli.py",
+                '"scons_args"',
+                '"build_args"',
+            ),
+            (
+                "resources/device_simulators/builder.py",
+                "build jobs must be positive",
+                "build jobs must exceed zero",
+            ),
+            (
+                "justfile",
+                'dev := "scripts/host/dev.sh"',
+                'dev := "scripts/host/other-dev.sh"',
+            ),
             (
                 ".github/workflows/build.yml",
-                "GOLD_LINKER=True", "GOLD_LINKER=False",
+                "GOLD_LINKER=True",
+                "GOLD_LINKER=False",
             ),
         ):
             with self.subTest(file=name):

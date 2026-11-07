@@ -20,7 +20,7 @@ single-gpu 机器
    version: 1
    imports:
      - vhosts/qemu.yaml
-     - devices/gpu/mi300x.yaml
+     - devices/gpu/mi300x/gem5.yaml
    templates:
      node1:
        vhost: {use: vhost-x86-rocm}
@@ -53,7 +53,7 @@ single-gpu 机器
      - ``resources/vhosts/qemu.yaml``
    * - 设备
      - 1 × ``mi300x``\ ：16 GiB VRAM、40 CU
-     - ``resources/devices/gpu/mi300x.yaml``
+     - ``resources/devices/gpu/mi300x/gem5.yaml``
    * - 内存池
      - 24 GiB = 8 GiB RAM + 16 GiB VRAM
      - ``crates/cosim-topology/src/layout.rs``
@@ -130,4 +130,4 @@ single-gpu 机器
 - 机器目录：:doc:`index`
 - 参考：:ref:`ref-topology-schema`\ 、:ref:`ref-device-adapters`
 - 第 4 章：:ref:`sim-gem5-pci`\ 、:ref:`sim-gem5-model`\ 、:ref:`sim-guest-driver`
-- 源码：``resources/machines/single-gpu.yaml``\ 、``resources/devices/gpu/mi300x.yaml``
+- 源码：``resources/machines/single-gpu.yaml``\ 、``resources/devices/gpu/mi300x/gem5.yaml``

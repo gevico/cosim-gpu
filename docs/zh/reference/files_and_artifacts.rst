@@ -49,9 +49,12 @@
    * - ``third_party/gem5/src/dev/amdgpu/``
      - MI300X 设备模型、vfio-user 服务端、GART/PM4/SDMA/IH
      - gem5 子模块内容
-   * - ``third_party/gem5/configs/example/gpufs/``
-     - cosim gem5 配置
-     - ``mi300_cosim.py`` 由设备适配器调用
+   * - ``resources/device_simulators/gem5/``
+     - gem5 构建配方和通用执行入口
+     - ``run.py`` 加载选定的设备配置
+   * - ``resources/devices/gpu/mi300x/``
+     - MI300X 身份、后端配方和模型组装
+     - ``gem5.yaml`` 选择 ``gem5.py``
    * - ``configs/sst/``
      - SST 网络实验数据模型
      - 独立于 Rust launcher
@@ -191,7 +194,7 @@ gem5 配置、Python 组件与 QEMU 接口
 
    * - 文件
      - 作用
-   * - ``third_party/gem5/configs/example/gpufs/mi300_cosim.py``
+   * - ``resources/devices/gpu/mi300x/gem5.py``
      - vfio-user cosim 系统配置，由 ``gem5-mi300x`` 适配器启动
    * - ``src/python/third_party/gem5/components/devices/gpus/amdgpu.py``
      - MI300X 设备定义

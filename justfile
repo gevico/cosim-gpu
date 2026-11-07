@@ -11,7 +11,11 @@ set positional-arguments
 host_arch_input := env("COSIM_HOST_ARCH", arch())
 host_arch := if host_arch_input == "aarch64" { "aarch64" } else if host_arch_input == "x86_64" { "x86_64" } else { error("COSIM_HOST_ARCH must be aarch64 or x86_64") }
 container_platform := if host_arch == "aarch64" { "linux/arm64" } else { "linux/amd64" }
-gem5_build_dir := env("GEM5_BUILD_DIR", "build/gem5/" + host_arch + "/VEGA_X86")
+gem5_recipe := "gem5"
+gem5_config := shell('python3 -m resources.device_simulators.cli value "$1" config', gem5_recipe)
+gem5_entry := shell('python3 -m resources.device_simulators.cli value "$1" entry', gem5_recipe)
+gem5_binary := shell('python3 -m resources.device_simulators.cli value "$1" binary', gem5_recipe)
+gem5_build_dir := env("GEM5_BUILD_DIR", "build/gem5/" + host_arch + "/" + gem5_config)
 rocm_recipe := "ubuntu/24.04/x86_64/rocm/7.0"
 rocm_image_dir := "build/images/" + rocm_recipe
 dev_image := env("COSIM_DEV_IMAGE", "cosim-dev:local")
@@ -64,7 +68,23 @@ ci-build-qemu target=host_arch:
 # Build gem5 (VEGA_X86); use jobs=1 if linking is OOM-killed
 [group('build')]
 build-gem5 jobs=build_jobs *scons_args:
-    {{ dev }} scripts/host/build.sh gem5 {{ gem5_build_dir }} "$@"
+    {{ dev }} python3 -m resources.device_simulators.cli build {{ gem5_recipe }} {{ gem5_build_dir }} "$@"
+
+# Inspect a device simulator build and entry recipe
+[group('run')]
+run-simulator-recipe recipe=gem5_recipe:
+    python3 -m resources.device_simulators.cli inspect "$1"
+
+# Run the Host-side Python CI tests
+[group('test')]
+test-ci:
+    python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v
+
+# Check simulator recipes, execution entry and build provenance
+[group('test')]
+test-simulator-recipes: test-qemu-toolchain
+    python3 -m unittest discover -s scripts/ci -p 'test_simulator*.py' -v
+    python3 -m unittest discover -s scripts/ci -p 'test_runtime_artifact.py' -v
 
 # Check QEMU tool selection and image-builder helper execution
 [group('test')]
@@ -146,7 +166,7 @@ build-cosim:
 # Package the gem5 binary and the exact development image used to build it
 [group('ci')]
 ci-package-gem5 output:
-    python3 scripts/ci/runtime_artifact.py package "$1" "{{ gem5_build_dir }}/gem5.opt"
+    python3 scripts/ci/runtime_artifact.py package "$1" "{{ gem5_build_dir }}/{{ gem5_binary }}"
 
 # Identify the simulator source, tools, recipes and build job used by the cache
 [group('ci')]
@@ -191,7 +211,7 @@ test-runtime-artifact source output:
 # Restore a build from the same source revision and CI run
 [group('ci')]
 ci-restore-gem5 source:
-    python3 scripts/ci/runtime_artifact.py restore "$1" "{{ gem5_build_dir }}/gem5.opt"
+    python3 scripts/ci/runtime_artifact.py restore "$1" "{{ gem5_build_dir }}/{{ gem5_binary }}"
 
 # Inspect the input key or verify a locally built ROCm kernel/disk bundle
 [group('ci')]
@@ -250,7 +270,7 @@ test-gpu *args:
 # Run the ROCm regression suite with the built Rust launcher and verified assets
 [group('test')]
 test-rocm-regression output assets *args:
-    {{ dev }} python3 scripts/ci/run_rocm.py "$@" --gem5 "{{ gem5_build_dir }}/gem5.opt" --qemu build/qemu/qemu-system-x86_64
+    {{ dev }} python3 scripts/ci/run_rocm.py "$@" --gem5 "{{ gem5_build_dir }}/{{ gem5_binary }}" --qemu build/qemu/qemu-system-x86_64
 
 # List co-simulation resources left on the Host without changing them
 [group('run')]
@@ -316,7 +336,7 @@ test-session-lifecycle: build-cosim
 [group('test')]
 test-gem5-mi300x output case="all":
     mkdir -p "$1"
-    {{ dev }} --mount "$1" python3 third_party/gem5/tests/mi300x/verify.py --gem5 "{{ gem5_build_dir }}/gem5.opt" --output "$(cd "$1" && pwd)" --case "$2"
+    {{ dev }} --mount "$1" python3 third_party/gem5/tests/mi300x/verify.py --gem5 "{{ gem5_build_dir }}/{{ gem5_binary }}" --output "$(cd "$1" && pwd)" --case "$2"
 
 # Check Rust formatting, warnings and behavior
 [group('check')]

@@ -28,10 +28,10 @@ Device kinds
      - :ref:`sim-qemu-device-models`
    * - Declared device kind
      - ``role: device`` under ``kinds``
-     - Extension point with a custom ``argv`` or ``command``; no repository sample uses it yet
+     - Extension point with a custom ``argv`` or ``command``; used by the MI300X recipe
      - :ref:`ref-device-adapters`
 
-- ``resources/devices/gpu/mi300x.yaml`` provides the ``mi300x`` and ``mi300x-aarch64`` templates; the latter overrides only the gem5 binary.
+- ``resources/devices/gpu/mi300x/gem5.yaml`` provides the ``mi300x`` and ``mi300x-aarch64`` templates; the latter selects ``host_arch: aarch64``.
 - ``resources/devices/pci/qemu-edu.yaml`` provides the ``qemu-edu`` and ``qemu-edu-aarch64`` templates; the former needs a QEMU built with vfio-user support.
 
 Device fields
@@ -44,8 +44,8 @@ Device fields
      - Required
      - Description
    * - ``kind``
-     - yes
-     - Built-in ``gem5-mi300x`` or ``qemu-device``, or a device kind declared under ``kinds``
+     - when no recipe is selected
+     - Built-in ``qemu-device`` or a declared device kind; the MI300X recipe declares its kind
    * - ``id``
      - no
      - Defaults to the ``use`` name or kind plus an ordinal; an explicit id is kept when count is one
@@ -56,8 +56,8 @@ Device fields
      - for gem5-mi300x
      - gem5 configuration file; ``qemu-device`` rejects the field
    * - ``runtime.binary``
-     - except gem5-mi300x
-     - gem5-mi300x defaults to ``gem5.opt``; a bare name is looked up in ``PATH``
+     - may be supplied by a recipe
+     - The MI300X recipe derives its build path from ``host_arch``; bare names use ``PATH``
    * - ``runtime.argv``, ``runtime.command``
      - no
      - Overrides the adapter command; such commands need ``ready_log``
@@ -80,7 +80,7 @@ Device fields
 Launch and readiness contract
 -----------------------------
 
-- The built-in ``gem5-mi300x`` and ``qemu-device`` adapters generate the launch command; a declared device kind provides ``argv`` or ``command``.
+- ``qemu-device`` generates QEMU launch arguments; the MI300X recipe and other declared device kinds provide command templates.
 - Every device process starts before its host. Readiness probes run in order: the output log marker (``ready_log``, by default the MI300X listener line for gem5), socket existence, and QMP negotiation for ``qemu-device``.
 - A ready device hands a lease to each host that depends on it; the device exits when its last lease is released after the host stops.
 - Every device program must stay in the foreground, keep its resource users in its process group and keep inherited file descriptors open.
@@ -98,7 +98,7 @@ Choosing a device
 
 - For the GPU performance model and the ``amdgpu`` driver path, use ``gem5-mi300x``; samples are :doc:`../machines/single_gpu` and :doc:`../machines/gpu_8`.
 - To validate the vfio-user device path or option ROM, use the ``qemu-device`` ``edu`` sample in :doc:`../machines/qemu_device`.
-- For a custom launch command, declare a device kind and provide ``ready_log``; no repository sample uses this path yet, and the contract is in :ref:`ref-device-adapters`.
+- For a custom launch command, declare a device kind and provide ``ready_log``; the MI300X recipe uses this path, and the contract is in :ref:`ref-device-adapters`.
 - Model details are in chapter 4: PCI/BAR in :ref:`sim-gem5-pci`, the performance model in :ref:`sim-gem5-model`, QEMU functional devices in :ref:`sim-qemu-device-models`, and driver requirements in :ref:`sim-guest-driver`.
 
 Related pages
@@ -108,4 +108,4 @@ Related pages
 - vHost profiles: :doc:`../hosts/index`
 - Writing topologies: :doc:`../write_topology`
 - Adapter contract: :ref:`ref-device-adapters`
-- Sources: ``resources/devices/gpu/mi300x.yaml``, ``resources/devices/pci/qemu-edu.yaml``, ``crates/cosim-topology/src/adapter/``
+- Sources: ``resources/devices/gpu/mi300x/gem5.yaml``, ``resources/devices/pci/qemu-edu.yaml``, ``crates/cosim-topology/src/adapter/``

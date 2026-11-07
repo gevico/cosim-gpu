@@ -20,7 +20,7 @@ mixed-models 机器
    version: 1
    imports:
      - vhosts/qemu.yaml
-     - devices/gpu/mi300x.yaml
+     - devices/gpu/mi300x/gem5.yaml
      - devices/pci/qemu-edu.yaml
    machines:
      - id: m0
@@ -50,7 +50,7 @@ mixed-models 机器
      - ``resources/vhosts/qemu.yaml``
    * - gem5 设备
      - 2 × ``mi300x``\ ，各 16 GiB VRAM、40 CU
-     - ``resources/devices/gpu/mi300x.yaml``
+     - ``resources/devices/gpu/mi300x/gem5.yaml``
    * - QEMU 设备
      - 2 × ``qemu-edu``\ ，``args.device`` 为 ``{driver: edu}``
      - ``resources/devices/pci/qemu-edu.yaml``
@@ -127,4 +127,4 @@ mixed-models 机器
 - vHost：:ref:`ref-topology-schema`
 - 机器目录：:doc:`index`
 - 第 4 章：:ref:`sim-gem5-model`\ ，:ref:`sim-qemu-device-models`
-- 源码：``resources/machines/mixed-models.yaml``\ 、``resources/devices/gpu/mi300x.yaml``\ 、``resources/devices/pci/qemu-edu.yaml``
+- 源码：``resources/machines/mixed-models.yaml``\ 、``resources/devices/gpu/mi300x/gem5.yaml``\ 、``resources/devices/pci/qemu-edu.yaml``

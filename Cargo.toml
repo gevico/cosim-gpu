@@ -26,6 +26,7 @@ serde_yaml_ng = "0.10"
 tempfile = "3"
 tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "process", "rt", "signal", "sync", "time"] }
 tokio-util = "0.7"
+toml = "0.8"
 uuid = { version = "1", features = ["v4"] }
 
 [workspace.lints.rust]

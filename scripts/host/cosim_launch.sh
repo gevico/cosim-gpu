@@ -33,10 +33,12 @@ GEM5_DIR="${COSIM_DIR}/third_party/gem5"
 GEM5_BUILD_DIR="$(just --justfile "${COSIM_DIR}/justfile" \
     --evaluate gem5_build_dir)"
 GEM5_BUILD_RELATIVE="$(cosim_gem5_build_dir "$COSIM_DIR" "$GEM5_BUILD_DIR")"
-GEM5_BIN="${COSIM_DIR}/${GEM5_BUILD_RELATIVE}/gem5.opt"
-# shellcheck disable=SC2034
-GEM5_CONFIG="${GEM5_DIR}/configs/example/gpufs/mi300_cosim.py"
-GEM5_DOCKER_IMAGE="${GEM5_DOCKER_IMAGE:-cosim-dev:local}"
+GEM5_BINARY="$(just --justfile "${COSIM_DIR}/justfile" --evaluate gem5_binary)"
+GEM5_BIN="${COSIM_DIR}/${GEM5_BUILD_RELATIVE}/${GEM5_BINARY}"
+GEM5_CONFIG="$(just --justfile "${COSIM_DIR}/justfile" --evaluate gem5_entry)"
+GEM5_MODEL_CONFIG="${COSIM_DIR}/resources/devices/gpu/mi300x/gem5.yaml"
+GEM5_DOCKER_IMAGE="${GEM5_DOCKER_IMAGE:-$(just \
+    --justfile "${COSIM_DIR}/justfile" --evaluate dev_image)}"
 GEM5_CONTAINER="$(cosim_container_name "$COSIM_RUN_ID")"
 
 # QEMU and its image helper come from the same source build by default.
@@ -49,10 +51,23 @@ SOCKET_PATH="/tmp/gem5-mi300x-${COSIM_RUN_ID}.sock"
 SHMEM_PATH="/mi300x-vram-${COSIM_RUN_ID}"
 SHMEM_HOST_PATH="/cosim-guest-ram-${COSIM_RUN_ID}"
 
+# Keep device defaults in the selected recipe, shared with the gem5 model.
+GEM5_DEFAULTS="$(python3 - "$GEM5_MODEL_CONFIG" <<'PYTHON'
+from pathlib import Path
+import sys
+import yaml
+
+recipe = yaml.safe_load(Path(sys.argv[1]).read_text())["recipe"]
+print(recipe["parameters"]["num_compute_units"]["default"],
+      recipe["defaults"]["memory_regions"][0]["size"])
+PYTHON
+)"
+read -r DEFAULT_NUM_CUS DEFAULT_VRAM_SIZE <<< "$GEM5_DEFAULTS"
+
 HOST_MEM="8G"
 HOST_CPUS="4"
-VRAM_SIZE="16GiB"
-NUM_CUS="40"
+VRAM_SIZE="$DEFAULT_VRAM_SIZE"
+NUM_CUS="$DEFAULT_NUM_CUS"
 GEM5_DEBUG=""
 GEM5_TIMEOUT=120
 QEMU_TRACE=""
@@ -100,8 +115,8 @@ Options:
   --socket-path PATH      Unix socket (default: /tmp/gem5-mi300x.sock)
   --host-mem SIZE         vHost RAM   (default: 8G)
   --host-cpus N           vHost CPUs  (default: 4)
-  --vram-size SIZE        GPU VRAM    (default: 16GiB)
-  --num-cus N             Compute units (default: 40)
+  --vram-size SIZE        GPU VRAM    (default: $DEFAULT_VRAM_SIZE)
+  --num-cus N             Compute units (default: $DEFAULT_NUM_CUS)
   --gem5-debug FLAGS      gem5 debug flags (e.g. MI300XCosim,AMDGPUDevice)
   --qemu-trace EVENTS     QEMU trace events
   --share-dir PATH        Share a Host directory with vHost through 9p
@@ -183,9 +198,9 @@ gpu_shmem_file() {
     fi
 }
 
-# Container paths (gem5 source mounted at /gem5)
-C_GEM5_BIN="/${GEM5_BUILD_RELATIVE}/gem5.opt"
-C_GEM5_CONFIG="/gem5/configs/example/gpufs/mi300_cosim.py"
+# The shared development image executes mounted tools, model code and data.
+C_GEM5_BIN="/cosim-gem5.opt"
+C_GEM5_CONFIG="$GEM5_CONFIG"
 
 # ---- Validation ----
 
@@ -280,14 +295,16 @@ GEM5_DOCKER_CMD=(
     docker run -d --rm
     --name "$GEM5_CONTAINER"
     --user "$(id -u):$(id -g)"
-    -v "${GEM5_DIR}:/gem5"
-    -v "${COSIM_DIR}/build:/build"
+    -v "${COSIM_DIR}:${COSIM_DIR}:ro"
+    -v "$(realpath "$GEM5_BIN"):${C_GEM5_BIN}:ro"
     -v /tmp:/tmp
     -v /dev/shm:/dev/shm
-    -w /gem5
+    -w /tmp
+    -e "GEM5_SOURCE=${GEM5_DIR}"
+    -e TMPDIR=/tmp
     -e "PYTHONPATH=/usr/lib/python3.12/lib-dynload"
     "$GEM5_DOCKER_IMAGE"
-    "$C_GEM5_BIN"
+    "$C_GEM5_BIN" "--outdir=${SESSION_DIR}/m5out"
 )
 
 if [[ -n "$GEM5_DEBUG" ]]; then
@@ -297,6 +314,7 @@ fi
 GEM5_DOCKER_CMD+=(
     --listener-mode=on
     "$C_GEM5_CONFIG"
+    --model-config "$GEM5_MODEL_CONFIG"
     "--socket-path=$SOCKET_PATH"
     "--shmem-path=$SHMEM_PATH"
     "--shmem-host-path=$SHMEM_HOST_PATH"

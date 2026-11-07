@@ -132,7 +132,7 @@ jobs:
 
       - name: Verify binary
         if: steps.gem5-cache.outputs.cache-hit != 'true'
-        run: test -f "$(just --evaluate gem5_build_dir)/gem5.opt"
+        run: test -f "$(just --evaluate gem5_build_dir)/$(just --evaluate gem5_binary)"
 
       - name: Package gem5 and its runtime environment
         if: steps.gem5-cache.outputs.cache-hit != 'true'

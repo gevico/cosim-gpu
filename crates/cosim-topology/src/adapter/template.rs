@@ -89,6 +89,8 @@ pub struct TemplateDevice {
     pub ready_log: String,
     /// Model configuration file.
     pub config: Option<PathBuf>,
+    /// Simulator configuration entry point.
+    pub entry: Option<PathBuf>,
     /// Adapter-specific arguments passed to the template.
     pub args: Map<String, Value>,
 }
@@ -104,14 +106,25 @@ impl TemplateDevice {
         let template_context = json!({"id": device.id, "machine": context.machine.id,
             "socket": context.socket, "pool": context.pool, "ram": context.layout.ram,
             "regions": regions, "guest_ranges": context.layout.guest_ranges,
-            "args": self.args, "config": self.config, "model": device.model,
+            "args": self.args, "config": self.config, "entry": self.entry, "model": device.model,
             "run_dir": context.run_dir, "node_dir": context.node_dir});
         Ok(Launch {
             argv: self.command.render(&template_context)?,
             probes: vec![
                 Probe::Log {
                     path: context.output_log.to_path_buf(),
-                    marker: self.ready_log.clone(),
+                    marker: {
+                        let mut env = Environment::new();
+                        env.set_undefined_behavior(UndefinedBehavior::Strict);
+                        let marker = env
+                            .render_str(&self.ready_log, &template_context)
+                            .context("render ready_log")?;
+                        ensure!(
+                            !marker.is_empty() && !marker.contains('\0'),
+                            "rendered ready_log must be nonempty text without NUL"
+                        );
+                        marker
+                    },
                     timeout: None,
                 },
                 Probe::Socket {

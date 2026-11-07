@@ -11,7 +11,7 @@ Run Shape
 ----------
 
 - The build target is ``VEGA_X86`` and the artifact is the native ``build/gem5/<native>/VEGA_X86/gem5.opt``.
-- The configuration script ``third_party/gem5/configs/example/gpufs/mi300_cosim.py`` creates a minimal ``System``, a placeholder ``AtomicSimpleCPU`` and ``StubWorkload``, so no x86 kernel is needed on the gem5 side.
+- The configuration script ``resources/devices/gpu/mi300x/gem5.py`` creates a minimal ``System``, a placeholder ``AtomicSimpleCPU`` and ``StubWorkload``, so no x86 kernel is needed on the gem5 side.
 - The GPU caches and memory hierarchy use the ``Disjoint_VIPER`` protocol, and QEMU and gem5 share the same guest memory and VRAM files.
 - The YAML adapter starts one GPU per process; single-process multi-GPU and XGMI exist only on the direct gem5 invocation path, described in :doc:`multi_gpu_xgmi`.
 

@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: Apache-2.0
+version: 1
+recipe:
+  simulator: gem5
+  kind: gem5-mi300x
+  ready_log: 'MI300XVfioUser: listening on {{ socket }} (vfio-user protocol)'
+  runtime:
+    command: |
+      {% set command = ["--outdir=" ~ node_dir ~ "/m5out"] %}
+      {% if args.gem5_debug_flags %}
+      {% set command = command + ["--debug-flags=" ~ (args.gem5_debug_flags | join(","))] %}
+      {% endif %}
+      {{ (command + [
+        "--listener-mode=off", entry, "--model-config", config,
+        "--socket-path=" ~ socket,
+        "--shared-pool=" ~ pool,
+        "--pool-vram-offset=" ~ regions.vram.offset,
+        "--dgpu-mem-size=" ~ regions.vram.size ~ "B",
+        "--mem-size=" ~ ram.size ~ "B",
+        "--host-memory-ranges=" ~ (guest_ranges | tojson),
+        "--num-compute-units=" ~ args.num_compute_units,
+        "--num-gpus=1"
+      ]) | tojson }}
+  defaults:
+    memory_regions:
+    - name: vram
+      size: 16GiB
+      align: 2M
+    pci:
+      msix_vectors: 256
+    guest_hints:
+      modprobe: amdgpu ip_block_mask=0x67 ppfeaturemask=0 dpm=0 audio=0 ras_enable=0
+        discovery=2
+  requirements:
+    memory_map: true
+    regions:
+      vram:
+        power_of_two: true
+  parameters:
+    num_compute_units:
+      type: integer
+      default: 40
+      min: 1
+      max: 1024
+    gem5_debug_flags:
+      type: string-list
+      default: []
+  model: gem5.py
+templates:
+  mi300x:
+    recipe: gpu/mi300x/gem5
+  mi300x-aarch64:
+    use: mi300x
+    host_arch: aarch64

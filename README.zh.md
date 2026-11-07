@@ -125,7 +125,7 @@ just run-topology resources/machines/single-gpu.yaml --dry-run
 version: 1
 imports:
   - vhosts/qemu.yaml
-  - devices/gpu/mi300x.yaml
+  - devices/gpu/mi300x/gem5.yaml
   - devices/pci/qemu-edu.yaml
 machines:
   - id: m0

@@ -12,7 +12,7 @@
 
 ``scripts/host/cosim_launch.sh``\ 是早期的一键启动脚本，入口 recipe 为 ``just run-launch``\ 。它面向单台客户机：gem5 在 Docker 容器中只运行 GPU 模型，QEMU 在宿主机上使用 KVM 运行客户机，两者通过标准 vfio-user 协议连接的 Unix socket 通信。
 
-- gem5 使用 ``cosim-dev:local``\ 镜像，默认二进制为 ``build/gem5/<native>/VEGA_X86/gem5.opt``\ ，配置为 ``third_party/gem5/configs/example/gpufs/mi300_cosim.py``\ 。
+- gem5 使用 ``cosim-dev:local``\ 镜像，默认二进制为 ``build/gem5/<host-architecture>/VEGA_X86/gem5.opt``\ ，通用入口 ``resources/device_simulators/gem5/run.py``\ 加载 ``resources/devices/gpu/mi300x/gem5.yaml``\ 及其 ``gem5.py``\ 模型。
 - QEMU 默认使用 ``just build-qemu`` 构建的 ``build/qemu/qemu-system-x86_64``\ 。
 - 每次运行生成 ``COSIM_RUN_ID``\ ，socket、共享内存和 screen 日志都带该 ID，减少并发运行冲突。
 - 客户机内核与磁盘默认取自 ``build/rocm-local-installed/kernel``\ 和 ``disk``\ 。
@@ -31,7 +31,7 @@
      - 命令行参数加固定的构建产物路径
    * - 设备模型
      - 适配器选择，每进程一个 GPU
-     - ``mi300_cosim.py``\ ，可用 ``--num-gpus``\ 在单进程内启用多 GPU
+     - ``gem5.py``\ ，可用 ``--num-gpus``\ 在单进程内启用多 GPU
    * - 进程管理
      - 就绪探测、租约、信号升级、verdict
      - shell、screen、Docker 与手工清理
@@ -74,14 +74,14 @@
 
 - 脚本的参数表以 :ref:`ref-legacy-launcher` 为准，本页不重复维护默认值和逐项说明。
 - 新的拓扑、设备和自动化测试应使用 Rust launcher；本脚本只做兼容性维护。
-- ``mi300_cosim.py``\ 的选项（``--num-gpus``\ 、``--xgmi-topology``\ 、``--shmem-path``\ 等）属于 gem5 配置，不是 YAML 适配器契约。
+- ``gem5.py``\ 的选项（``--num-gpus``\ 、``--xgmi-topology``\ 、``--shmem-path``\ 等）属于 gem5 配置，不是 YAML 适配器契约。
 
 源码与依据
 -----------
 
 - 启动脚本：``scripts/host/cosim_launch.sh``\ 、``scripts/host/cosim_lib.sh``\ 。
 - 预检脚本：``scripts/host/cosim_preflight.sh``\ 。
-- gem5 配置：``third_party/gem5/configs/example/gpufs/mi300_cosim.py``\ 。
+- gem5 配置：``resources/devices/gpu/mi300x/gem5.py``\ 。
 - just recipe：``justfile``\ 中的 ``run-launch``\ 、``run-preflight``\ 和 ``run-clean-orphans``\ 。
 
 相关页面

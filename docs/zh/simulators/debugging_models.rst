@@ -38,7 +38,7 @@
 
    templates:
      mi300x:
-       kind: gem5-mi300x
+       recipe: gpu/mi300x/gem5
        args:
          gem5_debug_flags: [MI300XCosim, AMDGPUDevice, PM4PacketProcessor]
 
@@ -90,7 +90,7 @@
      - 检查 ``MI300XVfioUser``\ 的 BAR 设置和内存布局中的 VRAM 大小。
    * - 定时器溢出崩溃
      - RTC/PIT 事件是否禁用
-     - ``mi300_cosim.py``\ 默认禁用 ``disable_rtc_events``\ 与 ``disable_timer_events``\ 。
+     - ``gem5.py``\ 默认禁用 ``disable_rtc_events``\ 与 ``disable_timer_events``\ 。
 
 调试工作流
 -----------
