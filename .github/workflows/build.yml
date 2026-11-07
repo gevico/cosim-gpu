@@ -160,7 +160,7 @@ jobs:
           retention-days: 2
 
   build-rocm:
-    name: Build regression image
+    name: Build image (${{ needs.changes.outputs.baseline }})
     needs: changes
     if: needs.changes.outputs.regression == 'true'
     uses: ./.github/workflows/image.yml
@@ -168,7 +168,7 @@ jobs:
       recipe: ${{ needs.changes.outputs.baseline }}
 
   recipes:
-    name: Check recipe (${{ matrix.recipe }})
+    name: Build image (${{ matrix.recipe }})
     needs: changes
     if: needs.changes.outputs.recipes != '[]'
     strategy:
