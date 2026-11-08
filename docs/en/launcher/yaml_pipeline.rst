@@ -38,7 +38,7 @@ storage fields.
    version: 1
    imports:
      - vhosts/qemu.yaml
-     - devices/gpu/mi300x.yaml
+     - devices/gpu/mi300x/gem5.yaml
    machines:
      - id: m0
        vhost: {use: vhost-x86, memory: 32G}

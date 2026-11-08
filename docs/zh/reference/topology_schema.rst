@@ -102,7 +102,7 @@ vHost 字段
 设备字段
 --------
 
-设备可以使用 ``id``、``use``、``kind``、``count``、``config``、``ready_log``、
+设备可以使用 ``id``、``use``、``kind``、``count``、``recipe``、``host_arch``、``entry``、``config``、``ready_log``、
 ``runtime``、``memory_regions``、``pci``、``args`` 和 ``guest_hints``。适配器特有
 要求见 :doc:`device_adapters`。使用 ``guest_hints.cmdline`` 时，其所属 vHost 必须
 选择 ``image`` 或 ``kernel``。

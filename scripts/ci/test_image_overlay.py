@@ -2,7 +2,6 @@
 
 import json
 from pathlib import Path
-import shutil
 import subprocess
 import tempfile
 import unittest
@@ -15,10 +14,10 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class ImageOverlayTests(unittest.TestCase):
     def test_writes_to_overlay_without_changing_the_recipe_disk(self):
-        qemu_img = shutil.which("qemu-img")
-        qemu_io = shutil.which("qemu-io")
-        self.assertIsNotNone(qemu_img)
-        self.assertIsNotNone(qemu_io)
+        qemu_img = ROOT / "build/qemu/qemu-img"
+        qemu_io = ROOT / "build/qemu/qemu-io"
+        self.assertTrue(qemu_img.is_file(), "run just build-qemu")
+        self.assertTrue(qemu_io.is_file(), "run just build-qemu")
         scratch = ROOT / "build/tests/image-overlay"
         scratch.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="case-", dir=scratch) as name:
@@ -68,10 +67,10 @@ class ImageOverlayTests(unittest.TestCase):
             )
 
     def test_raw_backing_disk_is_preserved_by_the_qcow2_overlay(self):
-        qemu_img = shutil.which("qemu-img")
-        qemu_io = shutil.which("qemu-io")
-        self.assertIsNotNone(qemu_img)
-        self.assertIsNotNone(qemu_io)
+        qemu_img = ROOT / "build/qemu/qemu-img"
+        qemu_io = ROOT / "build/qemu/qemu-io"
+        self.assertTrue(qemu_img.is_file(), "run just build-qemu")
+        self.assertTrue(qemu_io.is_file(), "run just build-qemu")
         scratch = ROOT / "build/tests/image-overlay"
         scratch.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="case-", dir=scratch) as name:

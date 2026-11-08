@@ -45,7 +45,7 @@ Tools and versions
    * - QEMU
      - Built from the ``qemu`` submodule; samples point at ``build/qemu/qemu-system-x86_64``
    * - Disk tools
-     - ``qemu-img`` for image checks, creation and session overlays
+     - ``build/qemu/qemu-img`` from the same QEMU build, for image checks, creation and session overlays
    * - Other tools
      - ``git``, ``screen``, ``unzip``; image builds also need Packer and Ansible
 

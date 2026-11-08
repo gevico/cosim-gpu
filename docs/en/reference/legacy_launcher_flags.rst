@@ -5,7 +5,7 @@
 Legacy launcher flags
 =====================
 
-This page is the single source of truth for the shell launcher ``scripts/host/cosim_launch.sh`` and the gem5 cosim configuration options. Values follow the current script and ``mi300_cosim.py`` and correct the stale defaults found in older documentation.
+This page is the single source of truth for the shell launcher ``scripts/host/cosim_launch.sh`` and the gem5 cosim configuration options. Values follow the current script and ``gem5.py`` and correct the stale defaults found in older documentation.
 
 Scope
 -----
@@ -16,6 +16,11 @@ Shell launcher options
 ----------------------
 
 The defaults below are the effective values in the script. The ``--socket-path`` help text shows ``/tmp/gem5-mi300x.sock``, but the script always appends the run identifier, so the effective default carries a ``-<run-id>`` suffix.
+
+The launcher reads CU and VRAM defaults from
+``resources/devices/gpu/mi300x/gem5.yaml`` on each invocation, including ``--help``.
+``--num-cus`` and ``--vram-size`` explicitly override those defaults.
+The Host Python environment needs PyYAML (Ubuntu package ``python3-yaml``).
 
 .. list-table::
    :header-rows: 1
@@ -30,10 +35,10 @@ The defaults below are the effective values in the script. The ``--socket-path``
      - ``build/rocm-local-installed/kernel``
      - guest vmlinux
    * - ``--qemu-bin PATH``
-     - ``build/qemu/qemu-system-x86_64``, otherwise ``qemu-system-x86_64`` from ``PATH``
+     - ``build/qemu/qemu-system-x86_64``
      - QEMU binary
    * - ``--gem5-bin PATH``
-     - ``build/gem5/<arch>/VEGA_X86/gem5.opt``
+     - ``build/gem5/<host-architecture>/VEGA_X86/gem5.opt``
      - gem5 binary
    * - ``--gem5-docker IMAGE``
      - ``cosim-dev:local``
@@ -49,10 +54,10 @@ The defaults below are the effective values in the script. The ``--socket-path``
      - guest vCPU count
    * - ``--vram-size SIZE``
      - ``16GiB``
-     - GPU VRAM size
+     - GPU VRAM size; default read from ``gem5.yaml``
    * - ``--num-cus N``
      - ``40``
-     - GPU compute unit count
+     - GPU compute unit count; default read from ``gem5.yaml``
    * - ``--gem5-debug FLAGS``
      - none
      - passed to gem5 as ``--debug-flags``
@@ -117,7 +122,7 @@ The run identifier combines a timestamp and four random bytes; every path below 
 gem5 config options
 -------------------
 
-``third_party/gem5/configs/example/gpufs/mi300_cosim.py`` also accepts its own option set; the YAML device adapter uses only a subset (see :doc:`device_adapters`). The table lists the complete defaults of the configuration script.
+``run.py --model-config resources/devices/gpu/mi300x/gem5.yaml`` registers the options from ``gem5.py``; the YAML device adapter uses only a subset (see :doc:`device_adapters`). The table lists the complete defaults of the configuration script.
 
 .. list-table::
    :header-rows: 1
@@ -213,7 +218,7 @@ Sources of the option definitions:
 
 - ``scripts/host/cosim_lib.sh``: run identifier, container name, socket, shared memory, session directory and diagnostic artifact paths.
 
-- ``third_party/gem5/configs/example/gpufs/mi300_cosim.py``: gem5-side options and defaults.
+- ``resources/devices/gpu/mi300x/gem5.py``: model options; ``gem5.yaml`` supplies exposed defaults.
 
 - ``justfile``: ``run-launch`` and ``test-gpu`` entry points.
 

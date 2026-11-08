@@ -122,7 +122,7 @@ host QEMU 使用内置的 ``vfio-user-pci`` 客户端，设备侧由 gem5 的
      - YAML 类型、校验、布局与适配器
    * - ``crates/cosim-runtime/src/``
      - 计划、会话、探测、资源与清理
-   * - ``third_party/gem5/configs/example/gpufs/mi300_cosim.py``
+   * - ``resources/devices/gpu/mi300x/gem5.py``
      - MI300X 对象、池与 vfio-user 参数
    * - ``third_party/gem5/src/dev/amdgpu/``
      - PM4、SDMA、中断、GPU VM 与 vfio-user 服务端

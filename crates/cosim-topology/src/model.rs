@@ -268,6 +268,8 @@ pub enum Role {
 #[non_exhaustive]
 #[derive(Clone, Debug, Serialize)]
 pub struct Device {
+    /// Selected device backend recipe, when present.
+    pub recipe: Option<String>,
     /// Device identifier after count expansion.
     pub id: Identifier,
     /// Name of the device kind.

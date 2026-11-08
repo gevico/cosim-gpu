@@ -13,11 +13,12 @@ mod layout;
 mod loader;
 mod model;
 mod raw;
+mod recipe;
 mod resolve;
 mod size;
 
 pub use adapter::{
-    Adapter, CommandTemplate, DeviceContext, Gem5Mi300x, Launch, Probe, QemuDevice, TemplateDevice,
+    Adapter, CommandTemplate, DeviceContext, Launch, Probe, QemuDevice, TemplateDevice,
     VhostContext, VhostDevice, VhostDisk,
 };
 pub use graph::graph;

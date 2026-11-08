@@ -10,7 +10,7 @@ use std::time::Duration;
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Map, Value};
 
-use crate::adapter::{Adapter, CommandTemplate, Gem5Mi300x, QemuDevice, TemplateDevice};
+use crate::adapter::{Adapter, CommandTemplate, QemuDevice, TemplateDevice};
 use crate::model::{
     Device, DeviceModel, DirectBoot, Disk, DiskBus, DiskFormat, DiskMode, GuestHints, Identifier,
     ImageRecipe, Machine, MemoryRegion, Pci, Program, Role, SerialReady, Topology, Vhost,
@@ -195,6 +195,7 @@ struct DevicePrototype {
     regions: Vec<MemoryRegion>,
     pci: Pci,
     guest_hints: GuestHints,
+    recipe: Option<String>,
 }
 
 impl DevicePrototype {
@@ -202,6 +203,7 @@ impl DevicePrototype {
         Device {
             id,
             kind: self.kind.clone(),
+            recipe: self.recipe.clone(),
             model: self.model,
             adapter: self.adapter.clone(),
             program: self.program.clone(),
@@ -262,7 +264,7 @@ fn machine(spec: MachineSpec, kinds: &Kinds) -> Result<Vec<Machine>> {
                 prototype,
             });
         }
-        let devices = instances(entries, &vhost)?;
+        let devices = instances(entries)?;
         let count = count.unwrap_or(1);
         (0..count)
             .map(|index| {
@@ -284,7 +286,7 @@ fn machine(spec: MachineSpec, kinds: &Kinds) -> Result<Vec<Machine>> {
 }
 
 /// Assigns device identifiers and checks vHost constraints.
-fn instances(entries: Vec<DeviceEntry>, vhost: &Vhost) -> Result<Vec<Device>> {
+fn instances(entries: Vec<DeviceEntry>) -> Result<Vec<Device>> {
     let mut ordinals = BTreeMap::<String, usize>::new();
     let mut devices = Vec::new();
     for entry in entries {
@@ -300,15 +302,6 @@ fn instances(entries: Vec<DeviceEntry>, vhost: &Vhost) -> Result<Vec<Device>> {
         }
     }
     unique(devices.iter().map(|device| &device.id), "device")?;
-    for device in &devices {
-        if matches!(device.adapter, Adapter::Gem5Mi300x(_)) {
-            ensure!(
-                vhost.memory_map.is_some(),
-                "device {}: gem5-mi300x requires vhost.memory_map",
-                device.id
-            );
-        }
-    }
     Ok(devices)
 }
 
@@ -373,7 +366,6 @@ fn vhost(raw: raw::Vhost, kinds: &Kinds) -> Result<(Vhost, usize)> {
 
 /// Kinds that a device may reference.
 enum DeviceKind<'a> {
-    Gem5Mi300x,
     QemuDevice,
     Declared(&'a Kind),
 }
@@ -381,12 +373,10 @@ enum DeviceKind<'a> {
 fn device(raw: raw::Device, kinds: &Kinds) -> Result<DevicePrototype> {
     let kind_name = raw.kind.context("device kind is required")?;
     let kind = match kind_name.as_str() {
-        Gem5Mi300x::KIND => DeviceKind::Gem5Mi300x,
         QemuDevice::KIND => DeviceKind::QemuDevice,
         name => DeviceKind::Declared(kinds.get(name, Role::Device)?),
     };
     let model = match kind {
-        DeviceKind::Gem5Mi300x => DeviceModel::Gem5,
         DeviceKind::QemuDevice => DeviceModel::Qemu,
         DeviceKind::Declared(kind) => kind.model,
     };
@@ -410,22 +400,20 @@ fn device(raw: raw::Device, kinds: &Kinds) -> Result<DevicePrototype> {
     let command =
         CommandTemplate::from_parts(raw.runtime.argv, raw.runtime.command).context("runtime")?;
     let adapter = match (command, kind) {
-        (Some(command), _) => template_device(command, ready_log, raw.config, raw.args)?,
-        (None, DeviceKind::Gem5Mi300x) => Adapter::Gem5Mi300x(Gem5Mi300x::new(
-            raw.config, raw.args, &regions, &raw.pci, ready_log,
-        )?),
+        (Some(command), _) => template_device(command, ready_log, raw.config, raw.entry, raw.args)?,
         (None, DeviceKind::QemuDevice) => {
+            ensure!(raw.entry.is_none(), "qemu-device does not accept entry");
             Adapter::QemuDevice(QemuDevice::new(raw.config, raw.args, &regions, ready_log)?)
         }
-        (None, DeviceKind::Declared(kind)) => {
-            template_device(kind.command.clone(), ready_log, raw.config, raw.args)?
-        }
+        (None, DeviceKind::Declared(kind)) => template_device(
+            kind.command.clone(),
+            ready_log,
+            raw.config,
+            raw.entry,
+            raw.args,
+        )?,
     };
-    let binary = match (raw.runtime.binary, &adapter) {
-        (Some(binary), _) => binary,
-        (None, Adapter::Gem5Mi300x(_)) => Gem5Mi300x::DEFAULT_BINARY.to_owned(),
-        (None, _) => bail!("runtime.binary is required"),
-    };
+    let binary = raw.runtime.binary.context("runtime.binary is required")?;
     Ok(DevicePrototype {
         kind: kind_name,
         model,
@@ -434,6 +422,7 @@ fn device(raw: raw::Device, kinds: &Kinds) -> Result<DevicePrototype> {
         regions,
         pci: raw.pci,
         guest_hints: raw.guest_hints,
+        recipe: raw.recipe,
     })
 }
 
@@ -441,6 +430,7 @@ fn template_device(
     command: CommandTemplate,
     ready_log: Option<String>,
     config: Option<PathBuf>,
+    entry: Option<PathBuf>,
     args: Map<String, Value>,
 ) -> Result<Adapter> {
     let ready_log = ready_log.context("custom device commands require ready_log")?;
@@ -448,6 +438,7 @@ fn template_device(
         command,
         ready_log,
         config,
+        entry,
         args,
     }))
 }

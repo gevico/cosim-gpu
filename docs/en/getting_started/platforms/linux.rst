@@ -50,7 +50,7 @@ these groups:
      - ``libcmocka-dev``, ``python3-venv``
      - QEMU unit tests and Python virtual environments
    * - Image build
-     - ``ansible-core``, ``python3-tomli``, ``qemu-utils``, ``unzip``
+     - ``ansible-core``, ``python3-tomli``, ``unzip``
      - Packer/Ansible guest image builds
    * - Rust
      - Rust 1.95 or newer and Cargo
@@ -97,7 +97,7 @@ Verify the environment
    just --list
    docker info >/dev/null && echo docker-ok
    ls -l /dev/kvm
-   qemu-img --version
+   build/qemu/qemu-img --version
 
 Once these checks pass, build with :doc:`../install` and start
 :doc:`../first_session`.

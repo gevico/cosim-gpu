@@ -21,10 +21,6 @@ Component versions
      - v11.1.2, commit ``4fc49f46``
      - recorded
      - ``third_party/qemu/VERSION``; ``git ls-tree HEAD qemu``
-   * - QEMU (system fallback, legacy launcher)
-     - 10.1 or newer with ``vfio-user-pci``
-     - minimum
-     - preflight check in ``scripts/host/cosim_launch.sh``
    * - gem5 (submodule)
      - ``gevico/gem5`` branch ``gevico/cosim-gpu``; current checkout ``v25.0.0.0-961-gcc9d5dd248``
      - recorded
@@ -36,7 +32,7 @@ Component versions
    * - GPU model
      - MI300X, gfx942, PCI ``0x1002`` and ``0x74a0``
      - fixed
-     - ``resources/devices/gpu/mi300x.yaml``
+     - ``resources/devices/gpu/mi300x/gem5.yaml``
    * - Coherence protocol
      - ``GPU_VIPER``
      - fixed
@@ -90,8 +86,8 @@ Images and containers
      - Role
      - Source
    * - ``cosim-dev:local``
-     - development container image; also the default gem5 container image of the legacy shell launcher
-     - ``just dev-image`` from ``scripts/host/Dockerfile.dev`` (Ubuntu 24.04, third_party/gem5/QEMU build dependencies, Rust, QEMU, ``qemu-img``)
+     - development container image for builds and the launcher
+     - ``just dev-image`` from ``scripts/host/Dockerfile.dev`` (Ubuntu 24.04, third_party/gem5/QEMU build dependencies, Rust)
    * - ``ghcr.io/third_party/gem5/gpu-fs:latest``
      - build image for guest GPU test programs; default of ``GPU_APP_BUILD_IMAGE`` for ``just build-gpu-tests`` and ``just build-gpu-app``
      - external image; override with ``GPU_APP_BUILD_IMAGE``
@@ -99,7 +95,7 @@ Images and containers
      - ``build/rocm-local-installed/kernel`` and ``build/rocm-local-installed/disk``
      - ``just build-disk``: builds a raw bundle under ``build/rocm-local``, then installs it here
 
-``ghcr.io/third_party/gem5/gpu-fs`` only builds guest GPU programs and is not the runtime image of a cosim session; the gem5 container started by the legacy shell launcher is ``cosim-dev:local``.
+``ghcr.io/third_party/gem5/gpu-fs`` only builds guest GPU programs and is not the runtime image of a cosim session; the legacy shell launcher runs the mounted gem5 binary in ``cosim-dev:local``, built with ``just dev-image``.
 
 Guest image recipe
 ------------------

@@ -10,7 +10,7 @@
 适配器清单
 ----------
 
-仓库内置两类设备适配器，另有一个模板适配器用于声明自定义设备；host 侧只有一个 ``qemu-vhost`` 适配器。
+仓库内置 QEMU 设备适配器；MI300X 后端配方复用通用模板适配器；host 侧只有一个 ``qemu-vhost`` 适配器。
 
 .. list-table::
    :header-rows: 1
@@ -22,9 +22,9 @@
      - 就绪探测
      - 说明
    * - ``gem5-mi300x``
-     - built-in
+     - recipe
      - gem5
-     - ``gem5.opt`` + ``mi300_cosim.py``
+     - ``gem5.opt`` + ``run.py`` 和设备配方
      - 日志标记，然后 vfio-user socket
      - 一个进程一个 GPU
    * - ``qemu-device``
@@ -43,7 +43,7 @@
 gem5-mi300x
 -----------
 
-``gem5-mi300x`` 为每个进程启动一个 gem5 MI300X GPU；YAML 路径固定 ``--num-gpus=1``，多 GPU 由多个设备进程实现。
+``gpu/mi300x/gem5`` 配方声明 ``gem5-mi300x`` kind，通过通用命令模板为每个进程启动一个 GPU；配方固定 ``--num-gpus=1``，多 GPU 由多个设备进程实现。
 
 .. list-table::
    :header-rows: 1
@@ -55,11 +55,11 @@ gem5-mi300x
    * - ``config``
      - 是
      - —
-     - 指向 ``third_party/gem5/configs/example/gpufs/mi300_cosim.py``
+     - 指向 ``resources/devices/gpu/mi300x/gem5.yaml``；加载器同时从模拟器配方派生 ``entry``
    * - ``runtime.binary``
      - 否
-     - ``gem5.opt``
-     - 相对工作区根目录，或不含 ``/`` 时从 ``PATH`` 查找
+     - 配方解析出的构建路径
+     - 由模拟器配方和 ``host_arch`` 推导，可显式覆盖
    * - ``memory_regions``
      - 是
      - —
@@ -76,28 +76,27 @@ gem5-mi300x
      - 否
      - ``[]``
      - 写入 ``--debug-flags`` 的 gem5 调试标志列表
-   * - ``args.extra``
-     - 否
-     - ``[]``
-     - 追加到 ``mi300_cosim.py`` 命令行末尾的参数
    * - ``ready_log``
      - 否
-     - 默认监听行
+     - 配方中的监听行模板
      - 覆盖就绪探测使用的日志标记
    * - ``guest_hints.modprobe``
      - 否
      - —
      - 写入执行计划，launcher 不执行
 
+仅接受配方声明的参数。MI300X 配方不提供 ``args.extra`` 任意参数入口；
+实例数量、模型选择和共享内存参数由配方与拓扑管理。
+
 渲染出的命令：
 
 .. code-block:: bash
 
    gem5.opt --outdir=<node>/m5out [--debug-flags=<csv>] --listener-mode=off \
-            <config> --socket-path=<device.sock> --shared-pool=<pool> \
+            <entry> --model-config <config> --socket-path=<device.sock> --shared-pool=<pool> \
             --pool-vram-offset=<offset> --dgpu-mem-size=<size>B \
             --mem-size=<ram>B --host-memory-ranges=<json> \
-            --num-compute-units=<n> --num-gpus=1 [extra...]
+            --num-compute-units=<n> --num-gpus=1
 
 就绪探测按顺序执行：先等日志出现默认标记 ``MI300XVfioUser: listening on <socket> (vfio-user protocol)`` （或 ``ready_log`` 覆盖值），再确认 socket 存在。机器含 ``gem5-mi300x`` 设备时 host 必须声明 ``memory_map``。
 
@@ -152,6 +151,8 @@ qemu-device
 模板设备与自定义命令
 --------------------
 
+设备也可以通过 ``recipe: gpu/mi300x/gem5`` 直接选择后端，无需导入模板；配方格式见 :ref:`ref-simulator-device-recipes`。
+
 在 ``kinds`` 中声明 ``role: device`` 并提供 ``argv`` 或 ``command`` 即可接入自定义模型；两者互斥，且设备必须声明 ``ready_log``。``runtime.argv`` 或 ``runtime.command`` 可以覆盖任何设备的启动命令，此时同样要求 ``ready_log``。
 
 模板设备可用的上下文变量：
@@ -177,6 +178,8 @@ qemu-device
      - 客户机物理地址区间，用于 ``--host-memory-ranges``
    * - ``args``
      - 设备 ``args`` 映射
+   * - ``entry``
+     - 可选的模拟器执行入口路径
    * - ``config``
      - 设备 ``config`` 路径
    * - ``model``
@@ -186,7 +189,7 @@ qemu-device
    * - ``node_dir``
      - 该设备节点的工作目录
 
-渲染结果必须是非空参数数组；未定义变量会报错。探测顺序为日志标记，然后 socket。
+``ready_log`` 与命令共享模板上下文。渲染结果必须是非空参数数组；未定义变量会报错。探测顺序为日志标记，然后 socket。
 
 vHost 适配器契约
 -----------------
@@ -253,7 +256,7 @@ vHost 程序必须在前台运行、把资源使用者保留在自己的进程�
 
 - ``crates/cosim-topology/src/adapter/mod.rs``：``Adapter``、``Launch``、``Probe``、模板上下文。
 
-- ``crates/cosim-topology/src/adapter/gem5.rs``：``gem5-mi300x`` 参数与 argv。
+- ``resources/devices/gpu/mi300x/gem5.yaml``：MI300X 参数、约束、argv 与就绪标记；``crates/cosim-topology/src/recipe.rs`` 负责通用配方加载。
 
 - ``crates/cosim-topology/src/adapter/qemu_device.rs``：``qemu-device`` 参数与 argv。
 

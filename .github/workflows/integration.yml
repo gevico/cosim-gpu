@@ -64,6 +64,9 @@ jobs:
       - name: Restore verified gem5 and development image
         run: just ci-restore-gem5 build/ci-build
 
+      - name: Build the pinned QEMU and image tools before session tests
+        run: just build-qemu
+
       - name: Verify competing session memory reservations
         run: just test-cosim-memory
 
@@ -76,21 +79,18 @@ jobs:
           path: build/rocm-artifact-download
           merge-multiple: true
 
-      - name: Install QEMU image tools for artifact validation
+      - name: Install artifact inspection tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y binutils qemu-utils
-          qemu-img --version
+          sudo apt-get install -y binutils
 
       - name: Verify and adopt the paired disk, kernel and package manifest
         env:
           IMAGE_KEY: ${{ inputs.image-key }}
         run: just ci-adopt-rocm-artifact build/rocm-artifact-download build/images/ubuntu/24.04/x86_64/rocm/7.0 "$IMAGE_KEY"
 
-      - name: Build QEMU and Rust launcher
-        run: |
-          just build-qemu
-          just build-cosim
+      - name: Build Rust launcher
+        run: just build-cosim
 
       - name: Verify vfio-user option ROM exposure
         run: just test-cosim-vfio-user

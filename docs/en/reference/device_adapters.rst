@@ -10,7 +10,7 @@ This page is the single source of truth for device and host adapter launch contr
 Adapter inventory
 -----------------
 
-The repository ships two device adapters plus a template adapter for declared custom devices; the host side has a single ``qemu-vhost`` adapter.
+The repository ships a QEMU device adapter and a generic template adapter used by the MI300X backend recipe; the host side has a single ``qemu-vhost`` adapter.
 
 .. list-table::
    :header-rows: 1
@@ -22,9 +22,9 @@ The repository ships two device adapters plus a template adapter for declared cu
      - Readiness
      - Notes
    * - ``gem5-mi300x``
-     - built-in
+     - recipe
      - gem5
-     - ``gem5.opt`` with ``mi300_cosim.py``
+     - ``gem5.opt`` with ``run.py`` and the device recipe
      - log marker, then the vfio-user socket
      - one GPU per process
    * - ``qemu-device``
@@ -43,7 +43,7 @@ The repository ships two device adapters plus a template adapter for declared cu
 gem5-mi300x
 -----------
 
-``gem5-mi300x`` starts one gem5 MI300X GPU per process; the YAML path hard-codes ``--num-gpus=1``, and multiple GPUs are multiple device processes.
+The ``gpu/mi300x/gem5`` recipe declares the ``gem5-mi300x`` kind and starts one GPU per process through a generic command template; the recipe fixes ``--num-gpus=1``, and multiple GPUs are multiple device processes.
 
 .. list-table::
    :header-rows: 1
@@ -55,11 +55,11 @@ gem5-mi300x
    * - ``config``
      - yes
      - —
-     - points to ``third_party/gem5/configs/example/gpufs/mi300_cosim.py``
+     - points to ``resources/devices/gpu/mi300x/gem5.yaml``; the loader also derives ``entry`` from the simulator recipe
    * - ``runtime.binary``
      - no
-     - ``gem5.opt``
-     - relative to the workspace root, or searched in ``PATH`` when it contains no ``/``
+     - Resolved recipe build path
+     - Derived from the simulator recipe and ``host_arch``; explicit overrides are allowed
    * - ``memory_regions``
      - yes
      - —
@@ -76,10 +76,6 @@ gem5-mi300x
      - no
      - ``[]``
      - gem5 debug flags written to ``--debug-flags``
-   * - ``args.extra``
-     - no
-     - ``[]``
-     - arguments appended to the ``mi300_cosim.py`` command line
    * - ``ready_log``
      - no
      - the default listener line
@@ -89,15 +85,19 @@ gem5-mi300x
      - —
      - recorded in the plan; the launcher does not execute it
 
+Only declared recipe parameters are accepted. The MI300X recipe has no
+``args.extra`` escape hatch; instance count, model selection and shared-memory
+arguments remain owned by the recipe and topology.
+
 Rendered command:
 
 .. code-block:: bash
 
    gem5.opt --outdir=<node>/m5out [--debug-flags=<csv>] --listener-mode=off \
-            <config> --socket-path=<device.sock> --shared-pool=<pool> \
+            <entry> --model-config <config> --socket-path=<device.sock> --shared-pool=<pool> \
             --pool-vram-offset=<offset> --dgpu-mem-size=<size>B \
             --mem-size=<ram>B --host-memory-ranges=<json> \
-            --num-compute-units=<n> --num-gpus=1 [extra...]
+            --num-compute-units=<n> --num-gpus=1
 
 Probes run in order: wait for the default log marker ``MI300XVfioUser: listening on <socket> (vfio-user protocol)`` (or the ``ready_log`` override), then confirm that the socket exists. A machine with a ``gem5-mi300x`` device requires a host ``memory_map``.
 
@@ -152,6 +152,8 @@ Probes run in order: the optional log marker, socket existence, then QMP negotia
 Template devices and custom commands
 ------------------------------------
 
+A device may select ``recipe: gpu/mi300x/gem5`` directly without importing templates; see :ref:`ref-simulator-device-recipes` for the recipe format.
+
 Declare a kind under ``kinds`` with ``role: device`` and provide ``argv`` or ``command`` to attach a custom model; the two are mutually exclusive and the device must declare ``ready_log``. ``runtime.argv`` or ``runtime.command`` overrides any device command and also requires ``ready_log``.
 
 Template device context variables:
@@ -177,6 +179,8 @@ Template device context variables:
      - guest physical ranges used for ``--host-memory-ranges``
    * - ``args``
      - device ``args`` map
+   * - ``entry``
+     - optional simulator execution entry path
    * - ``config``
      - device ``config`` path
    * - ``model``
@@ -253,7 +257,7 @@ Contract definitions and adapter implementations:
 
 - ``crates/cosim-topology/src/adapter/mod.rs``: ``Adapter``, ``Launch``, ``Probe`` and template contexts.
 
-- ``crates/cosim-topology/src/adapter/gem5.rs``: ``gem5-mi300x`` parameters and argv.
+- ``resources/devices/gpu/mi300x/gem5.yaml``: MI300X parameters, constraints, argv and readiness marker; ``crates/cosim-topology/src/recipe.rs`` loads recipes generically.
 
 - ``crates/cosim-topology/src/adapter/qemu_device.rs``: ``qemu-device`` parameters and argv.
 

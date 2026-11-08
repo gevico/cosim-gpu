@@ -20,7 +20,7 @@ gpu-8 机器
    version: 1
    imports:
      - vhosts/qemu.yaml
-     - devices/gpu/mi300x.yaml
+     - devices/gpu/mi300x/gem5.yaml
    templates:
      node8:
        vhost:
@@ -59,7 +59,7 @@ gpu-8 机器
      - ``gpu-8.yaml``
    * - 设备
      - 8 × ``mi300x``\ ，各 8 GiB VRAM、40 CU
-     - ``resources/devices/gpu/mi300x.yaml``
+     - ``resources/devices/gpu/mi300x/gem5.yaml``
    * - 内存池
      - 96 GiB = 32 GiB RAM + 64 GiB VRAM
      - ``crates/cosim-topology/src/layout.rs``
@@ -130,4 +130,4 @@ gpu-8 机器
 - vHost：:ref:`ref-topology-schema`
 - 机器目录：:doc:`index`
 - 第 4 章：:ref:`sim-gem5-model`\ ，:ref:`sim-gem5-multi-gpu`
-- 源码：``resources/machines/gpu-8.yaml``\ 、``resources/devices/gpu/mi300x.yaml``
+- 源码：``resources/machines/gpu-8.yaml``\ 、``resources/devices/gpu/mi300x/gem5.yaml``

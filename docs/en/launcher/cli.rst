@@ -62,7 +62,7 @@ Run Options
      - none
      - Seconds to run after every process is ready; the session ends when it elapses.
    * - ``--qemu-img``
-     - ``qemu-img``
+     - ``build/qemu/qemu-img`` in the workspace
      - Tool used to create missing images and overlays.
    * - ``--stdin-lifeline``
      - environment variable ``COSIM_STDIN_LIFELINE``

@@ -32,5 +32,5 @@ sudo apt-get clean
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends \
     binutils openssh-client python3-venv \
-    qemu-system-x86 qemu-utils xorriso curl unzip perl libdigest-sha-perl gh
+    xorriso curl unzip perl libdigest-sha-perl gh
 df -h "$GITHUB_WORKSPACE"

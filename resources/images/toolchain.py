@@ -104,7 +104,7 @@ def inspect_toolchain(
         )
     if qemu_img is None:
         missing.append(
-            "qemu-img is missing; install qemu-utils or set "
+            "qemu-img is missing; run just build-qemu or set "
             "COSIM_IMAGE_QEMU_IMG/QEMU_IMG"
         )
     if shutil.which("ssh-keygen") is None:
@@ -144,39 +144,12 @@ def qemu_binary(workspace: Path, architecture: str) -> Path | None:
         os.environ.get("COSIM_IMAGE_QEMU_BIN")
         or os.environ.get("QEMU_BIN")
     )
-    candidates = []
-    if requested:
-        requested_path = Path(requested)
-        if requested_path.is_absolute() or "/" in requested:
-            candidates.append(
-                requested_path
-                if requested_path.is_absolute()
-                else workspace / requested_path
-            )
-        else:
-            selected = shutil.which(requested)
-            if selected:
-                return Path(selected).resolve()
     target = {
         "x86_64": "x86_64",
         "aarch64": "aarch64",
         "riscv64": "riscv64",
     }[architecture]
-    binary = f"qemu-system-{target}"
-    candidates.extend([workspace / "build/qemu" / binary, Path(binary)])
-    for candidate in candidates:
-        selected = (
-            shutil.which(str(candidate))
-            if not candidate.is_absolute()
-            else str(candidate)
-        )
-        if (
-            selected
-            and Path(selected).is_file()
-            and os.access(selected, os.X_OK)
-        ):
-            return Path(selected).resolve()
-    return None
+    return _qemu_tool(workspace, f"qemu-system-{target}", requested)
 
 
 def qemu_img_binary(workspace: Path) -> Path | None:
@@ -184,32 +157,28 @@ def qemu_img_binary(workspace: Path) -> Path | None:
         os.environ.get("COSIM_IMAGE_QEMU_IMG")
         or os.environ.get("QEMU_IMG")
     )
-    candidates = []
+    return _qemu_tool(workspace, "qemu-img", requested)
+
+
+def _qemu_tool(
+    workspace: Path, name: str, requested: str | None
+) -> Path | None:
+    candidate = workspace / "build/qemu" / name
     if requested:
         requested_path = Path(requested)
         if requested_path.is_absolute() or "/" in requested:
-            candidates.append(
+            candidate = (
                 requested_path
                 if requested_path.is_absolute()
                 else workspace / requested_path
             )
         else:
             selected = shutil.which(requested)
-            if selected:
-                return Path(selected).resolve()
-    candidates.extend([workspace / "build/qemu/qemu-img", Path("qemu-img")])
-    for candidate in candidates:
-        selected = (
-            shutil.which(str(candidate))
-            if not candidate.is_absolute()
-            else str(candidate)
-        )
-        if (
-            selected
-            and Path(selected).is_file()
-            and os.access(selected, os.X_OK)
-        ):
-            return Path(selected).resolve()
+            if selected is None:
+                return None
+            candidate = Path(selected)
+    if candidate.is_file() and os.access(candidate, os.X_OK):
+        return candidate.resolve()
     return None
 
 
@@ -388,6 +357,22 @@ def ansible_executable(workspace: Path) -> Path:
         workspace / IMAGE_TOOL_DIR / "ansible"
         / ANSIBLE_CORE_VERSION / "bin/ansible-playbook"
     )
+
+
+def packer_environment(
+    workspace: Path, qemu_img: Path, stage: Path
+) -> dict[str, str]:
+    # Packer resolves this fixed name independently of its qemu_binary setting.
+    helpers = stage / "tools"
+    helpers.mkdir(parents=True, exist_ok=True)
+    alias = helpers / "qemu-img"
+    alias.unlink(missing_ok=True)
+    alias.symlink_to(qemu_img.resolve())
+    environment = tool_environment(workspace)
+    environment["PATH"] = os.pathsep.join(
+        (str(helpers.resolve()), environment.get("PATH", os.defpath))
+    )
+    return environment
 
 
 def tool_environment(workspace: Path) -> dict[str, str]:

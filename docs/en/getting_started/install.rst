@@ -53,7 +53,7 @@ Build everything
    * - Recipe
      - Output
    * - ``just build-qemu``
-     - ``build/qemu/qemu-system-x86_64`` with ``vfio-user-pci`` and KVM support
+     - ``build/qemu/qemu-system-x86_64`` with ``vfio-user-pci`` and KVM support, plus ``qemu-img`` and ``qemu-io``
    * - ``just build-gem5``
      - ``build/gem5/<arch>/VEGA_X86/gem5.opt``
    * - ``just build-disk``
@@ -75,6 +75,7 @@ The first build takes a long time, so components can be retried:
 
    just build-qemu                 # all host CPUs
    just build-qemu 4               # limit the number of jobs
+   just build-qemu 4 riscv64       # also build the RISC-V guest executable
    just build-gem5                 # all host CPUs
    just build-gem5 1               # limit parallelism when linking OOMs
    just build-disk                 # needs /dev/kvm, QEMU and about 60 GB
@@ -82,6 +83,13 @@ The first build takes a long time, so components can be retried:
 
 ``just build-gem5`` defaults to the number of CPU cores; reduce it to 1 when
 the linker is OOM-killed.
+
+The optional QEMU target argument selects ``x86_64``, ``aarch64`` or ``riscv64``
+as a guest ISA. It is separate from ``COSIM_HOST_ARCH``, which selects the
+build Host/container architecture. The native executable remains available for
+KVM and vfio-user; an additional guest target uses TCG. Both share ``build/qemu/``
+and its ``qemu-img`` / ``qemu-io`` tools. Changing targets reconfigures the build
+from its recorded QEMU target list.
 
 Guest assets
 ------------

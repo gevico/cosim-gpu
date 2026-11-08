@@ -16,7 +16,7 @@ RUN mkdir -p "$TMPDIR" && apt-get update && apt-get install -y --no-install-reco
         libgoogle-perftools-dev libboost-all-dev libhdf5-dev \
         libcapstone-dev libpng-dev libelf-dev libjson-c-dev xorriso \
         libglib2.0-dev libpixman-1-dev libslirp-dev libcmocka-dev \
-        libfdt-dev qemu-system-arm qemu-system-x86 qemu-utils \
+        libfdt-dev \
         shellcheck util-linux \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=rust /usr/local/rustup /usr/local/rustup

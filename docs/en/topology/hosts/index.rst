@@ -134,7 +134,7 @@ vhost-x86-tcg
 ~~~~~~~~~~~~~
 
 - Inherits ``vhost-x86`` and overrides it with ``tcg``, ``qemu64``, 64 MiB RAM and 1 vCPU.
-- The binary is the bare name ``qemu-system-x86_64``, looked up in ``PATH`` during planning.
+- The binary is ``build/qemu/qemu-system-x86_64``, built by ``just build-qemu``.
 - ``args`` is ``[-S, -nodefaults]``, so the vHost stays paused; used for sessions that do not boot an OS.
 
 .. _topo-vhost-arm-tcg:

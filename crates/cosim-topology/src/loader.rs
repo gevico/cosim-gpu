@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::Value;
 
-use crate::adapter::{Gem5Mi300x, QemuDevice};
+use crate::adapter::QemuDevice;
 use crate::model::Topology;
 use crate::raw::{self, Document};
 use crate::resolve::{self, Kinds, MachineSpec};
@@ -52,7 +52,6 @@ pub fn load_with_workspace(path: &Path, resources: &Path, workspace: &Path) -> R
     };
     let mut decode = || -> Result<Topology> {
         let document = loader.read(&source)?;
-        let kinds = Kinds::new(std::mem::take(&mut loader.kinds))?;
         let specs = document
             .machines
             .into_iter()
@@ -63,9 +62,27 @@ pub fn load_with_workspace(path: &Path, resources: &Path, workspace: &Path) -> R
                     .with_context(|| format!("machines[{index}]"))
             })
             .collect::<Result<Vec<_>>>()?;
+        let kinds = Kinds::new(std::mem::take(&mut loader.kinds))?;
         resolve::topology(source.clone(), specs, &kinds)
     };
     decode().with_context(|| source.display().to_string())
+}
+
+pub(crate) fn read_document(path: &Path) -> Result<Document> {
+    let text = fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+    let mut yaml: serde_yaml_ng::Value =
+        serde_yaml_ng::from_str(&text).with_context(|| path.display().to_string())?;
+    yaml.apply_merge()
+        .with_context(|| format!("{}: YAML merge", path.display()))?;
+    let document: Document =
+        serde_yaml_ng::from_value(yaml).with_context(|| path.display().to_string())?;
+    ensure!(
+        document.version == 1,
+        "{}: unsupported version {}",
+        path.display(),
+        document.version
+    );
+    Ok(document)
 }
 
 /// A template value and the file that defines it.
@@ -106,19 +123,7 @@ impl Loader {
             "import depth exceeds {MAX_DEPTH} at {}",
             path.display()
         );
-        let text = fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
-        let mut yaml: serde_yaml_ng::Value =
-            serde_yaml_ng::from_str(&text).with_context(|| path.display().to_string())?;
-        yaml.apply_merge()
-            .with_context(|| format!("{}: YAML merge", path.display()))?;
-        let mut document: Document =
-            serde_yaml_ng::from_value(yaml).with_context(|| path.display().to_string())?;
-        ensure!(
-            document.version == 1,
-            "{}: unsupported version {}",
-            path.display(),
-            document.version
-        );
+        let mut document = read_document(path)?;
         let directory = path
             .parent()
             .context("document has no parent directory")?
@@ -152,7 +157,7 @@ impl Loader {
         }
         for (name, kind) in std::mem::take(&mut document.kinds) {
             ensure!(
-                !matches!(name.as_str(), Gem5Mi300x::KIND | QemuDevice::KIND),
+                name != QemuDevice::KIND,
                 "cannot replace built-in kind {name}"
             );
             ensure!(
@@ -206,13 +211,16 @@ impl Loader {
     ///
     /// The machine-level merge completes before the vHost's own `use` chain is
     /// expanded, so a machine can replace the vHost template of its template.
-    fn machine(&self, value: Value) -> Result<MachineSpec> {
+    fn machine(&mut self, value: Value) -> Result<MachineSpec> {
         let mut value = self.expand(value, &mut Vec::new())?;
         if let Some(vhost) = value.get_mut("vhost") {
             *vhost = self
                 .expand(vhost.take(), &mut Vec::new())
                 .context("vhost")?;
         }
+        let memory_map = value
+            .pointer("/vhost/memory_map")
+            .is_some_and(|v| v.as_str().is_some_and(|s| !s.is_empty()));
         let mut device_names = Vec::new();
         if let Some(devices) = value.get_mut("devices") {
             let devices = devices.as_array_mut().context("devices must be a list")?;
@@ -224,6 +232,16 @@ impl Loader {
                     .map(str::to_owned);
                 device_names.push(name);
                 *device = self.expand(device.take(), &mut Vec::new())?;
+                if let Some((name, kind)) =
+                    crate::recipe::expand(device, &self.resources, &self.workspace, memory_map)?
+                {
+                    if let Some(previous) = self.kinds.get(&name) {
+                        ensure!(previous == &kind, "conflicting device recipe kind {name}");
+                    } else {
+                        self.kinds.insert(name, kind);
+                    }
+                    resolve_paths(device, &self.workspace)?;
+                }
             }
         }
         let machine = serde_json::from_value(value).context("machine definition")?;
@@ -271,7 +289,7 @@ impl Loader {
 }
 
 /// Merges mappings recursively; other overlay values replace the base.
-fn merge(base: &mut Value, overlay: Value) {
+pub(crate) fn merge(base: &mut Value, overlay: Value) {
     match (base, overlay) {
         (Value::Object(base), Value::Object(overlay)) => {
             for (key, value) in overlay {
@@ -305,7 +323,7 @@ fn resolve_paths(value: &mut Value, workspace: &Path) -> Result<()> {
     {
         absolute(binary, workspace)?;
     }
-    for pointer in ["/config", "/pci/rom", "/kernel", "/initrd"] {
+    for pointer in ["/entry", "/config", "/pci/rom", "/kernel", "/initrd"] {
         if let Some(path) = value.pointer_mut(pointer) {
             absolute(path, workspace)?;
         }

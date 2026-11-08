@@ -49,9 +49,12 @@ Source directories
    * - ``third_party/gem5/src/dev/amdgpu/``
      - MI300X device model, vfio-user server, GART/PM4/SDMA/IH
      - content of the gem5 submodule
-   * - ``third_party/gem5/configs/example/gpufs/``
-     - cosim gem5 configuration
-     - ``mi300_cosim.py`` is started by the device adapter
+   * - ``resources/device_simulators/gem5/``
+     - gem5 build recipe and generic execution entry
+     - ``run.py`` loads the selected device configuration
+   * - ``resources/devices/gpu/mi300x/``
+     - MI300X identity, backend recipe and model assembly
+     - ``gem5.yaml`` selects ``gem5.py``
    * - ``configs/sst/``
      - SST network experiment data models
      - independent of the Rust launcher
@@ -191,8 +194,8 @@ gem5 configuration, Python components and QEMU interface
 
    * - File
      - Purpose
-   * - ``third_party/gem5/configs/example/gpufs/mi300_cosim.py``
-     - vfio-user cosim system configuration started by the ``gem5-mi300x`` adapter
+   * - ``resources/devices/gpu/mi300x/gem5.py``
+     - MI300X assembly module loaded by the generic gem5 entry
    * - ``src/python/third_party/gem5/components/devices/gpus/amdgpu.py``
      - MI300X device definition
    * - ``third_party/qemu/hw/remote/vfio-user-obj.c``

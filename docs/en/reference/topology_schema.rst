@@ -108,7 +108,7 @@ both values to be false.
 Device fields
 -------------
 
-A device may use ``id``, ``use``, ``kind``, ``count``, ``config``,
+A device may use ``id``, ``use``, ``kind``, ``count``, ``recipe``, ``host_arch``, ``entry``, ``config``,
 ``ready_log``, ``runtime``, ``memory_regions``, ``pci``, ``args`` and
 ``guest_hints``. Adapter-specific requirements are documented in
 :doc:`device_adapters`. A ``guest_hints.cmdline`` value requires the owning

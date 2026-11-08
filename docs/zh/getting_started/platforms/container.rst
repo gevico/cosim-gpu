@@ -26,9 +26,9 @@
    export COSIM_ENV=container      # 显式选择容器路径
 
 ``just dev-image`` 根据 ``scripts/host/Dockerfile.dev`` 构建 ``cosim-dev:local``：
-基于 Ubuntu 24.04，包含 gem5 与 QEMU 构建依赖、Rust 工具链、QEMU 和
-``qemu-img``。``COSIM_ENV`` 未设置时，Linux 用 ``host``，其他系统用
-``container``。
+基于 Ubuntu 24.04，包含 gem5 与 QEMU 构建依赖和 Rust 工具链。
+``just build-qemu`` 将 QEMU 与镜像工具构建到挂载工作区的 ``build/qemu/``。
+``COSIM_ENV`` 未设置时，Linux 用 ``host``，其他系统用 ``container``。
 
 dev.sh 的行为
 -------------

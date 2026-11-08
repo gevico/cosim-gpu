@@ -44,12 +44,13 @@ pub fn check_assets(topology: &Topology) -> Result<()> {
                 if let Some(rom) = &device.pci.rom {
                     file(rom, "PCI option ROM")?;
                 }
-                let config = match &device.adapter {
-                    Adapter::Gem5Mi300x(adapter) => Some(adapter.config.as_path()),
-                    Adapter::Template(adapter) => adapter.config.as_deref(),
-                    Adapter::QemuDevice(_) => None,
+                let inputs = match &device.adapter {
+                    Adapter::Template(adapter) => {
+                        [adapter.entry.as_deref(), adapter.config.as_deref()]
+                    }
+                    Adapter::QemuDevice(_) => [None, None],
                 };
-                if let Some(config) = config {
+                for config in inputs.into_iter().flatten() {
                     file(config, "device configuration")?;
                 }
             }

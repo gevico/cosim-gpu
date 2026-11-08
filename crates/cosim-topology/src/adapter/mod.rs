@@ -2,7 +2,6 @@
 
 //! Launch contracts that turn validated nodes into process arguments.
 
-mod gem5;
 mod qemu_device;
 mod template;
 
@@ -13,7 +12,6 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-pub use gem5::Gem5Mi300x;
 pub use qemu_device::QemuDevice;
 pub use template::{CommandTemplate, TemplateDevice};
 
@@ -24,8 +22,6 @@ use crate::model::{Device, DirectBoot, Disk, DiskFormat, Machine, Vhost};
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "kebab-case", tag = "adapter")]
 pub enum Adapter {
-    /// One MI300X GPU in gem5.
-    Gem5Mi300x(Gem5Mi300x),
     /// A QEMU device model exported through `x-vfio-user-server`.
     QemuDevice(QemuDevice),
     /// A command rendered from a YAML template.
@@ -141,7 +137,6 @@ impl Device {
     /// Renders the device arguments and readiness conditions.
     pub fn launch(&self, context: &DeviceContext<'_>) -> Result<Launch> {
         match &self.adapter {
-            Adapter::Gem5Mi300x(adapter) => adapter.launch(self, context),
             Adapter::QemuDevice(adapter) => adapter.launch(context),
             Adapter::Template(adapter) => adapter.launch(self, context),
         }

@@ -133,7 +133,7 @@ vhost-x86-tcg
 ~~~~~~~~~~~~~
 
 - 继承 ``vhost-x86``\ ，覆盖为 ``tcg``\ 、``qemu64``\ 、64 MiB RAM、1 vCPU。
-- 二进制写裸名 ``qemu-system-x86_64``\ ，生成计划时从 ``PATH`` 查找。
+- 二进制使用 ``just build-qemu`` 构建的 ``build/qemu/qemu-system-x86_64``\ 。
 - ``args`` 为 ``[-S, -nodefaults]``\ ，vHost 启动后保持暂停，用于不启动操作系统的会话测试。
 
 .. _topo-vhost-arm-tcg:

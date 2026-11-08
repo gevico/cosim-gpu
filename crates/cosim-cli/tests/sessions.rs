@@ -2,8 +2,8 @@
 
 //! Sessions with real QEMU processes, disk images and signals.
 //!
-//! The tests need `qemu-system-<arch>`, `qemu-img` and `setpriv` in `PATH`.
-//! `vfio_user_*` also needs the QEMU build from `just build-qemu`.
+//! Build QEMU and its image tools with `just build-qemu` before running ignored tests.
+//! `setpriv` must be available in `PATH`.
 
 use std::ffi::OsString;
 use std::fs;
@@ -98,7 +98,7 @@ fn validate_dry_run_and_run_reject_guest_hints_without_vhost_image() {
             "version: 1\nimports: [{}, {}, {}]\nmachines:\n  - id: m0\n    vhost: {{use: {vhost}}}\n    devices: [{{use: mi300x, guest_hints: {{cmdline: quiet}}}}]\n",
             resources().join("vhosts/qemu.yaml").display(),
             resources().join(vhost_file).display(),
-            resources().join("devices/gpu/mi300x.yaml").display(),
+            resources().join("devices/gpu/mi300x/gem5.yaml").display(),
         ),
     )
     .unwrap();
@@ -590,13 +590,15 @@ fn a_failed_device_prevents_the_host_start_and_releases_resources() {
     let root = directory();
     let root = root.path();
     let binary = if cfg!(target_arch = "aarch64") {
-        "qemu-system-aarch64"
+        workspace().join("build/qemu/qemu-system-aarch64")
     } else {
-        "qemu-system-x86_64"
+        workspace().join("build/qemu/qemu-system-x86_64")
     };
     let kinds = "kinds:\n  broken: {role: device, model: qemu, argv: [-machine, missing]}\n";
-    let devices =
-        format!("[{{id: dev, kind: broken, ready_log: never, runtime: {{binary: {binary}}}}}]");
+    let devices = format!(
+        "[{{id: dev, kind: broken, ready_log: never, runtime: {{binary: {}}}}}]",
+        binary.display()
+    );
     let topology = topology(root, &[("m0", "", &devices)], kinds);
     let launcher = Launcher::run(root, &topology, &[]);
     let (status, output) = launcher.finish();
@@ -662,10 +664,11 @@ fn cancellation_and_timeout_before_readiness_emit_stopped_once() {
 #[ignore = "requires QEMU and qemu-img"]
 #[test]
 fn invalid_explicit_image_helpers_leave_paths_available_for_retry() {
-    let installed = std::env::split_paths(&std::env::var_os("PATH").unwrap())
-        .map(|directory| directory.join("qemu-img"))
-        .find(|path| path.is_file() && access(path, AccessFlags::X_OK).is_ok())
-        .unwrap();
+    let installed = workspace().join("build/qemu/qemu-img");
+    assert!(
+        access(&installed, AccessFlags::X_OK).is_ok(),
+        "run just build-qemu"
+    );
     for exists in [false, true] {
         let root = directory();
         let root = root.path();
@@ -712,6 +715,55 @@ fn invalid_explicit_image_helpers_leave_paths_available_for_retry() {
         assert_eq!(fs::metadata(&image).unwrap().len(), 1 << 20);
         assert!(!pool.exists());
     }
+}
+
+#[test]
+fn default_image_helper_uses_the_workspace_build_without_path_fallback() {
+    let root = directory();
+    let root = root.path();
+    let disk = root.join("data.raw");
+    let extra = format!(
+        ", runtime: {{binary: /bin/true}}, disks: [{{id: data, path: {}, format: raw, create: true, size: 1M}}]",
+        disk.display()
+    );
+    let topology = topology(root, &[("m0", &extra, "")], "");
+    let installed = root.join("installed");
+    fs::create_dir(&installed).unwrap();
+    let helper = installed.join("qemu-img");
+    fs::write(&helper, "#!/bin/sh\nexit 42\n").unwrap();
+    fs::set_permissions(&helper, fs::Permissions::from_mode(0o755)).unwrap();
+    let path = std::env::join_paths(
+        std::iter::once(installed).chain(std::env::split_paths(&std::env::var_os("PATH").unwrap())),
+    )
+    .unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_cosim"))
+        .current_dir(workspace())
+        .env("COSIM_WORKSPACE", root)
+        .env("COSIM_DISK_LOCK_DIR", root.join("locks"))
+        .env("PATH", path)
+        .env_remove("COSIM_STDIN_LIFELINE")
+        .arg("--resources")
+        .arg(resources())
+        .arg("run")
+        .arg(topology)
+        .arg("--run-dir")
+        .arg(root.join("r"))
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success(), "{output:?}");
+    assert!(
+        stderr.contains(&format!(
+            "qemu-img executable is unavailable: {}",
+            root.canonicalize()
+                .unwrap()
+                .join("build/qemu/qemu-img")
+                .display()
+        )),
+        "{stderr}"
+    );
+    assert!(!disk.exists());
+    assert!(!root.join("r").exists());
 }
 
 #[ignore = "requires QEMU and qemu-img"]

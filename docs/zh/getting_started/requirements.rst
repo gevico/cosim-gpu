@@ -42,7 +42,7 @@
    * - QEMU
      - 由 ``qemu`` 子模块构建；样例指向 ``build/qemu/qemu-system-x86_64``
    * - 磁盘工具
-     - ``qemu-img``，用于镜像校验、创建与会话 overlay
+     - 同次 QEMU 构建生成的 ``build/qemu/qemu-img``，用于镜像校验、创建与会话 overlay
    * - 其他工具
      - ``git``、``screen``、``unzip``；镜像构建另需 Packer 与 Ansible
 

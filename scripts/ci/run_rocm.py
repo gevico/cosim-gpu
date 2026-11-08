@@ -120,7 +120,7 @@ def topology(inputs: Inputs, share: Path) -> dict:
     return {
         "version": 1,
         "imports": [str(ROOT / "resources" / path) for path in (
-            "vhosts/qemu.yaml", "devices/gpu/mi300x.yaml"
+            "vhosts/qemu.yaml", "devices/gpu/mi300x/gem5.yaml"
         )],
         "machines": [{
             "id": "m0",

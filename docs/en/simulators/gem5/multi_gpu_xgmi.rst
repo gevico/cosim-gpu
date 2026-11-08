@@ -68,7 +68,8 @@ Launch Example
 
    # Two GPUs in one process with mesh XGMI (direct gem5 invocation, not YAML)
    build/gem5/x86_64/VEGA_X86/gem5.opt \
-     third_party/gem5/configs/example/gpufs/mi300_cosim.py \
+     resources/device_simulators/gem5/run.py \
+     --model-config resources/devices/gpu/mi300x/gem5.yaml \
      --num-gpus=2 --xgmi-topology=mesh \
      --socket-path=/tmp/gem5-mi300x --shmem-path=/mi300x-vram
 
@@ -93,7 +94,7 @@ Factual Boundaries
 Sources
 --------
 
-- Multi-GPU configuration: ``third_party/gem5/configs/example/gpufs/mi300_cosim.py``.
+- Multi-GPU configuration: ``resources/devices/gpu/mi300x/gem5.py``.
 - XGMI bridge: ``third_party/gem5/src/dev/amdgpu/xgmi_bridge.{cc,hh}`` and ``XGMIBridge.py``.
 - Transport interface: ``third_party/gem5/src/dev/amdgpu/xgmi_transport.hh``.
 - SST configurations: ``configs/sst/``.

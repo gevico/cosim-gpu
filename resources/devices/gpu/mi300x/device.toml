@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+schema = 1
+
+[pci]
+vendor_id = 0x1002
+device_id = 0x74a0
+rom = "third_party/gem5-resources/src/x86-ubuntu-gpu-ml/files/mi300.rom"

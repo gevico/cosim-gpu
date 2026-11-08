@@ -146,7 +146,7 @@ Entry numbers match the historical issue numbers for cross-referencing.
    * - Root cause
      - QEMU Q35 fixes ``below_4g`` at 2 GiB for 8 GiB RAM, while the gem5 configuration assumes 3 GiB below and 5 GiB above, so data above 4 GiB lands at a file offset that differs by 1 GiB.
    * - Fix
-     - ``mi300_cosim.py`` replicates the Q35 split: ``below_4g = min(total_mem, 0x80000000 if total_mem >= 0xB0000000 else 0xB0000000)``.
+     - ``gem5.py`` replicates the Q35 split: ``below_4g = min(total_mem, 0x80000000 if total_mem >= 0xB0000000 else 0xB0000000)``.
 
 4.8 Timer overflow crash
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -161,7 +161,7 @@ Entry numbers match the historical issue numbers for cross-referencing.
    * - Root cause
      - RTC and PIT timers keep scheduling events and exhaust the tick counter in long-running cosim sessions.
    * - Fix
-     - Add ``disable_rtc_events`` to ``Cmos`` and ``disable_timer_events`` to ``I8254`` and disable both in ``mi300_cosim.py``; a keepalive event in the cosim bridge keeps the event queue non-empty.
+     - Add ``disable_rtc_events`` to ``Cmos`` and ``disable_timer_events`` to ``I8254`` and disable both in ``gem5.py``; a keepalive event in the cosim bridge keeps the event queue non-empty.
 
 4.9 PM4ReleaseMem.dataSelect panic
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -34,7 +34,7 @@ Rust 工作区
    * - ``crates/cosim-topology/src/loader.rs``\ 、``resolve.rs``
      - 导入、合并键、模板继承、工作区相对资源路径、数量展开和校验。
    * - ``crates/cosim-topology/src/adapter/``
-     - ``Adapter``\ 枚举及 ``gem5-mi300x``\ 、``qemu-device``\ 和模板适配器，host 参数渲染和 ``Probe``\ 。
+     - ``Adapter``\ 枚举及 ``qemu-device``\ 和模板适配器；MI300X 配方复用模板，host 参数渲染和 ``Probe``\ 。
    * - ``crates/cosim-topology/src/layout.rs``
      - 给定 ``PageSize``\ 时计算内存池和客户机物理地址区间。
    * - ``crates/cosim-runtime/src/env.rs``\ 、``layout.rs``\ 、``plan.rs``
@@ -54,7 +54,7 @@ Rust 工作区
 扩展点：适配器与命令模板
 -------------------------
 
-- 设备适配器由 ``Adapter``\ 枚举表达：``gem5-mi300x``\ 运行一个进程内一个 GPU，``qemu-device``\ 导出 QEMU 功能设备，模板适配器按 YAML 渲染命令。
+- 设备适配器由 ``Adapter``\ 枚举表达：``qemu-device``\ 导出 QEMU 功能设备，通用模板适配器渲染设备配方或 YAML 命令；MI300X 配方每个进程运行一个 GPU。
 - 就绪条件由 ``Probe``\ 表达：日志标记、Unix socket 存在和 QMP 协商；适配器按顺序返回这些探测。
 - vHost kind 通过 YAML ``command``\ 模板渲染 QEMU 参数；``kinds``\ 中 ``role: device``\ 的 kind 提供 ``argv``\ 或 ``command``\ ，并需要 ``ready_log``\ 。
 - ``runtime.argv``\ 或 ``runtime.command``\ 可以替换任何设备适配器生成的命令，但必须自己保证就绪探测和资源约定。
@@ -82,7 +82,7 @@ Rust 工作区
 -----------
 
 - 三个 crate 的清单与依赖：``crates/cosim-cli/Cargo.toml``\ 、``crates/cosim-runtime/Cargo.toml``\ 、``crates/cosim-topology/Cargo.toml``\ 。
-- 适配器实现：``crates/cosim-topology/src/adapter/gem5.rs``\ 、``qemu_device.rs``\ 、``template.rs``\ 。
+- 适配器实现：``crates/cosim-topology/src/recipe.rs``\ 、``qemu_device.rs``\ 、``template.rs``\ 。
 - 运行库导出：``crates/cosim-runtime/src/lib.rs``\ 。
 - Rust 规范：``docs/zh/contributing/rust_guidelines.rst``\ 。
 

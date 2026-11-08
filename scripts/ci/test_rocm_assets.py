@@ -89,7 +89,7 @@ class ImageRecipeTests(unittest.TestCase):
                         WORKSPACE / "third_party/gem5-resources/.git"
                     )
                     if not path.is_file() and not submodule_metadata.exists():
-                        # The fast CI job checks out no submodules.
+                        # Fast CI leaves gem5-resources uninitialized.
                         continue
                 else:
                     self.assertTrue(

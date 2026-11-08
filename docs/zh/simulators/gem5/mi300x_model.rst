@@ -121,7 +121,7 @@ launcher 传入的参数
 - gem5 系统使用 ``atomic_noncaching``\ 内存模式，客户机内核由 QEMU 执行，gem5 只模拟 GPU 侧行为。
 - SDMA 操作按 ``sdma_delay``\ 常数延迟调度，当前值为 1000 ticks；该值需适配驱动约 200 ms 的 ring test 超时窗口。
 - ``MI300XVfioUser``\ 以 1e9 ticks 的间隔调度 keepalive，既保证事件队列不为空，也为 SDMA 处理留出时间。
-- ``mi300_cosim.py``\ 关闭 CMOS RTC 和 8254 PIT 的事件调度（``disable_rtc_events``\ 、``disable_timer_events``\ ），避免长期运行时 tick 溢出。
+- ``gem5.py``\ 关闭 CMOS RTC 和 8254 PIT 的事件调度（``disable_rtc_events``\ 、``disable_timer_events``\ ），避免长期运行时 tick 溢出。
 - 时序行为由各组件的事件调度与 Ruby 模型共同决定；更换 CU 数、VRAM 大小或时钟会改变这些时序。
 
 未建模部分
@@ -134,7 +134,7 @@ launcher 传入的参数
 源码与依据
 -----------
 
-- 配置脚本：``third_party/gem5/configs/example/gpufs/mi300_cosim.py``\ 。
+- 配置脚本：``resources/devices/gpu/mi300x/gem5.py``\ 。
 - 设备模型目录：``third_party/gem5/src/dev/amdgpu/``\ 。
 - 调试标志定义：``third_party/gem5/src/dev/amdgpu/SConscript``\ 。
 - 模型自测：``just test-gem5-mi300x``\ 运行 ``third_party/gem5/tests/mi300x/verify.py``\ 。

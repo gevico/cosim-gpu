@@ -47,7 +47,7 @@ host-only-aarch64 machine
    just run-topology-dev resources/machines/host-only-aarch64.yaml --run-for 1
 
 - Machine count: one (``m0``); one vHost and no devices.
-- The 64 MiB pool; the host binary ``qemu-system-aarch64`` is looked up in ``PATH``.
+- The 64 MiB pool; the host binary is ``build/qemu/qemu-system-aarch64``, built by ``just build-qemu``.
 
 gem5-aarch64 machine
 --------------------

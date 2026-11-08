@@ -15,6 +15,7 @@ and link here so that no table is maintained twice.
    topology_schema
    device_adapters
    vhost_image_recipe
+   simulator_device_recipes
    guest_parameters
    version_matrix
    files_and_artifacts
@@ -77,7 +78,7 @@ Canonical ownership
      - Historical issue records, driver and model behaviour
    * - :doc:`legacy_launcher_flags`
      - Corrected shell-launcher and gem5-config option tables
-     - ``scripts/host/cosim_launch.sh``, ``mi300_cosim.py``
+     - ``scripts/host/cosim_launch.sh``, ``gem5.py``
 
 Related chapters
 ----------------

@@ -125,7 +125,7 @@ just run-topology resources/machines/single-gpu.yaml --dry-run
 version: 1
 imports:
   - vhosts/qemu.yaml
-  - devices/gpu/mi300x.yaml
+  - devices/gpu/mi300x/gem5.yaml
   - devices/pci/qemu-edu.yaml
 machines:
   - id: m0
@@ -156,7 +156,8 @@ QEMU Device Model 示例使用 <code>just build-qemu</code> 构建的 QEMU，通
 ### Linux Host 运行会话
 
 - 需要 glibc 和 util-linux 提供的 <code>setpriv</code>。
-- 需要匹配 Host 架构的 QEMU 和 <code>qemu-img</code>。
+- <code>just build-qemu</code> 从锁定的源码构建匹配 Host 架构的 QEMU、
+  <code>qemu-img</code> 和 <code>qemu-io</code>，统一输出到 <code>build/qemu/</code>。
 - x86_64 Host 使用 <code>qemu-system-x86_64</code>；ARM64 Host 使用
   <code>qemu-system-aarch64</code>。
 - <code>COSIM_HOST_ARCH</code> 用于选择构建架构，默认使用当前 Host 架构。

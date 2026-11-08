@@ -32,6 +32,7 @@ from .toolchain import (
     ensure_ansible,
     ensure_packer,
     inspect_toolchain,
+    packer_environment,
     packer_variables,
     create_temporary_ssh_keypair,
     tool_environment,
@@ -147,7 +148,6 @@ def validate_recipe(
             "image recipe files are unavailable: " + "; ".join(missing)
         )
     packer, ansible = _ensure_toolchain(root)
-    environment = tool_environment(root)
     tools, missing_tools = inspect_toolchain(
         root,
         recipe,
@@ -162,6 +162,7 @@ def validate_recipe(
     variable_file = root / "build/images/.validate.pkrvars.json"
     variable_file.parent.mkdir(parents=True, exist_ok=True)
     staged_recipe = stage_recipe(root, recipe, validate_stage / "recipe")
+    environment = packer_environment(root, tools.qemu_img, validate_stage)
     key_directory, private_key, public_key = create_temporary_ssh_keypair(root)
     try:
         variables = packer_variables(
@@ -256,7 +257,7 @@ def build_recipe(workspace: Path, identifier: str) -> dict:
         logs = stage / "logs"
         logs.mkdir()
         staged_recipe = stage_recipe(root, recipe, stage / "recipe")
-        environment = tool_environment(root)
+        environment = packer_environment(root, tools.qemu_img, stage)
         key_directory, private_key, public_key = create_temporary_ssh_keypair(
             root
         )

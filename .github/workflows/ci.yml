@@ -1,4 +1,4 @@
-# Fast checks on every push/PR (< 5 min, no submodules needed)
+# Checks on every push/PR; session tests build the pinned QEMU.
 name: CI
 
 on:
@@ -20,6 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: extractions/setup-just@v4
+        with:
+          just-version: ${{ env.JUST_VERSION }}
       - name: Install actionlint
         run: |
           version=1.7.12
@@ -30,11 +33,11 @@ jobs:
           tar -xzf "$archive" actionlint
           sudo install -m 0755 actionlint /usr/local/bin/actionlint
       - name: Check workflow syntax and expressions
-        run: actionlint .github/workflows/*.yml
+        run: just check-workflows
 
   rust:
     name: Rust Topology and Runtime
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -43,10 +46,12 @@ jobs:
       - uses: extractions/setup-just@v4
         with:
           just-version: ${{ env.JUST_VERSION }}
-      - name: Install QEMU for session tests
+      - name: Install Python dependencies for session tests
         run: |
           sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 qemu-utils python3-pexpect python3-yaml
+          sudo apt-get install -y python3-pexpect python3-yaml
+      - name: Build the pinned QEMU for session tests
+        run: just ci-build-qemu
       - name: Check Rust source and topology behavior
         run: just check-cosim
       - name: Run sessions with QEMU processes, disks and signals
@@ -67,15 +72,13 @@ jobs:
           python-version: '3.12'
       - name: Install Python CI dependencies
         run: pip install -r scripts/ci/requirements.txt
-      - name: Install QEMU for session tests
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-system-x86 qemu-utils
+      - name: Build the pinned QEMU for image tool tests
+        run: just ci-build-qemu
       - name: Check command completion and failure handling
         run: |
           mkdir -p artifacts/ci-check/scratch
           env TMPDIR="$PWD/artifacts/ci-check/scratch" \
-            python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v
+            just test-ci
   checkpatch:
     name: Checkpatch
     runs-on: ubuntu-latest

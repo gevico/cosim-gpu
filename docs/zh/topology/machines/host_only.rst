@@ -57,7 +57,7 @@ host-only 机器
      - 64 MiB
      - 主机 RAM
    * - 可执行文件
-     - ``qemu-system-x86_64``\ （从 ``PATH`` 查找）
+     - ``build/qemu/qemu-system-x86_64``
      - ``resources/vhosts/vhost-x86-tcg.yaml``
    * - vHost
      - 无

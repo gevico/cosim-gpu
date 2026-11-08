@@ -11,7 +11,11 @@ set positional-arguments
 host_arch_input := env("COSIM_HOST_ARCH", arch())
 host_arch := if host_arch_input == "aarch64" { "aarch64" } else if host_arch_input == "x86_64" { "x86_64" } else { error("COSIM_HOST_ARCH must be aarch64 or x86_64") }
 container_platform := if host_arch == "aarch64" { "linux/arm64" } else { "linux/amd64" }
-gem5_build_dir := env("GEM5_BUILD_DIR", "build/gem5/" + host_arch + "/VEGA_X86")
+gem5_recipe := "gem5"
+gem5_config := shell('python3 -m resources.device_simulators.cli value "$1" config', gem5_recipe)
+gem5_entry := shell('python3 -m resources.device_simulators.cli value "$1" entry', gem5_recipe)
+gem5_binary := shell('python3 -m resources.device_simulators.cli value "$1" binary', gem5_recipe)
+gem5_build_dir := env("GEM5_BUILD_DIR", "build/gem5/" + host_arch + "/" + gem5_config)
 rocm_recipe := "ubuntu/24.04/x86_64/rocm/7.0"
 rocm_image_dir := "build/images/" + rocm_recipe
 dev_image := env("COSIM_DEV_IMAGE", "cosim-dev:local")
@@ -51,12 +55,41 @@ dev-shell:
 # Build QEMU with KVM and vfio-user support
 [group('build')]
 build-qemu jobs=build_jobs target=host_arch:
-    {{ dev }} scripts/host/build.sh qemu "$2" "$1"
+    {{ dev }} scripts/host/build.sh qemu {{ host_arch }} "$1" "$2"
+
+# Prepare a CI host and build the pinned QEMU, including image tools
+[group('ci')]
+ci-build-qemu target=host_arch:
+    sudo apt-get update
+    sudo apt-get install -y --no-install-recommends build-essential ninja-build pkg-config python3-venv python3-pip libglib2.0-dev libpixman-1-dev libslirp-dev libfdt-dev libjson-c-dev libcmocka-dev zlib1g-dev
+    git -c 'url.https://github.com/.insteadOf=git@github.com:' submodule update --init --recursive --depth 1 third_party/qemu
+    COSIM_ENV=host just build-qemu {{ build_jobs }} "$1"
 
 # Build gem5 (VEGA_X86); use jobs=1 if linking is OOM-killed
 [group('build')]
 build-gem5 jobs=build_jobs *scons_args:
-    {{ dev }} scripts/host/build.sh gem5 {{ gem5_build_dir }} "$@"
+    {{ dev }} python3 -m resources.device_simulators.cli build {{ gem5_recipe }} {{ gem5_build_dir }} "$@"
+
+# Inspect a device simulator build and entry recipe
+[group('run')]
+run-simulator-recipe recipe=gem5_recipe:
+    python3 -m resources.device_simulators.cli inspect "$1"
+
+# Run the Host-side Python CI tests
+[group('test')]
+test-ci:
+    python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v
+
+# Check simulator recipes, execution entry and build provenance
+[group('test')]
+test-simulator-recipes: test-qemu-toolchain
+    python3 -m unittest discover -s scripts/ci -p 'test_simulator*.py' -v
+    python3 -m unittest discover -s scripts/ci -p 'test_runtime_artifact.py' -v
+
+# Check QEMU tool selection and image-builder helper execution
+[group('test')]
+test-qemu-toolchain:
+    python3 -m unittest discover -s scripts/ci -p 'test_qemu_toolchain.py' -v
 
 # Initialize gem5 sources while preserving the existing worktree
 [group('dev')]
@@ -81,7 +114,18 @@ build-rocm-assets recipe=rocm_recipe: dev-rocm-sources
 # Prepare disk capacity and dependencies on a disposable CI image builder
 [group('ci')]
 ci-prepare-image-host recipe=rocm_recipe:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    target="$(python3 - "$1" <<'PYTHON'
+    from pathlib import Path
+    import sys
+    from resources.images.recipe import load_recipe
+
+    print(load_recipe(Path.cwd(), sys.argv[1]).architecture)
+    PYTHON
+    )"
     bash scripts/ci/prepare_image_host.sh "$1"
+    just ci-build-qemu "$target"
 
 # Build a GPU application from third_party/gem5-resources/src/gpu
 [group('build')]
@@ -122,7 +166,7 @@ build-cosim:
 # Package the gem5 binary and the exact development image used to build it
 [group('ci')]
 ci-package-gem5 output:
-    python3 scripts/ci/runtime_artifact.py package "$1" "{{ gem5_build_dir }}/gem5.opt"
+    python3 scripts/ci/runtime_artifact.py package "$1" "{{ gem5_build_dir }}/{{ gem5_binary }}"
 
 # Identify the simulator source, tools, recipes and build job used by the cache
 [group('ci')]
@@ -167,7 +211,7 @@ test-runtime-artifact source output:
 # Restore a build from the same source revision and CI run
 [group('ci')]
 ci-restore-gem5 source:
-    python3 scripts/ci/runtime_artifact.py restore "$1" "{{ gem5_build_dir }}/gem5.opt"
+    python3 scripts/ci/runtime_artifact.py restore "$1" "{{ gem5_build_dir }}/{{ gem5_binary }}"
 
 # Inspect the input key or verify a locally built ROCm kernel/disk bundle
 [group('ci')]
@@ -226,7 +270,7 @@ test-gpu *args:
 # Run the ROCm regression suite with the built Rust launcher and verified assets
 [group('test')]
 test-rocm-regression output assets *args:
-    {{ dev }} python3 scripts/ci/run_rocm.py "$@" --gem5 "{{ gem5_build_dir }}/gem5.opt" --qemu build/qemu/qemu-system-x86_64
+    {{ dev }} python3 scripts/ci/run_rocm.py "$@" --gem5 "{{ gem5_build_dir }}/{{ gem5_binary }}" --qemu build/qemu/qemu-system-x86_64
 
 # List co-simulation resources left on the Host without changing them
 [group('run')]
@@ -278,6 +322,11 @@ check-gem5-message message:
 check-gem5-ci:
     actionlint .github/workflows/build.yml third_party/gem5/.github/workflows/mi300x-ci.yaml
 
+# Validate the top-level GitHub Actions workflows
+[group('check')]
+check-workflows:
+    actionlint .github/workflows/*.yml
+
 # Verify CI cancellation through the real Rust launcher and QEMU
 [group('test')]
 test-session-lifecycle: build-cosim
@@ -287,7 +336,7 @@ test-session-lifecycle: build-cosim
 [group('test')]
 test-gem5-mi300x output case="all":
     mkdir -p "$1"
-    {{ dev }} --mount "$1" python3 third_party/gem5/tests/mi300x/verify.py --gem5 "{{ gem5_build_dir }}/gem5.opt" --output "$(cd "$1" && pwd)" --case "$2"
+    {{ dev }} --mount "$1" python3 third_party/gem5/tests/mi300x/verify.py --gem5 "{{ gem5_build_dir }}/{{ gem5_binary }}" --output "$(cd "$1" && pwd)" --case "$2"
 
 # Check Rust formatting, warnings and behavior
 [group('check')]

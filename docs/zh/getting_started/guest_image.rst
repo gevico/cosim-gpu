@@ -73,6 +73,9 @@ ROCm，最后导出磁盘与配套内核。重建需要：
   ``shasum`` 与 binutils；
 - 访问 Canonical、AMD、HashiCorp 与 PyTorch 软件源。
 
+QEMU 与 ``qemu-img`` 统一使用 ``just build-qemu`` 从锁定源码生成的
+``build/qemu/`` 产物，与 vHost 和设备模型共用同一份构建。
+
 .. code-block:: bash
 
    just build-rocm-assets build/rocm-custom    # 生成可复用 bundle

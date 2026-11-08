@@ -18,7 +18,7 @@ A topology document is always ``version: 1`` and may contain ``imports``, ``temp
    version: 1
    imports:
      - vhosts/qemu.yaml
-     - devices/gpu/mi300x.yaml
+     - devices/gpu/mi300x/gem5.yaml
      - devices/pci/qemu-edu.yaml
    machines:
      - id: m0

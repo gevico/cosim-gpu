@@ -57,7 +57,7 @@ Hardware resources
      - 64 MiB
      - Host RAM
    * - Executable
-     - ``qemu-system-x86_64`` (looked up in ``PATH``)
+     - ``build/qemu/qemu-system-x86_64``
      - ``resources/vhosts/vhost-x86-tcg.yaml``
    * - vHost
      - None

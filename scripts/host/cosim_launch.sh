@@ -4,7 +4,7 @@
 #
 # gem5 Device Model runs inside Docker (GPU-only, no kernel), while Host-side
 # QEMU runs with KVM or TCG and connects through vfio-user. QEMU comes from the
-# third_party/qemu build (just build-qemu) when present, else from PATH.
+# third_party/qemu build (just build-qemu).
 #
 # Usage:
 #   ./scripts/host/cosim_launch.sh                         # vfio-user
@@ -33,21 +33,16 @@ GEM5_DIR="${COSIM_DIR}/third_party/gem5"
 GEM5_BUILD_DIR="$(just --justfile "${COSIM_DIR}/justfile" \
     --evaluate gem5_build_dir)"
 GEM5_BUILD_RELATIVE="$(cosim_gem5_build_dir "$COSIM_DIR" "$GEM5_BUILD_DIR")"
-GEM5_BIN="${COSIM_DIR}/${GEM5_BUILD_RELATIVE}/gem5.opt"
-# shellcheck disable=SC2034
-GEM5_CONFIG="${GEM5_DIR}/configs/example/gpufs/mi300_cosim.py"
-GEM5_DOCKER_IMAGE="${GEM5_DOCKER_IMAGE:-cosim-dev:local}"
+GEM5_BINARY="$(just --justfile "${COSIM_DIR}/justfile" --evaluate gem5_binary)"
+GEM5_BIN="${COSIM_DIR}/${GEM5_BUILD_RELATIVE}/${GEM5_BINARY}"
+GEM5_CONFIG="$(just --justfile "${COSIM_DIR}/justfile" --evaluate gem5_entry)"
+GEM5_MODEL_CONFIG="${COSIM_DIR}/resources/devices/gpu/mi300x/gem5.yaml"
+GEM5_DOCKER_IMAGE="${GEM5_DOCKER_IMAGE:-$(just \
+    --justfile "${COSIM_DIR}/justfile" --evaluate dev_image)}"
 GEM5_CONTAINER="$(cosim_container_name "$COSIM_RUN_ID")"
 
-# QEMU: $QEMU_BIN, else the qemu submodule build, else PATH
-QEMU_SUBMODULE_BIN="${COSIM_DIR}/build/qemu/qemu-system-x86_64"
-if [[ -z "${QEMU_BIN:-}" ]]; then
-    if [[ -x "$QEMU_SUBMODULE_BIN" ]]; then
-        QEMU_BIN="$QEMU_SUBMODULE_BIN"
-    else
-        QEMU_BIN="$(command -v qemu-system-x86_64 2>/dev/null || true)"
-    fi
-fi
+# QEMU and its image helper come from the same source build by default.
+QEMU_BIN="${QEMU_BIN:-${COSIM_DIR}/build/qemu/qemu-system-x86_64}"
 IMAGE_DIR="${COSIM_DIR}/build/images/ubuntu/24.04/x86_64/rocm/7.0"
 DISK_IMAGE="${IMAGE_DIR}/disk"
 KERNEL="${IMAGE_DIR}/kernel"
@@ -56,10 +51,23 @@ SOCKET_PATH="/tmp/gem5-mi300x-${COSIM_RUN_ID}.sock"
 SHMEM_PATH="/mi300x-vram-${COSIM_RUN_ID}"
 SHMEM_HOST_PATH="/cosim-guest-ram-${COSIM_RUN_ID}"
 
+# Keep device defaults in the selected recipe, shared with the gem5 model.
+GEM5_DEFAULTS="$(python3 - "$GEM5_MODEL_CONFIG" <<'PYTHON'
+from pathlib import Path
+import sys
+import yaml
+
+recipe = yaml.safe_load(Path(sys.argv[1]).read_text())["recipe"]
+print(recipe["parameters"]["num_compute_units"]["default"],
+      recipe["defaults"]["memory_regions"][0]["size"])
+PYTHON
+)"
+read -r DEFAULT_NUM_CUS DEFAULT_VRAM_SIZE <<< "$GEM5_DEFAULTS"
+
 HOST_MEM="8G"
 HOST_CPUS="4"
-VRAM_SIZE="16GiB"
-NUM_CUS="40"
+VRAM_SIZE="$DEFAULT_VRAM_SIZE"
+NUM_CUS="$DEFAULT_NUM_CUS"
 GEM5_DEBUG=""
 GEM5_TIMEOUT=120
 QEMU_TRACE=""
@@ -100,16 +108,15 @@ Options:
   --disk-image PATH       Disk image (default: build/images/<recipe>/disk)
   --kernel PATH           vmlinux
                           (default: build/images/<recipe>/kernel)
-  --qemu-bin PATH         QEMU binary (default: build/qemu/qemu-system-x86_64,
-                          else qemu-system-x86_64 from PATH)
+  --qemu-bin PATH         QEMU binary (default: build/qemu/qemu-system-x86_64)
   --gem5-bin PATH         gem5 binary
                          (default: build/gem5/<native>/VEGA_X86/gem5.opt)
   --gem5-docker IMAGE     Docker image for gem5 (default: cosim-dev:local)
   --socket-path PATH      Unix socket (default: /tmp/gem5-mi300x.sock)
   --host-mem SIZE         vHost RAM   (default: 8G)
   --host-cpus N           vHost CPUs  (default: 4)
-  --vram-size SIZE        GPU VRAM    (default: 16GiB)
-  --num-cus N             Compute units (default: 40)
+  --vram-size SIZE        GPU VRAM    (default: $DEFAULT_VRAM_SIZE)
+  --num-cus N             Compute units (default: $DEFAULT_NUM_CUS)
   --gem5-debug FLAGS      gem5 debug flags (e.g. MI300XCosim,AMDGPUDevice)
   --qemu-trace EVENTS     QEMU trace events
   --share-dir PATH        Share a Host directory with vHost through 9p
@@ -191,9 +198,9 @@ gpu_shmem_file() {
     fi
 }
 
-# Container paths (gem5 source mounted at /gem5)
-C_GEM5_BIN="/${GEM5_BUILD_RELATIVE}/gem5.opt"
-C_GEM5_CONFIG="/gem5/configs/example/gpufs/mi300_cosim.py"
+# The shared development image executes mounted tools, model code and data.
+C_GEM5_BIN="/cosim-gem5.opt"
+C_GEM5_CONFIG="$GEM5_CONFIG"
 
 # ---- Validation ----
 
@@ -201,10 +208,10 @@ C_GEM5_CONFIG="/gem5/configs/example/gpufs/mi300_cosim.py"
     error "gem5 not found: $GEM5_BIN\n" " Build: just build-gem5"
 [[ -n "$QEMU_BIN" && -x "$QEMU_BIN" ]] || \
     error "qemu-system-x86_64 not found.\n" \
-          " Build: just build-qemu (or install QEMU 10.1+, or pass --qemu-bin)"
+          " Build: just build-qemu (or pass --qemu-bin)"
 "$QEMU_BIN" -device help 2>/dev/null | grep 'vfio-user-pci' >/dev/null || \
     error "QEMU does not provide vfio-user-pci: $QEMU_BIN\n" \
-          " Build: just build-qemu (or pass a QEMU 10.1+ --qemu-bin)"
+          " Build: just build-qemu (or pass --qemu-bin)"
 [[ -f "$DISK_IMAGE" ]] || \
     error "Disk image not found: $DISK_IMAGE\n" " Build: just build-disk"
 [[ -f "$KERNEL" ]]     || \
@@ -288,14 +295,16 @@ GEM5_DOCKER_CMD=(
     docker run -d --rm
     --name "$GEM5_CONTAINER"
     --user "$(id -u):$(id -g)"
-    -v "${GEM5_DIR}:/gem5"
-    -v "${COSIM_DIR}/build:/build"
+    -v "${COSIM_DIR}:${COSIM_DIR}:ro"
+    -v "$(realpath "$GEM5_BIN"):${C_GEM5_BIN}:ro"
     -v /tmp:/tmp
     -v /dev/shm:/dev/shm
-    -w /gem5
+    -w /tmp
+    -e "GEM5_SOURCE=${GEM5_DIR}"
+    -e TMPDIR=/tmp
     -e "PYTHONPATH=/usr/lib/python3.12/lib-dynload"
     "$GEM5_DOCKER_IMAGE"
-    "$C_GEM5_BIN"
+    "$C_GEM5_BIN" "--outdir=${SESSION_DIR}/m5out"
 )
 
 if [[ -n "$GEM5_DEBUG" ]]; then
@@ -305,6 +314,7 @@ fi
 GEM5_DOCKER_CMD+=(
     --listener-mode=on
     "$C_GEM5_CONFIG"
+    --model-config "$GEM5_MODEL_CONFIG"
     "--socket-path=$SOCKET_PATH"
     "--shmem-path=$SHMEM_PATH"
     "--shmem-host-path=$SHMEM_HOST_PATH"
@@ -443,11 +453,11 @@ echo ""
 
 # Build QEMU command
 QEMU_IMG_BIN="${QEMU_IMG:-${COSIM_DIR}/build/qemu/qemu-img}"
-if [[ ! -x "$QEMU_IMG_BIN" ]]; then
-    QEMU_IMG_BIN="$(command -v "${QEMU_IMG:-qemu-img}" 2>/dev/null || true)"
+if [[ -n "${QEMU_IMG:-}" && "$QEMU_IMG" != */* ]]; then
+    QEMU_IMG_BIN="$(command -v "$QEMU_IMG" 2>/dev/null || true)"
 fi
 [[ -n "$QEMU_IMG_BIN" && -x "$QEMU_IMG_BIN" ]] || \
-    error "qemu-img not found. Install qemu-utils or set QEMU_IMG."
+    error "qemu-img not found. Run just build-qemu or set QEMU_IMG."
 cosim_create_disk_overlay \
     "$QEMU_IMG_BIN" "$DISK_IMAGE" "$DISK_OVERLAY" >/dev/null
 manifest_add "runtime" "file" "$DISK_OVERLAY"

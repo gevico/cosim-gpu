@@ -53,9 +53,9 @@ enum Command {
         /// Seconds to run after every process is ready.
         #[arg(long)]
         run_for: Option<u64>,
-        /// Image helper used for disk creation and overlays.
-        #[arg(long, default_value = "qemu-img")]
-        qemu_img: String,
+        /// Image helper; defaults to build/qemu/qemu-img in the workspace.
+        #[arg(long)]
+        qemu_img: Option<String>,
         /// End the session when standard input is closed.
         #[arg(
             long,
@@ -145,6 +145,14 @@ async fn execute(cli: Cli) -> Result<ExitCode> {
             let mut topology = cosim_topology::load(&target.topology, &cli.resources)?;
             let original_topology = topology.clone();
             let workspace = image_workspace()?;
+            let qemu_img = match qemu_img {
+                Some(path) => path,
+                None => workspace
+                    .join("build/qemu/qemu-img")
+                    .to_str()
+                    .context("the qemu-img path must be valid UTF-8")?
+                    .to_owned(),
+            };
             let images = cosim_runtime::prepare_image_recipes(&mut topology, &workspace, !dry_run)?;
             let assets_topology = if dry_run && images.iter().any(|image| image.status != "ready") {
                 &original_topology

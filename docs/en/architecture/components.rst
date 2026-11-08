@@ -134,7 +134,7 @@ Source entry points
      - YAML types, validation, layout and adapters
    * - ``crates/cosim-runtime/src/``
      - Plans, sessions, probes, resources and cleanup
-   * - ``third_party/gem5/configs/example/gpufs/mi300_cosim.py``
+   * - ``resources/devices/gpu/mi300x/gem5.py``
      - MI300X objects, pool and vfio-user arguments
    * - ``third_party/gem5/src/dev/amdgpu/``
      - PM4, SDMA, interrupts, GPU VM and the vfio-user server

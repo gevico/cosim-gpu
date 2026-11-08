@@ -21,10 +21,6 @@
      - v11.1.2，提交 ``4fc49f46``
      - 记录值
      - ``third_party/qemu/VERSION``；``git ls-tree HEAD qemu``
-   * - QEMU（系统回退，legacy launcher）
-     - 10.1 及以上，提供 ``vfio-user-pci``
-     - 最低版本
-     - ``scripts/host/cosim_launch.sh`` 的启动前检查
    * - gem5（子模块）
      - ``gevico/gem5`` 的 ``gevico/cosim-gpu`` 分支；当前检出 ``v25.0.0.0-961-gcc9d5dd248``
      - 记录值
@@ -36,7 +32,7 @@
    * - GPU 模型
      - MI300X，gfx942，PCI ``0x1002`` 与 ``0x74a0``
      - 固定值
-     - ``resources/devices/gpu/mi300x.yaml``
+     - ``resources/devices/gpu/mi300x/gem5.yaml``
    * - 一致性协议
      - ``GPU_VIPER``
      - 固定值
@@ -90,8 +86,8 @@ QEMU 的子模块记录值是 v11.1.2 的发布提交。工作树中的 ``qemu``
      - 角色
      - 来源
    * - ``cosim-dev:local``
-     - 开发容器镜像；同时是 legacy shell launcher 的 gem5 容器默认镜像
-     - ``just dev-image``，基于 ``scripts/host/Dockerfile.dev`` （Ubuntu 24.04、third_party/gem5/QEMU 构建依赖、Rust、QEMU、``qemu-img``）
+     - 开发容器镜像，用于构建及整体运行 launcher
+     - ``just dev-image``，基于 ``scripts/host/Dockerfile.dev`` （Ubuntu 24.04、third_party/gem5/QEMU 构建依赖、Rust）
    * - ``ghcr.io/third_party/gem5/gpu-fs:latest``
      - 客户机 GPU 测试程序的编译镜像；``just build-gpu-tests`` 与 ``just build-gpu-app`` 的 ``GPU_APP_BUILD_IMAGE`` 默认值
      - 外部镜像；可用 ``GPU_APP_BUILD_IMAGE`` 覆盖
@@ -99,7 +95,7 @@ QEMU 的子模块记录值是 v11.1.2 的发布提交。工作树中的 ``qemu``
      - ``build/rocm-local-installed/kernel`` 与 ``build/rocm-local-installed/disk``
      - ``just build-disk``：先构建 raw bundle 到 ``build/rocm-local``，再安装到本目录
 
-``ghcr.io/third_party/gem5/gpu-fs`` 只用于编译客户机 GPU 程序，不是 cosim 会话的运行镜像；legacy shell launcher 启动 gem5 使用的容器镜像是 ``cosim-dev:local``。
+``ghcr.io/third_party/gem5/gpu-fs`` 只用于编译客户机 GPU 程序，不是 cosim 会话的运行镜像；legacy shell launcher 在 ``just dev-image`` 构建的 ``cosim-dev:local`` 中运行挂载的 gem5 二进制。
 
 客户机镜像配方
 --------------

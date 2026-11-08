@@ -20,7 +20,7 @@ Topology
    version: 1
    imports:
      - vhosts/qemu.yaml
-     - devices/gpu/mi300x.yaml
+     - devices/gpu/mi300x/gem5.yaml
      - devices/pci/qemu-edu.yaml
    machines:
      - id: m0
@@ -50,7 +50,7 @@ Hardware resources
      - ``resources/vhosts/qemu.yaml``
    * - gem5 devices
      - 2 × ``mi300x``, 16 GiB VRAM and 40 CU each
-     - ``resources/devices/gpu/mi300x.yaml``
+     - ``resources/devices/gpu/mi300x/gem5.yaml``
    * - QEMU devices
      - 2 × ``qemu-edu`` with ``args.device`` set to ``{driver: edu}``
      - ``resources/devices/pci/qemu-edu.yaml``
@@ -127,4 +127,4 @@ Related pages
 - vHost: :ref:`ref-topology-schema`
 - Machine catalog: :doc:`index`
 - Chapter 4: :ref:`sim-gem5-model`, :ref:`sim-qemu-device-models`
-- Sources: ``resources/machines/mixed-models.yaml``, ``resources/devices/gpu/mi300x.yaml``, ``resources/devices/pci/qemu-edu.yaml``
+- Sources: ``resources/machines/mixed-models.yaml``, ``resources/devices/gpu/mi300x/gem5.yaml``, ``resources/devices/pci/qemu-edu.yaml``

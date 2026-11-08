@@ -121,7 +121,7 @@ Timing-Related Choices
 - The gem5 system uses the ``atomic_noncaching`` memory mode. QEMU executes the guest kernel and gem5 simulates the GPU side only.
 - SDMA operations are scheduled with the ``sdma_delay`` constant, currently 1000 ticks, which must fit the driver ring-test timeout window of about 200 ms.
 - ``MI300XVfioUser`` schedules a keepalive every 1e9 ticks, which keeps the event queue non-empty and leaves time for SDMA processing.
-- ``mi300_cosim.py`` disables event scheduling for the CMOS RTC and the 8254 PIT (``disable_rtc_events`` and ``disable_timer_events``) to avoid tick overflow in long runs.
+- ``gem5.py`` disables event scheduling for the CMOS RTC and the 8254 PIT (``disable_rtc_events`` and ``disable_timer_events``) to avoid tick overflow in long runs.
 - Timing behavior follows the event scheduling of these components and the Ruby model; changing the CU count, VRAM size or clocks changes it.
 
 Not Modeled
@@ -134,7 +134,7 @@ Not Modeled
 Sources
 --------
 
-- Configuration script: ``third_party/gem5/configs/example/gpufs/mi300_cosim.py``.
+- Configuration script: ``resources/devices/gpu/mi300x/gem5.py``.
 - Device model directory: ``third_party/gem5/src/dev/amdgpu/``.
 - Debug flag definitions: ``third_party/gem5/src/dev/amdgpu/SConscript``.
 - Model self-test: ``just test-gem5-mi300x`` runs ``third_party/gem5/tests/mi300x/verify.py``.

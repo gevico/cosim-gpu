@@ -21,7 +21,7 @@ CI 与回归
      - 构建中英文文档，执行双语与站点检查；``main`` 上部署 GitHub Pages
    * - ``ci.yml``
      - push/PR 到 ``main``
-     - 不超过 5 分钟的主机侧检查，不需要子模块
+     - 主机侧检查；会话与镜像工具测试构建锁定的 QEMU 子模块
    * - ``build.yml``
      - push/PR 到 ``main``，或手动触发
      - 按变更选择镜像配方检查，必要时构建 gem5 并调用完整回归
@@ -39,6 +39,14 @@ CI 与回归
 --------
 
 ``ci.yml`` 中的任务在每次 push 和拉取请求上运行：
+
+会话与镜像工具测试先运行 ``just ci-build-qemu``，从锁定的子模块构建
+``build/qemu/`` 下的 QEMU 和镜像工具。
+
+镜像构建在 Packer 校验前执行 ``just ci-prepare-image-host <recipe>``。
+配方加载器读取客户机架构并调用 ``just ci-build-qemu <architecture>``，因此 RISC-V
+镜像会获得 ``build/qemu/qemu-system-riscv64`` 和同一源码构建的镜像工具。
+此架构选择不改变编译 Host 架构。
 
 - ``Rust Topology and Runtime``：运行 ``just check-cosim``、
   ``just test-cosim-integration`` 与 ``just test-cosim-memory``。

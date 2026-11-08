@@ -27,6 +27,7 @@ pub(crate) struct Document {
     #[schemars(with = "Vec<Machine>")]
     #[serde(default)]
     pub(crate) machines: Vec<Value>,
+    pub(crate) recipe: Option<crate::recipe::Backend>,
 }
 
 /// A reusable machine, vHost or device fragment.
@@ -40,7 +41,7 @@ enum Template {
 }
 
 /// A declared adapter kind.
-#[derive(Debug, Deserialize, JsonSchema)]
+#[derive(Debug, Deserialize, JsonSchema, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Kind {
     pub(crate) role: Role,
@@ -148,6 +149,9 @@ pub(crate) struct Disk {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Device {
+    pub(crate) recipe: Option<String>,
+    #[expect(dead_code, reason = "used during device recipe expansion")]
+    pub(crate) host_arch: Option<String>,
     pub(crate) id: Option<String>,
     #[expect(dead_code, reason = "template references are expanded before decoding")]
     #[serde(default, rename = "use")]
@@ -155,6 +159,7 @@ pub(crate) struct Device {
     pub(crate) count: Option<usize>,
     pub(crate) kind: Option<String>,
     pub(crate) config: Option<PathBuf>,
+    pub(crate) entry: Option<PathBuf>,
     pub(crate) ready_log: Option<String>,
     #[serde(default)]
     pub(crate) runtime: Runtime,

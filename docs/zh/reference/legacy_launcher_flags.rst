@@ -5,7 +5,7 @@
 遗留 launcher 参数表
 ====================
 
-本页是 shell launcher ``scripts/host/cosim_launch.sh`` 与 gem5 cosim 配置参数的唯一事实源，取值以当前脚本与 ``mi300_cosim.py`` 为准，并修正了旧文档中过期的默认值。
+本页是 shell launcher ``scripts/host/cosim_launch.sh`` 与 gem5 cosim 配置参数的唯一事实源，取值以当前脚本与 ``gem5.py`` 为准，并修正了旧文档中过期的默认值。
 
 适用范围
 --------
@@ -16,6 +16,11 @@ shell launcher 参数
 -------------------
 
 以下默认值是脚本中的生效值。``--socket-path`` 的帮助文本写的是 ``/tmp/gem5-mi300x.sock``，但脚本实际总是把运行标识拼入路径，因此默认值带 ``-<run-id>`` 后缀。
+
+launcher 每次调用都会从 ``resources/devices/gpu/mi300x/gem5.yaml``
+读取 CU 和 VRAM 默认值，``--help`` 也显示这份默认值。
+``--num-cus`` 和 ``--vram-size`` 可显式覆盖。Host 的 Python 环境需安装
+PyYAML（Ubuntu 软件包 ``python3-yaml``）。
 
 .. list-table::
    :header-rows: 1
@@ -30,10 +35,10 @@ shell launcher 参数
      - ``build/rocm-local-installed/kernel``
      - 客户机 vmlinux
    * - ``--qemu-bin PATH``
-     - ``build/qemu/qemu-system-x86_64``，否则 ``PATH`` 中的 ``qemu-system-x86_64``
+     - ``build/qemu/qemu-system-x86_64``
      - QEMU 二进制
    * - ``--gem5-bin PATH``
-     - ``build/gem5/<arch>/VEGA_X86/gem5.opt``
+     - ``build/gem5/<host-architecture>/VEGA_X86/gem5.opt``
      - gem5 二进制
    * - ``--gem5-docker IMAGE``
      - ``cosim-dev:local``
@@ -49,10 +54,10 @@ shell launcher 参数
      - 客户机 vCPU 数量
    * - ``--vram-size SIZE``
      - ``16GiB``
-     - GPU VRAM 大小
+     - GPU VRAM 大小；默认值读取 ``gem5.yaml``
    * - ``--num-cus N``
      - ``40``
-     - GPU 计算单元数量
+     - GPU 计算单元数量；默认值读取 ``gem5.yaml``
    * - ``--gem5-debug FLAGS``
      - 无
      - 传给 gem5 的 ``--debug-flags``
@@ -117,7 +122,7 @@ shell launcher 参数
 gem5 config 参数
 ----------------
 
-``third_party/gem5/configs/example/gpufs/mi300_cosim.py`` 自身也接受一组参数；YAML 设备适配器只使用其中一部分（见 :doc:`device_adapters`），下表是配置脚本的完整默认值。
+``run.py --model-config resources/devices/gpu/mi300x/gem5.yaml`` 注册 ``gem5.py`` 的模型参数；YAML 设备适配器只使用其中一部分（见 :doc:`device_adapters`），下表是配置脚本的完整默认值。
 
 .. list-table::
    :header-rows: 1
@@ -213,7 +218,7 @@ gem5 config 参数
 
 - ``scripts/host/cosim_lib.sh``：运行标识、容器名、socket、共享内存、会话目录与诊断产物路径。
 
-- ``third_party/gem5/configs/example/gpufs/mi300_cosim.py``：gem5 侧参数与默认值。
+- ``resources/devices/gpu/mi300x/gem5.py``：模型参数；``gem5.yaml`` 提供暴露参数的默认值。
 
 - ``justfile``：``run-launch`` 与 ``test-gpu`` 入口。
 
