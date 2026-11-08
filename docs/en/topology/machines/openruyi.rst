@@ -31,6 +31,9 @@ The base QCOW2 provides an EFI bootloader. Packer boots this disk with QEMU's
 bundled EDK II firmware to install the software. The recipe exports the installed
 kernel and package and compiler records beside the QCOW2 disk.
 
+For firmware provenance and the distinction between provisioning and simulation
+boot, see :ref:`ref-vhost-image-recipe`.
+
 ``vhost.image`` verifies and reuses the bundle published under
 ``build/images/openruyi/2026.09/riscv64/rocm/7.2.4/``. Simulation sessions use
 QEMU's OpenSBI firmware with ``-kernel`` and mount the VirtIO
@@ -48,8 +51,8 @@ Choose a run directory that does not yet exist:
       --run-dir build/openruyi-session --pool-dir build/openruyi-session/memory \
       --ready-timeout 900
 
-Connect to ``build/openruyi-session/m0/serial.sock`` and log in with the official
-Server credentials, ``root`` / ``openruyi``:
+Connect to ``build/openruyi-session/m0/serial.sock``. The provisioned regression
+image logs in as root automatically:
 
 .. code-block:: sh
 

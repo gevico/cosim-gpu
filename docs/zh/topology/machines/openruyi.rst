@@ -29,6 +29,8 @@ HIP 程序在 vHost 内编译。
 安装软件。recipe 将安装好的内核、软件包及编译器记录导出到 QCOW2
 磁盘所在的 bundle 目录。
 
+固件来源以及镜像制作、仿真启动两个阶段的区别，见 :ref:`ref-vhost-image-recipe`。
+
 ``vhost.image`` 校验并复用发布于
 ``build/images/openruyi/2026.09/riscv64/rocm/7.2.4/`` 的 bundle。仿真会话通过 QEMU
 自带的 OpenSBI 固件及 ``-kernel`` 启动，并使用 ``root=/dev/vda2``
@@ -45,8 +47,7 @@ HIP 程序在 vHost 内编译。
       --run-dir build/openruyi-session --pool-dir build/openruyi-session/memory \
       --ready-timeout 900
 
-连接 ``build/openruyi-session/m0/serial.sock``，使用官方 Server 账号
-``root`` / ``openruyi`` 登录：
+连接 ``build/openruyi-session/m0/serial.sock``。配方生成的回归镜像会自动登录 root：
 
 .. code-block:: sh
 

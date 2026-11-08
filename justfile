@@ -80,10 +80,28 @@ run-simulator-recipe recipe=gem5_recipe:
 test-ci:
     python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v
 
+# Check image preparation and ROCm regression job contracts
+[group('test')]
+test-workflows:
+    python3 -m unittest discover -s scripts/ci -p 'test_workflow*.py' -v
+    python3 -m unittest discover -s scripts/ci -p 'test_wait_gem5.py' -v
+
+# Check per-recipe GPU regression topology and guest preparation
+[group('test')]
+test-regression-profiles:
+    python3 -m unittest discover -s scripts/ci -p 'test_regression_profile.py' -v
+    python3 -m unittest discover -s scripts/ci -p 'test_rocm_guest.py' -v
+
 # Check automatic package updates are disabled in the Ubuntu test image
 [group('test')]
 test-image-update-policy:
     python3 -m unittest discover -s scripts/ci -p 'test_image_update_policy.py' -v
+
+# Check image identity and verified reuse across CI runs
+[group('test')]
+test-image-reuse:
+    python3 -m unittest discover -s scripts/ci -p 'test_image_identity.py' -v
+    python3 -m unittest discover -s scripts/ci -p 'test_image_artifact.py' -k HistoricalImageReuseTests -v
 
 # Check simulator recipes, execution entry and build provenance
 [group('test')]
@@ -177,6 +195,11 @@ ci-package-gem5 output:
 [group('ci')]
 ci-gem5-key:
     python3 scripts/ci/runtime_artifact.py key
+
+# Wait for this run's gem5 producer and select its immutable runtime artifact
+[group('ci')]
+ci-wait-gem5:
+    python3 -m scripts.ci.wait_gem5
 
 # Find a retained ROCm image from the same source repository and branch
 [group('ci')]
@@ -274,8 +297,8 @@ test-gpu *args:
 
 # Run the ROCm regression suite with the built Rust launcher and verified assets
 [group('test')]
-test-rocm-regression output assets *args:
-    {{ dev }} python3 scripts/ci/run_rocm.py "$@" --gem5 "{{ gem5_build_dir }}/{{ gem5_binary }}" --qemu build/qemu/qemu-system-x86_64
+test-rocm-regression output assets recipe=rocm_recipe *args:
+    {{ dev }} python3 -m scripts.ci.run_rocm "$1" "$2" "${@:4}" --recipe "$3" --gem5 "{{ gem5_build_dir }}/{{ gem5_binary }}"
 
 # List co-simulation resources left on the Host without changing them
 [group('run')]
@@ -400,7 +423,8 @@ check-shell:
         scripts/host/*.sh \
         scripts/ci/*.sh \
         resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/files/*.sh \
-        tests/run_tests.sh tests/test_modprobe_params.sh
+        tests/run_tests.sh tests/test_modprobe_params.sh tests/rocm_regression.sh \
+    resources/images/recipes/openruyi/2026.09/riscv64/rocm/7.2.4/files/*.sh
 
 # Check that cosim modprobe commands carry the required amdgpu parameters
 [group('check')]

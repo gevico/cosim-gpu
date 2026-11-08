@@ -38,6 +38,7 @@ class LauncherLifecycleTests(unittest.TestCase):
                         output=directory, assets=directory, launcher=launcher,
                         gem5=ROOT / "build/gem5/x86_64/VEGA_X86/gem5.opt",
                         qemu=ROOT / "build/qemu/qemu-system-x86_64",
+                        recipe="ubuntu/24.04/x86_64/rocm/7.0",
                         boot_timeout=300, test_timeout=300, **options,
                     )
                     generated = topology(inputs, directory)
