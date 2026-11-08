@@ -60,7 +60,7 @@ jobs:
         run: just test-session-lifecycle
 
   regression-runner:
-    name: ROCm regression runner tests
+    name: CI helper tests
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

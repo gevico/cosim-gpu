@@ -8,16 +8,6 @@ on:
         description: Image recipe identifier under resources/images/recipes
         required: true
         type: string
-    outputs:
-      guest-artifact:
-        description: Verified image artifact ID
-        value: ${{ jobs.image.outputs.guest-artifact }}
-      image-key:
-        description: Exact recipe input key
-        value: ${{ jobs.image.outputs.image-key }}
-      image-epoch:
-        description: Image build epoch
-        value: ${{ jobs.image.outputs.image-epoch }}
 
 permissions:
   contents: read
@@ -29,19 +19,16 @@ defaults:
 
 jobs:
   image:
-    name: Image (${{ inputs.recipe }})
+    name: Image preparation and GPU regression
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 300
     env:
       COSIM_ENV: host
+      COSIM_DEV_IMAGE: cosim-dev:ci
       RECIPE: ${{ inputs.recipe }}
       COSIM_ROCM_IMAGE_EPOCH: ${{ vars.COSIM_ROCM_IMAGE_EPOCH || '1' }}
       COSIM_ARTIFACT_HEAD_REPO: ${{ github.event.pull_request.head.repo.id || github.repository_id }}
       COSIM_ARTIFACT_BRANCH: ${{ github.head_ref || github.ref_name }}
-    outputs:
-      guest-artifact: ${{ steps.guest.outputs.artifact-id }}
-      image-key: ${{ steps.image-key.outputs.key }}
-      image-epoch: ${{ steps.image-key.outputs.epoch }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -109,7 +96,6 @@ jobs:
           IMAGE_DIRECTORY: ${{ steps.recipe.outputs.directory }}
         run: just test-rocm-assets "$IMAGE_DIRECTORY" "$RECIPE"
       - uses: actions/upload-artifact@v4
-        id: guest
         with:
           name: rocm-guest-${{ steps.recipe.outputs.tag }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ steps.recipe.outputs.directory }}/
@@ -156,5 +142,47 @@ jobs:
         with:
           name: rocm-artifact-check-${{ steps.recipe.outputs.tag }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/rocm-artifact-check/
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Keep the verified disk local; hosted jobs cannot share a runner filesystem.
+      - name: Initialize simulator sources for regression
+        run: git submodule update --init --recursive --depth 1 third_party/gem5
+      - name: Wait for this run's successful gem5 producer
+        id: gem5
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: just ci-wait-gem5 >> "$GITHUB_OUTPUT"
+      - name: Download the verified gem5 runtime
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          artifact-ids: ${{ steps.gem5.outputs.artifact-id }}
+          path: build/ci-build
+          merge-multiple: true
+      - name: Restore verified gem5 and development image
+        run: just ci-restore-gem5 build/ci-build
+      - name: Verify session memory, MI300X model and vfio-user ROM
+        env:
+          COSIM_ENV: container
+        run: |
+          just test-cosim-memory
+          just test-gem5-mi300x artifacts/rocm-regression/model
+          just build-cosim
+          just test-cosim-vfio-user
+      - name: Run ROCm workloads with the local image
+        env:
+          COSIM_ENV: container
+          IMAGE_DIRECTORY: ${{ steps.recipe.outputs.directory }}
+        run: just test-rocm-regression artifacts/rocm-regression/guest "$IMAGE_DIRECTORY" "$RECIPE"
+      - name: Upload complete regression evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: rocm-regression-${{ steps.recipe.outputs.tag }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/rocm-regression/
+            ${{ steps.recipe.outputs.directory }}/manifest.json
+            build/ci-build/manifest.json
+            !artifacts/rocm-regression/**/*.sock
           if-no-files-found: warn
           retention-days: 14

@@ -170,6 +170,27 @@ For EFI-based provisioning, the aliases ``efi_firmware_code`` and
 the variable store for the temporary build VM. The topology separately selects
 the boot method of simulation sessions.
 
+The current Ubuntu x86_64 recipe boots its base disk through QEMU's default
+SeaBIOS using legacy BIOS boot, so it does not explicitly set these two EFI
+files. It still uses firmware to boot the image.
+
+The openRuyi recipe uses EDK II to boot its official QCOW2 disk
+while Packer installs packages and exports the kernel. These are prebuilt blobs
+included with the pinned QEMU source; its build decompresses them into
+``build/qemu/pc-bios/`` without compiling EDK II separately.
+
+The later simulation session boots the exported Linux kernel with ``-kernel``.
+QEMU's RISC-V ``virt`` machine loads its bundled OpenSBI by default, so the
+session does not need an extra firmware argument or the EDK II code/vars files.
+The explicit EFI inputs belong to image provisioning, rather than being an
+extra requirement of every RISC-V vHost.
+
+The openRuyi recipe preserves the EFI partition source and mount options in
+``/etc/fstab`` and adds ``nofail`` to ``/boot/efi``. The partition can still
+mount normally during provisioning. Direct kernel boot can continue if that
+non-root mount is unavailable, rather than entering emergency mode. Root and
+other mounts retain their original requirements.
+
 Keep recipe-owned scripts, services and configuration in ``files/`` and refer
 to them as ``{{ playbook_dir }}/files/<filename>``. The builder records recipe
 sources and declared input contents; changes cause it to re-evaluate whether

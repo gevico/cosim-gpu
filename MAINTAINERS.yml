@@ -145,6 +145,10 @@ Build System and CI:
     - scripts/ci/runtime_artifact.py
     - scripts/ci/test_runtime_artifact.py
     - scripts/ci/test_qemu_toolchain.py
+    - scripts/ci/test_workflow_contract.py
+    - scripts/ci/wait_gem5.py
+    - scripts/ci/test_wait_gem5.py
+    - scripts/ci/test_regression_profile.py
     - scripts/ci/test_image_update_policy.py
     - scripts/ci/verify_runtime_artifact.py
     - scripts/ci/image_artifact.py
@@ -215,7 +219,6 @@ vHost Tests:
     - scripts/ci/guest_console.py
     - scripts/ci/ci_lifecycle.py
     - scripts/ci/run_rocm.py
-    - resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/files/cosim_rocm_regression.sh
     - scripts/ci/test_guest_console.py
     - scripts/ci/test_ci_lifecycle.py
     - scripts/ci/test_image_process.py

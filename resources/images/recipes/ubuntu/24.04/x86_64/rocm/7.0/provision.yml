@@ -204,7 +204,6 @@
           mode: "0644"
         - {source: "{{ playbook_dir }}/files/cosim-gpu-initialize.service", destination: /lib/systemd/system/cosim-gpu-initialize.service, mode: "0644"}
         - {source: "{{ playbook_dir }}/files/cosim_gpu_initialize.sh", destination: /usr/local/bin/cosim-gpu-initialize.sh, mode: "0755"}
-        - {source: "{{ playbook_dir }}/files/cosim_rocm_regression.sh", destination: /usr/local/bin/cosim-rocm-regression.sh, mode: "0755"}
 
     - name: Create firmware directories
       ansible.builtin.file:
