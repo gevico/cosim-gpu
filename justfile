@@ -80,6 +80,11 @@ run-simulator-recipe recipe=gem5_recipe:
 test-ci:
     python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v
 
+# Check automatic package updates are disabled in the Ubuntu test image
+[group('test')]
+test-image-update-policy:
+    python3 -m unittest discover -s scripts/ci -p 'test_image_update_policy.py' -v
+
 # Check simulator recipes, execution entry and build provenance
 [group('test')]
 test-simulator-recipes: test-qemu-toolchain
