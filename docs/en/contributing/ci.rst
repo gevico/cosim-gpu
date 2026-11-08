@@ -98,6 +98,13 @@ QEMU, firmware and acceleration; new platforms supply their environment setup.
 Build caches and artifacts
 --------------------------
 
+The Ubuntu test-image recipe disables periodic APT activity before installing
+packages. It stops and masks update timers, masks the corresponding services,
+and waits for any running update to finish without terminating package work.
+The resulting image keeps automatic updates disabled; package changes are made
+through a new recipe build. Final cache cleanup still fails on error.
+
+
 Full regression reuses the image producer defined in ``image.yml``:
 
 - ``Build gem5 (VEGA_X86)`` builds gem5 once. The cache key comes from

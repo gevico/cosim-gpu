@@ -145,6 +145,7 @@ Build System and CI:
     - scripts/ci/runtime_artifact.py
     - scripts/ci/test_runtime_artifact.py
     - scripts/ci/test_qemu_toolchain.py
+    - scripts/ci/test_image_update_policy.py
     - scripts/ci/verify_runtime_artifact.py
     - scripts/ci/image_artifact.py
     - scripts/ci/verify_image_artifact.py
