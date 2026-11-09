@@ -196,6 +196,12 @@ to accommodate slower device discovery under TCG; the regression boot deadline
 remains 300 seconds. Device dependencies remain required and missing devices
 still time out.
 
+After installation, the recipe reboots the guest and checks udev, the serial
+device and getty, and the results of hardware-database and update-completion
+services before exporting image files. This completes boot maintenance caused
+by installation during image preparation, reducing work on the next simulation
+boot.
+
 Keep recipe-owned scripts, services and configuration in ``files/`` and refer
 to them as ``{{ playbook_dir }}/files/<filename>``. The builder records recipe
 sources and declared input contents; changes cause it to re-evaluate whether
