@@ -17,6 +17,20 @@
         regexp: '^(\s*[^#\s]\S*\s+/boot/efi\s+\S+\s+)(?!\S*\bnofail\b)(\S+)'
         replace: '\1\2,nofail'
 
+    - name: Create the systemd manager configuration directory
+      ansible.builtin.file:
+        path: /etc/systemd/system.conf.d
+        state: directory
+        mode: "0755"
+
+    - name: Allow bounded device discovery under TCG
+      ansible.builtin.copy:
+        dest: /etc/systemd/system.conf.d/90-cosim-tcg.conf
+        mode: "0644"
+        content: |
+          [Manager]
+          DefaultDeviceTimeoutSec=180s
+
     - name: Install native ROCm and HIP development packages
       ansible.builtin.command:
         argv:
