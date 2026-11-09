@@ -191,6 +191,11 @@ mount normally during provisioning. Direct kernel boot can continue if that
 non-root mount is unavailable, rather than entering emergency mode. Root and
 other mounts retain their original requirements.
 
+The openRuyi recipe also sets systemd's default device wait to 180 seconds
+to accommodate slower device discovery under TCG; the regression boot deadline
+remains 300 seconds. Device dependencies remain required and missing devices
+still time out.
+
 Keep recipe-owned scripts, services and configuration in ``files/`` and refer
 to them as ``{{ playbook_dir }}/files/<filename>``. The builder records recipe
 sources and declared input contents; changes cause it to re-evaluate whether
