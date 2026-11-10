@@ -112,16 +112,6 @@
           ExecStart=
           ExecStart=-/sbin/agetty --autologin root --keep-baud 115200,38400,9600 %I $TERM
 
-    - name: Complete post-install boot maintenance before exporting the image
-      ansible.builtin.reboot:
-        reboot_timeout: 600
-        test_command: >-
-          systemctl is-active --quiet systemd-udevd.service &&
-          systemctl is-active --quiet dev-ttyS0.device &&
-          systemctl is-active --quiet serial-getty@ttyS0.service &&
-          test "$(systemctl show systemd-hwdb-update.service -p Result --value)" = success &&
-          test "$(systemctl show systemd-update-done.service -p Result --value)" = success
-
     - name: Record installed package versions
       ansible.builtin.shell: >-
         rpm -qa --qf '%{NAME}\t%{VERSION}-%{RELEASE}\t%{ARCH}\n' |
