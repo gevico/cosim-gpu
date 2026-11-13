@@ -101,6 +101,20 @@
     gem5 MI300X GPU model used as the accelerator backend behind the QEMU
     vfio-user device.
 
+"Accelerator Backend: rocjitsu MI455X GPU":
+  status: maintained
+  maintainers:
+    - zevorn
+    - fengyuanyu1
+  files:
+    - resources/device_simulators/rocjitsu/
+    - resources/devices/gpu/mi455x/
+  files-regex:
+    - ^third_party/rocm-systems$
+  description: >-
+    rocjitsu MI455X GPU model used as the accelerator backend behind the QEMU
+    vfio-user device.
+
 "Accelerator Backend: SST Multi-node":
   status: maintained
   maintainers:

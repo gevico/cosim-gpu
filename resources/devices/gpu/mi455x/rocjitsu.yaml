@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: Apache-2.0
+version: 1
+recipe:
+  simulator: rocjitsu
+  kind: rocjitsu-mi455x
+  model: rocjitsu.toml
+  ready_log: 'vfu: serving AMD Instinct MI455X on {{ socket }}'
+  runtime:
+    command: |
+      {{ [entry, "--model-config", config, "--vfio-socket", socket] | tojson }}
+  defaults:
+    runtime: {binary: python3}
+    memory_regions: []
+  requirements:
+    memory_map: false
+    regions: {}
+  parameters: {}
+templates:
+  mi455x:
+    recipe: gpu/mi455x/rocjitsu

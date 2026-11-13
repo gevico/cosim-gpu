@@ -250,6 +250,8 @@ pub enum DiskMode {
 pub enum DeviceModel {
     /// gem5.
     Gem5,
+    /// rocjitsu.
+    Rocjitsu,
     /// QEMU.
     Qemu,
 }
