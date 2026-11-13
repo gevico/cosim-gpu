@@ -131,6 +131,44 @@ Ruby/TLB、桥接对象及最小 gem5 System 支撑对象；客户机 CPU 和操
 该开发容器。调整模型配置不需要重新编译 gem5。CI 传递一个开发镜像并校验其精确身份、
 二进制和校验和；构建缓存键不包含运行时模型文件。
 
+使用 rocjitsu
+-------------
+
+``resources/machines/ubuntu-mi455x.yaml`` 将 rocjitsu 的 MI455X 与
+``ubuntu/24.04/x86_64/rocm/10.3`` 镜像配方配套使用。来宾从磁盘启动固定版本的
+Ubuntu 内核，使用从 AMD 原厂包构建的 DKMS 驱动。QEMU 使用
+``resources/devices/gpu/mi455x/mi455x.rom`` 中的模拟 ATOM ROM。镜像使用设备目录中
+对应的 IP discovery 表，并提供模拟 IMU 元数据。该表由固定版本 rocjitsu 的
+``rj-ip-discovery gfx1250`` 生成。
+
+构建需要支持 KVM 的 x86_64 Linux 主机、CMake 3.28 或更新版本、Ninja，以及
+GCC 13、Clang 16 或更新版本。宿主需要 Python 3.11 或更新版本以及 PyYAML
+（Ubuntu 软件包 ``python3-yaml``）。
+``just dev-submodules`` 初始化固定版本的 ``ROCm/rocm-systems`` 子模块。
+构建使用 ``third_party/rocm-systems/emulation/rocjitsu`` 中的固定源码。
+
+.. code-block:: bash
+
+   git submodule update --init --recursive third_party/qemu
+   git submodule update --init third_party/rocm-systems
+   just build-all --backend rocjitsu
+   just run-topology resources/machines/ubuntu-mi455x.yaml
+
+使用已构建的磁盘运行六项 HIP 回归：
+
+.. code-block:: bash
+
+   just test-rocm-regression build/mi455x-regression \
+       build/images/ubuntu/24.04/x86_64/rocm/10.3 --backend rocjitsu
+
+构建将 ``rocjitsu``、``rj-ip-discovery`` 和上游的
+``gfx1250_mi455x.json`` 放在 ``build/rocjitsu/<host-architecture>/Release/``。
+``run.py`` 入口用选定的配置启动 rocjitsu。使用已启用 VFIO-user 的预构建程序时，
+将其绝对路径填入设备的 ``runtime.env.ROCJITSU_BINARY``，并将匹配的配置文件
+放在该构建目录。配方使用
+`上游提交 ba26a04 <https://github.com/ROCm/rocm-systems/tree/ba26a04b852519fc840a0af7ebd74e3b91ec30f2/emulation/rocjitsu>`_
+的命令和日志格式。
+
 相关页面
 --------
 

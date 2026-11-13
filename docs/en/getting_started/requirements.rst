@@ -37,7 +37,7 @@ Tools and versions
    * - Rust and Cargo
      - 1.95 or newer, used to build the ``cosim`` launcher
    * - just
-     - 1.27 or newer; every task is a recipe in the ``justfile``
+     - 1.46 or newer; every task is a recipe in the ``justfile``
    * - Docker
      - Daemon running and the current user in the ``docker`` group
    * - KVM

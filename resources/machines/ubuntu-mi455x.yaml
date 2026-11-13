@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: Apache-2.0
+version: 1
+imports:
+  - vhosts/qemu.yaml
+  - devices/gpu/mi455x/rocjitsu.yaml
+templates:
+  ubuntu-mi455x:
+    vhost:
+      use: vhost-x86
+      image: ubuntu/24.04/x86_64/rocm/10.3
+      root_bus: virtio
+      memory: 4G
+      cpus: 2
+    devices:
+      - use: mi455x
+machines:
+  - {id: m0, use: ubuntu-mi455x}

@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
+from pathlib import Path
 import subprocess
 import unittest
 
 import yaml
 
-from run_rocm import PROGRAMS, VHOST_REGRESSION_SCRIPT
+from run_rocm import Inputs, PROGRAMS, VHOST_REGRESSION_SCRIPT, topology
 from runtime_artifact import ROOT
 from resources.images.recipe import load_recipe
 
@@ -192,3 +193,31 @@ class GuestBuildTargetTests(unittest.TestCase):
             failure_task["name"], "Report AMDGPU DKMS build failure"
         )
         self.assertIn("ansible.builtin.fail", failure_task)
+
+
+
+class RocjitsuGuestTests(unittest.TestCase):
+    def test_topology_boots_from_the_verified_disk_bundle(self):
+        inputs = Inputs(
+            output=Path("/output"), assets=Path("/verified"),
+            launcher=Path("/cosim"), simulator=Path("/rocjitsu"),
+            qemu=Path("/qemu"), boot_timeout=300, test_timeout=300,
+            backend="rocjitsu",
+        )
+        generated = topology(inputs, Path("/share"), "raw")
+        self.assertEqual(
+            generated["imports"],
+            [str(ROOT / "resources/machines/ubuntu-mi455x.yaml")],
+        )
+        machine, = generated["machines"]
+        self.assertEqual(machine["use"], "ubuntu-mi455x")
+        self.assertIsNone(machine["vhost"]["image"])
+        self.assertEqual(machine["vhost"]["disks"], [{
+            "id": "root", "backing": "/verified/disk", "format": "raw",
+            "bus": "virtio", "boot": True,
+        }])
+        device, = machine["devices"]
+        self.assertEqual(device, {
+            "id": "gpu", "use": "mi455x",
+            "runtime": {"env": {"ROCJITSU_BINARY": "/rocjitsu"}},
+        })

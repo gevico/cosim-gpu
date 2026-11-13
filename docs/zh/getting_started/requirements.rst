@@ -34,7 +34,7 @@
    * - Rust 与 Cargo
      - 1.95 及以上，用于构建 ``cosim`` launcher
    * - just
-     - 1.27 及以上；所有任务都是 ``justfile`` 中的 recipe
+     - 1.46 及以上；所有任务都是 ``justfile`` 中的 recipe
    * - Docker
      - 守护进程运行，当前用户属于 ``docker`` 组；开发容器与 GPU 应用构建使用
    * - KVM

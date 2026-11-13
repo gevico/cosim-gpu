@@ -19,9 +19,9 @@ Sources and submodules
    cd cosim-gpu
    just dev-submodules
 
-``just dev-submodules`` initializes the ``qemu``, ``gem5`` and
-``gem5-resources`` submodules. QEMU and gem5 come from their submodules; the
-co-simulation does not patch either of them.
+``just dev-submodules`` initializes the ``qemu``, ``gem5``,
+``gem5-resources`` and ``rocm-systems`` submodules. QEMU and gem5 come from
+their submodules; the co-simulation does not patch either of them.
 
 Choose the build environment
 ----------------------------
@@ -45,7 +45,8 @@ Build everything
 
    just build-all
 
-``just build-all`` runs the following recipes in order:
+``just build-all`` defaults to the gem5 backend and runs the following recipes
+in order:
 
 .. list-table::
    :header-rows: 1
@@ -65,6 +66,10 @@ Build everything
 
 The guest image build uses QEMU, and the GPU application build runs in its own
 GPU container.
+
+Use ``just build-all --backend rocjitsu`` to build the MI455X backend and its
+vHost image. See :ref:`ref-simulator-device-recipes` for the source directory
+and build requirements.
 
 Build in steps
 --------------

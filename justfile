@@ -18,6 +18,7 @@ gem5_binary := shell('python3 -m resources.device_simulators.cli value "$1" bina
 gem5_build_dir := env("GEM5_BUILD_DIR", "build/gem5/" + host_arch + "/" + gem5_config)
 rocm_recipe := "ubuntu/24.04/x86_64/rocm/7.0"
 rocjitsu_source := "third_party/rocm-systems/emulation/rocjitsu"
+rocjitsu_image_recipe := "ubuntu/24.04/x86_64/rocm/10.3"
 rocm_image_dir := "build/images/" + rocm_recipe
 dev_image := env("COSIM_DEV_IMAGE", "cosim-dev:local")
 gpu_fs_image := env("GPU_APP_BUILD_IMAGE", "ghcr.io/gem5/gpu-fs:latest")
@@ -184,9 +185,28 @@ build-gpu-tests:
         -v "$PWD/tests:/tests" -v "$PWD/build/tests:/build" -w /tests \
         {{ gpu_fs_image }} make BUILDDIR=/build
 
-# Build everything needed to launch co-simulation
+# Build everything needed to launch co-simulation with the selected backend
 [group('build')]
-build-all: build-qemu build-gem5 build-disk build-gpu-app build-cosim
+[arg("backend", long="backend", pattern="^(gem5|rocjitsu)$")]
+build-all backend="gem5":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ "$1" = gem5 ]; then
+        exec just _build-all-gem5
+    fi
+    source={{ quote(rocjitsu_source) }}
+    if [ ! -f "$source/CMakeLists.txt" ] ||
+        [ ! -f "$source/configs/gfx1250_mi455x.json" ]; then
+        printf 'Missing rocjitsu submodule files at %s\n' "$source" >&2
+        printf 'Initialize the submodules with just dev-submodules.\n' >&2
+        exit 1
+    fi
+    exec just _build-all-rocjitsu
+
+_build-all-gem5: build-qemu build-gem5 build-disk build-gpu-app build-cosim
+
+_build-all-rocjitsu: build-qemu build-rocjitsu \
+    (ci-rocm-assets "build" rocjitsu_image_recipe) build-cosim
 
 # Build the topology launcher
 [group('build')]
@@ -261,7 +281,7 @@ check-rocm-syntax recipe=rocm_recipe:
 # Check the resource scripts used by the image producer
 [group('check')]
 check-rocm-build-scripts:
-    shellcheck scripts/host/cosim-image resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/files/*.sh
+    shellcheck scripts/host/cosim-image resources/images/recipes/ubuntu/24.04/x86_64/rocm/*/files/*.sh
 
 # Exercise reuse and corruption rejection against a real built ROCm bundle
 [group('test')]
@@ -424,7 +444,7 @@ check-shell:
     shellcheck \
         scripts/host/*.sh \
         scripts/ci/*.sh \
-        resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/files/*.sh \
+        resources/images/recipes/ubuntu/24.04/x86_64/rocm/*/files/*.sh \
         tests/run_tests.sh tests/test_modprobe_params.sh
 
 # Check that cosim modprobe commands carry the required amdgpu parameters

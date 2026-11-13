@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: Apache-2.0
+
+schema = 2
+
+[base]
+url = "https://cloud-images.ubuntu.com/releases/noble/release-20260826/ubuntu-24.04-server-cloudimg-amd64.img"
+sha256 = "d0fe84bb5f80853425fa6be28e2c106f30104c3cfe8611933f2e65c9b63f0e30"
+format = "qcow2"
+
+[provision]
+image_name = "cosim-rocm10-3-mi455x"
+disk_size = "24000M"
+disk_format = "qcow2"
+cpus = 4
+memory_mb = 4096
+ssh_username = "ubuntu"
+accelerator = "kvm"
+machine_type = "q35"
+cpu_model = "host"
+playbook = "provision.yml"
+
+[provision.variables]
+kernel_release = "6.8.0-139-generic"
+kernel_version = "6.8.0-139.139"
+amdgpu_release = "31.60"
+amdgpu_dkms_version = "1:7.1.9.31600000-2407772.24.04"
+amdgpu_firmware_version = "1:31.60.0.0.31600000-2407772.24.04"
+rocm_snapshot = "20261111-42927985179"
+rocm_version = "10.3.0~20261111-42927985179"
+
+[provision.files]
+mi455x_discovery = "resources/devices/gpu/mi455x/ip_discovery.bin"
+serial_getty = "resources/images/recipes/ubuntu/24.04/x86_64/rocm/7.0/files/serial-getty-override.conf"
+
+[result]
+
+[[result.files]]
+name = "kernel-release"
+guest_path = "/opt/cosim/kernel-release"
+
+[[result.files]]
+name = "amdgpu-module.txt"
+guest_path = "/opt/cosim/amdgpu-module.txt"
+
+[[result.files]]
+name = "image-packages.tsv"
+guest_path = "/opt/cosim/image-packages.tsv"
+
+[[result.files]]
+name = "hipcc-version.txt"
+guest_path = "/opt/cosim/hipcc-version.txt"
+
+[[result.files]]
+name = "firmware-sha256.txt"
+guest_path = "/opt/cosim/firmware-sha256.txt"
+
+[[result.files]]
+name = "os-release"
+guest_path = "/etc/os-release"
