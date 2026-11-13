@@ -1,0 +1,238 @@
+# SPDX-License-Identifier: Apache-2.0
+- name: Provision the Ubuntu 24.04 MI455X vHost
+  hosts: default
+  become: true
+  gather_facts: true
+  vars_files:
+    - files/rocm-packages.yml
+  vars:
+    kernel_release: "{{ cosim_recipe_variables.kernel_release }}"
+    kernel_version: "{{ cosim_recipe_variables.kernel_version }}"
+    rocm_version: "{{ cosim_recipe_variables.rocm_version }}"
+    rocm_path: "/opt/rocm/core-{{ cosim_recipe.software_release }}"
+    rocm_cache: "{{ lookup('ansible.builtin.env', 'COSIM_ROCM_DEB_CACHE') }}"
+    rocm_deb_dir: /var/cache/cosim/rocm-debs
+    rocm_archive: >-
+      https://nightly.repo.amd.com/rocm/core/packages/deb/{{ cosim_recipe_variables.rocm_snapshot }}/pool/main
+  tasks:
+    - name: Validate the recipe base distribution
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == "Ubuntu"
+          - ansible_distribution_version == "24.04"
+
+    - name: Install the selected kernel and build tools
+      ansible.builtin.apt:
+        update_cache: true
+        install_recommends: false
+        name:
+          - "linux-image-{{ kernel_release }}={{ kernel_version }}"
+          - "linux-modules-{{ kernel_release }}={{ kernel_version }}"
+          - "linux-modules-extra-{{ kernel_release }}={{ kernel_version }}"
+          - "linux-headers-{{ kernel_release }}={{ kernel_version }}"
+          - build-essential
+          - dwarves
+          - pciutils
+
+    - name: Create recipe directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - /etc/apt/keyrings
+        - /etc/systemd/system/serial-getty@ttyS0.service.d
+        - /usr/lib/firmware/amdgpu
+        - /opt/cosim
+        - "{{ rocm_deb_dir }}"
+
+    - name: Download the AMDGPU APT signing key
+      ansible.builtin.get_url:
+        url: https://repo.radeon.com/rocm/rocm.gpg.key
+        checksum: sha256:2de99e2354646a90d9903e2a669fc4e36b02c1bbff7075c481e12d7edab2c88b
+        dest: /etc/apt/keyrings/amdgpu.asc
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Configure the stock AMDGPU archive
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch=amd64 signed-by=/etc/apt/keyrings/amdgpu.asc]
+          https://repo.radeon.com/amdgpu/{{ cosim_recipe_variables.amdgpu_release }}/ubuntu
+          noble main
+        filename: cosim-amdgpu
+        update_cache: false
+
+    - name: Install and build the stock AMDGPU driver
+      block:
+        - name: Install AMDGPU DKMS and the matching firmware
+          ansible.builtin.apt:
+            update_cache: true
+            install_recommends: false
+            name:
+              - "amdgpu-dkms={{ cosim_recipe_variables.amdgpu_dkms_version }}"
+              - "amdgpu-dkms-firmware={{ cosim_recipe_variables.amdgpu_firmware_version }}"
+
+        - name: Run DKMS for the selected kernel
+          ansible.builtin.command: "dkms autoinstall -k {{ kernel_release }}"
+          changed_when: false
+      rescue:
+        - name: Print the AMDGPU DKMS build logs
+          ansible.builtin.shell: find /var/lib/dkms/amdgpu -name make.log -exec cat {} +
+          changed_when: false
+          failed_when: false
+          register: dkms_logs
+        - name: Report the AMDGPU DKMS build failure
+          ansible.builtin.fail:
+            msg: "{{ dkms_logs.stdout }}"
+
+    - name: Copy available ROCm packages from the controller cache
+      ansible.builtin.copy:
+        src: "{{ rocm_cache }}/{{ item.name }}_{{ rocm_version }}_amd64.deb"
+        dest: "{{ rocm_deb_dir }}/"
+        mode: "0644"
+      loop: "{{ rocm_packages }}"
+      when:
+        - rocm_cache | length > 0
+        - lookup('ansible.builtin.fileglob', rocm_cache ~ '/' ~ item.name ~ '_' ~ rocm_version ~ '_amd64.deb') | length > 0
+
+    - name: Verify or download each pinned ROCm package
+      ansible.builtin.get_url:
+        url: "{{ rocm_archive }}/{{ item.name }}_{{ rocm_version }}_amd64.deb"
+        dest: "{{ rocm_deb_dir }}/{{ item.name }}_{{ rocm_version }}_amd64.deb"
+        checksum: "sha256:{{ item.sha256 }}"
+        mode: "0644"
+        timeout: 60
+      loop: "{{ rocm_packages }}"
+      register: rocm_download
+      retries: 3
+      delay: 3
+      until: rocm_download is succeeded
+
+    - name: Install the pinned HIP development stack and gfx1250 rocBLAS
+      ansible.builtin.command:
+        argv: >-
+          {{ ['apt-get', '-y', '--no-install-recommends', 'install'] +
+             (rocm_download.results | map(attribute='dest') | list) }}
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: Install the serial login and delayed AMDGPU service
+      ansible.builtin.copy:
+        src: "{{ item.source }}"
+        dest: "{{ item.destination }}"
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      loop:
+        - source: "{{ cosim_provision_files.serial_getty }}"
+          destination: /etc/systemd/system/serial-getty@ttyS0.service.d/override.conf
+          mode: "0644"
+        - source: "{{ playbook_dir }}/files/cosim-gpu-initialize.service"
+          destination: /etc/systemd/system/cosim-gpu-initialize.service
+          mode: "0644"
+        - source: "{{ playbook_dir }}/files/cosim-gpu-initialize.sh"
+          destination: /usr/local/bin/cosim-gpu-initialize.sh
+          mode: "0755"
+        - source: "{{ playbook_dir }}/files/mi455x.conf"
+          destination: /etc/modprobe.d/99-cosim-mi455x.conf
+          mode: "0644"
+
+    - name: Install the discovery table from the MI455X device model
+      ansible.builtin.copy:
+        src: "{{ cosim_provision_files.mi455x_discovery }}"
+        dest: /usr/lib/firmware/amdgpu/ip_discovery.bin
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Install the rocjitsu IMU metadata container
+      ansible.builtin.script:
+        cmd: >-
+          {{ playbook_dir }}/files/gen-imu-metadata.py
+          /usr/lib/firmware/amdgpu/gc_12_1_0_imu.bin
+        executable: /usr/bin/python3
+        creates: /usr/lib/firmware/amdgpu/gc_12_1_0_imu.bin
+
+    - name: Refresh the selected kernel initramfs
+      ansible.builtin.command: "update-initramfs -u -k {{ kernel_release }}"
+      changed_when: true
+
+    - name: Select the pinned kernel in GRUB and enable its serial console
+      ansible.builtin.shell: |
+        set -eu
+        uuid="$(grub-probe --target=fs_uuid /)"
+        entry="gnulinux-{{ kernel_release }}-advanced-$uuid"
+        cat > /etc/default/grub.d/99-cosim-mi455x.cfg <<EOF
+        GRUB_DISABLE_SUBMENU=y
+        GRUB_DEFAULT="$entry"
+        GRUB_CMDLINE_LINUX="console=ttyS0,115200n8"
+        EOF
+        update-grub
+        grep -F "$entry" /boot/grub/grub.cfg
+      changed_when: true
+
+    - name: Inspect the AMDGPU module for the selected kernel
+      ansible.builtin.command: "modinfo -k {{ kernel_release }} amdgpu"
+      register: amdgpu_module_info
+      changed_when: false
+
+    - name: Verify the selected kernel has the stock DKMS driver
+      ansible.builtin.assert:
+        that:
+          - "'/updates/dkms/amdgpu.ko' in amdgpu_module_info.stdout"
+          - "kernel_release in amdgpu_module_info.stdout"
+          - "'7.1.9.31600000' in amdgpu_module_info.stdout"
+
+    - name: Record kernel and AMDGPU module metadata
+      ansible.builtin.copy:
+        dest: "/opt/cosim/{{ item.name }}"
+        content: "{{ item.content }}\n"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - {name: kernel-release, content: "{{ kernel_release }}"}
+        - {name: amdgpu-module.txt, content: "{{ amdgpu_module_info.stdout }}"}
+
+    - name: Record package, compiler and modeled firmware versions
+      ansible.builtin.shell: |
+        set -eu
+        dpkg-query -W -f='${Package}\t${Version}\n' > /opt/cosim/image-packages.tsv
+        "{{ rocm_path }}/bin/hipcc" --version > /opt/cosim/hipcc-version.txt
+        cd /usr/lib/firmware/amdgpu
+        sha256sum ip_discovery.bin gc_12_1_0_imu.bin > /opt/cosim/firmware-sha256.txt
+      changed_when: false
+
+    - name: Disable cloud-init in the finished vHost
+      ansible.builtin.copy:
+        dest: /etc/cloud/cloud-init.disabled
+        content: ""
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Enable delayed MI455X initialization at boot
+      ansible.builtin.systemd_service:
+        name: cosim-gpu-initialize.service
+        enabled: true
+        daemon_reload: true
+
+    - name: Remove the staged ROCm package files
+      ansible.builtin.file:
+        path: "{{ rocm_deb_dir }}"
+        state: absent
+
+    - name: Clean the APT cache
+      ansible.builtin.command: apt-get clean
+      changed_when: true
+
+    - name: Fetch the declared vHost results
+      ansible.builtin.fetch:
+        src: "{{ item.guest_path }}"
+        dest: "{{ cosim_result_directory }}/{{ item.name }}"
+        flat: true
+      loop: "{{ cosim_result_files }}"

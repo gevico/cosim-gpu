@@ -9,7 +9,7 @@ import unittest
 
 import yaml
 
-from run_rocm import Inputs, load_regression, topology
+from run_rocm import Inputs, MI455X_RECIPE, load_regression, topology
 from runtime_artifact import ROOT
 
 
@@ -30,7 +30,7 @@ class RegressionProfileTests(unittest.TestCase):
         self.assertIn("--recipe", result.stdout)
 
     def test_each_profile_uses_its_machine_and_guest_preparation(self):
-        for identifier in RECIPES:
+        for identifier in (*RECIPES, MI455X_RECIPE):
             with self.subTest(recipe=identifier):
                 recipe, machine, prepare = load_regression(identifier)
                 self.assertEqual(recipe.identifier, identifier)
@@ -47,7 +47,7 @@ class RegressionProfileTests(unittest.TestCase):
                     recipe, _, _ = load_regression(identifier)
                     inputs = Inputs(
                         output=share, assets=recipe.output_path(ROOT),
-                        launcher=share / "cosim", gem5=share / "gem5.opt",
+                        launcher=share / "cosim", simulator=share / "gem5.opt",
                         qemu=ROOT / "build/qemu" / (
                             "qemu-system-" + recipe.architecture
                         ), recipe=identifier, boot_timeout=600,
@@ -63,7 +63,7 @@ class RegressionProfileTests(unittest.TestCase):
                     self.assertEqual(machine["vhost"]["cpus"], 2)
                     self.assertEqual(
                         machine["devices"][0]["runtime"]["binary"],
-                        str(inputs.gem5),
+                        str(inputs.simulator),
                     )
                     self.assertTrue(all(Path(p).is_absolute()
                                         for p in document["imports"]))
