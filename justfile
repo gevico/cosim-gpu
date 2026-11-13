@@ -17,6 +17,7 @@ gem5_entry := shell('python3 -m resources.device_simulators.cli value "$1" entry
 gem5_binary := shell('python3 -m resources.device_simulators.cli value "$1" binary', gem5_recipe)
 gem5_build_dir := env("GEM5_BUILD_DIR", "build/gem5/" + host_arch + "/" + gem5_config)
 rocm_recipe := "ubuntu/24.04/x86_64/rocm/7.0"
+rocjitsu_source := "third_party/rocm-systems/emulation/rocjitsu"
 rocm_image_dir := "build/images/" + rocm_recipe
 dev_image := env("COSIM_DEV_IMAGE", "cosim-dev:local")
 gpu_fs_image := env("GPU_APP_BUILD_IMAGE", "ghcr.io/gem5/gpu-fs:latest")
@@ -40,7 +41,9 @@ default:
 # Initialize the simulator and workload submodules
 [group('dev')]
 dev-submodules:
-    git submodule update --init --recursive third_party/qemu third_party/gem5 third_party/gem5-resources
+    git submodule update --init --recursive \
+        third_party/qemu third_party/gem5 third_party/gem5-resources
+    git submodule update --init third_party/rocm-systems
 
 # Build the development container image
 [group('dev')]
@@ -69,6 +72,33 @@ ci-build-qemu target=host_arch:
 [group('build')]
 build-gem5 jobs=build_jobs *scons_args:
     {{ dev }} python3 -m resources.device_simulators.cli build {{ gem5_recipe }} {{ gem5_build_dir }} "$@"
+
+# Build rocjitsu with VFIO-user from the pinned ROCm/rocm-systems submodule
+[group('build')]
+build-rocjitsu jobs=build_jobs *cmake_args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source="$(realpath -e -- {{ quote(rocjitsu_source) }})"
+    jobs="$1"
+    shift
+    config="$(python3 -m resources.device_simulators.cli value rocjitsu config)"
+    output="$PWD/build/rocjitsu/{{ host_arch }}/$config"
+    cache="$output/CMakeCache.txt"
+    configure_args=()
+    if [ -f "$cache" ]; then
+        cached_source="$(sed -n 's/^CMAKE_HOME_DIRECTORY:INTERNAL=//p' "$cache")"
+        if [ "$cached_source" != "$source" ]; then
+            configure_args=(--fresh)
+        fi
+    fi
+    compat="$PWD/resources/device_simulators/rocjitsu/vfio-gcc.cmake"
+    cmake "${configure_args[@]}" -S "$source" -B "$output" -G Ninja \
+        -DCMAKE_PROJECT_rocm_jit_suite_INCLUDE="$compat" \
+        -DCMAKE_BUILD_TYPE="$config" -DROCJITSU_ENABLE_VFIO=ON \
+        -DBUILD_TESTING=OFF -DCMAKE_RUNTIME_OUTPUT_DIRECTORY="$output" \
+        -DFETCHCONTENT_BASE_DIR="$output/_deps" "$@"
+    cmake --build "$output" --parallel "$jobs" --target rocjitsu_bin rj_ip_discovery
+    install -m 644 "$source/configs/gfx1250_mi455x.json" "$output/"
 
 # Inspect a device simulator build and entry recipe
 [group('run')]

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+schema = 1
+
+[source]
+path = "third_party/rocm-systems"
+
+[build]
+config = "Release"
+binary = "rocjitsu"
+
+[runtime]
+entry = "run.py"
