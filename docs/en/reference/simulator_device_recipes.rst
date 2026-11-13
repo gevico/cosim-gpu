@@ -140,6 +140,48 @@ as a whole inside that development container. Changing model configuration does
 not require rebuilding gem5. CI transfers one development image with its exact
 identity, the binary and checksums; its build key excludes runtime model files.
 
+Using rocjitsu
+--------------
+
+The ``resources/machines/ubuntu-mi455x.yaml`` topology pairs rocjitsu's
+MI455X with the ``ubuntu/24.04/x86_64/rocm/10.3`` image recipe. The disk
+boots Ubuntu's pinned kernel with AMD's DKMS driver built from the vendor
+package. QEMU uses the simulated ATOM ROM at
+``resources/devices/gpu/mi455x/mi455x.rom``. The image uses the matching
+IP discovery table from the device directory and supplies simulated IMU
+metadata. The table was generated with ``rj-ip-discovery gfx1250``
+from the pinned rocjitsu source.
+
+Build on x86_64 Linux with KVM, CMake 3.28 or newer, Ninja, and GCC 13
+or Clang 16 or newer. The Host Python environment needs Python 3.11 or
+newer and PyYAML (Ubuntu package ``python3-yaml``).
+``just dev-submodules`` initializes the pinned ``ROCm/rocm-systems`` checkout.
+The build uses the pinned source in
+``third_party/rocm-systems/emulation/rocjitsu``.
+
+.. code-block:: bash
+
+   git submodule update --init --recursive third_party/qemu
+   git submodule update --init third_party/rocm-systems
+   just build-all --backend rocjitsu
+   just run-topology resources/machines/ubuntu-mi455x.yaml
+
+Run the six HIP regression workloads on the built disk:
+
+.. code-block:: bash
+
+   just test-rocm-regression build/mi455x-regression \
+       build/images/ubuntu/24.04/x86_64/rocm/10.3 --backend rocjitsu
+
+The build places ``rocjitsu``, ``rj-ip-discovery`` and the upstream
+``gfx1250_mi455x.json`` profile in
+``build/rocjitsu/<host-architecture>/Release/``. The ``run.py`` entry
+executes rocjitsu with the selected profile. To use a prebuilt VFIO-user
+executable, set the device's ``runtime.env.ROCJITSU_BINARY`` to its
+absolute path and place its matching profile in the build directory. The
+recipe uses the command and log format from
+`upstream revision ba26a04 <https://github.com/ROCm/rocm-systems/tree/ba26a04b852519fc840a0af7ebd74e3b91ec30f2/emulation/rocjitsu>`_.
+
 Related pages
 -------------
 

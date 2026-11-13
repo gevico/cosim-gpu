@@ -969,6 +969,62 @@ fn builtin_adapters_render_pool_offsets_and_readiness() {
 }
 
 #[test]
+fn rocjitsu_recipe_uses_its_runtime_entry() {
+    let (_directory, root) = tempdir();
+    let source = document(
+        &root,
+        r#"
+machines:
+  - id: m0
+    vhost: {use: base}
+    devices:
+      - {id: gpu, recipe: gpu/mi455x/rocjitsu, host_arch: x86_64}
+"#,
+    );
+    let topology = load_with_workspace(&source, &resources(), &root).unwrap();
+    let machine = &topology.machines[0];
+    let device = &machine.devices[0];
+    assert_eq!(device.model, cosim_topology::DeviceModel::Rocjitsu);
+    assert_eq!(device.pci.device_id, Some(0x75c1));
+    assert!(device.regions.is_empty());
+    assert_eq!(device.program.binary, "python3");
+
+    let paths = Paths::new();
+    let [socket, qmp, log, node] = paths.device(machine, device.id.as_str());
+    let layout = machine.memory_layout(page()).unwrap();
+    let launch = device
+        .launch(&DeviceContext {
+            machine,
+            layout: &layout,
+            pool: &paths.pool,
+            socket: &socket,
+            qmp: &qmp,
+            output_log: &log,
+            node_dir: &node,
+            run_dir: &paths.run,
+        })
+        .unwrap();
+    assert!(launch.argv[0].ends_with("resources/device_simulators/rocjitsu/run.py"));
+    assert_eq!(launch.argv[1], "--model-config");
+    assert!(launch.argv[2].ends_with("resources/devices/gpu/mi455x/rocjitsu.yaml"));
+    assert_eq!(
+        launch.argv[3..],
+        ["--vfio-socket", socket.to_str().unwrap()]
+    );
+    assert_eq!(
+        launch.probes,
+        [
+            Probe::Log {
+                path: log,
+                marker: format!("vfu: serving AMD Instinct MI455X on {}", socket.display()),
+                timeout: None,
+            },
+            Probe::Socket { path: socket },
+        ],
+    );
+}
+
+#[test]
 fn template_devices_receive_region_offsets_and_configuration() {
     let (_directory, root) = tempdir();
     let topology = machine(

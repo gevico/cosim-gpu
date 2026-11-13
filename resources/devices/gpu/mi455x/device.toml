@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+schema = 1
+
+[pci]
+vendor_id = 0x1002
+device_id = 0x75c1
+rom = "resources/devices/gpu/mi455x/mi455x.rom"
