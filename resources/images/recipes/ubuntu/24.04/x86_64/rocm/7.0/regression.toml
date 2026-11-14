@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+
+machine = "resources/machines/single-gpu.yaml"
+prepare = "files/prepare_regression.sh"

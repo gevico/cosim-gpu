@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       recipe:
-        description: Recipe to validate alone; leave empty for full regression
+        description: Recipe to build and test with HIP; leave empty to test all recipes
         required: false
         type: string
 
@@ -26,7 +26,6 @@ jobs:
     name: Select image and regression checks
     runs-on: ubuntu-24.04
     outputs:
-      baseline: ${{ steps.plan.outputs.baseline }}
       recipes: ${{ steps.plan.outputs.recipes }}
       regression: ${{ steps.plan.outputs.regression }}
     steps:
@@ -42,8 +41,6 @@ jobs:
           CI_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
           CI_RECIPE: ${{ inputs.recipe }}
         run: |
-          BASELINE="$(just --evaluate rocm_recipe)"
-          export BASELINE
           python3 - <<'PYCODE' >> "$GITHUB_OUTPUT"
           import json
           import os
@@ -52,7 +49,6 @@ jobs:
           from resources.images.recipe import list_recipes
 
           available = set(list_recipes(Path.cwd()))
-          baseline = os.environ["BASELINE"]
           requested = os.environ["CI_RECIPE"]
           selected = set()
           full = False
@@ -77,9 +73,12 @@ jobs:
                             and path not in {"README.md", "README.zh.md"}):
                           full = True
               if full:
-                  selected = available - {baseline}
-          print("baseline=" + baseline)
-          print("regression=" + json.dumps(full))
+                  selected = available
+          for recipe in selected:
+              profile = Path("resources/images/recipes") / recipe / "regression.toml"
+              if not profile.is_file():
+                  raise ValueError(f"recipe requires regression.toml: {recipe}")
+          print("regression=" + json.dumps(bool(selected)))
           print("recipes=" + json.dumps(sorted(selected), separators=(",", ":")))
           PYCODE
 
@@ -159,16 +158,8 @@ jobs:
           compression-level: 0
           retention-days: 2
 
-  build-rocm:
-    name: Build image (${{ needs.changes.outputs.baseline }})
-    needs: changes
-    if: needs.changes.outputs.regression == 'true'
-    uses: ./.github/workflows/image.yml
-    with:
-      recipe: ${{ needs.changes.outputs.baseline }}
-
   recipes:
-    name: Build image (${{ matrix.recipe }})
+    name: Recipe (${{ matrix.recipe }})
     needs: changes
     if: needs.changes.outputs.recipes != '[]'
     strategy:
@@ -179,21 +170,10 @@ jobs:
     with:
       recipe: ${{ matrix.recipe }}
 
-  rocm:
-    name: ROCm regression
-    needs: [changes, build-gem5, build-rocm]
-    if: needs.changes.outputs.regression == 'true'
-    uses: ./.github/workflows/integration.yml
-    with:
-      runtime-artifact: ${{ needs.build-gem5.outputs.runtime-artifact }}
-      guest-artifact: ${{ needs.build-rocm.outputs.guest-artifact }}
-      image-key: ${{ needs.build-rocm.outputs.image-key }}
-      image-epoch: ${{ needs.build-rocm.outputs.image-epoch }}
-
   regression:
     name: ROCm regression gate
     if: always()
-    needs: [changes, recipes, build-gem5, build-rocm, rocm]
+    needs: [changes, recipes, build-gem5]
     runs-on: ubuntu-24.04
     steps:
       - name: Require successful checks

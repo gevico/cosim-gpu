@@ -27,10 +27,7 @@ CI 与回归
      - 按变更选择镜像配方检查，必要时构建 gem5 并调用完整回归
    * - ``image.yml``
      - 由 ``build.yml`` 以 ``workflow_call`` 调用
-     - 独立验证、构建或复用一个指定配方的镜像并发布产物
-   * - ``integration.yml``
-     - 由 ``build.yml`` 以 ``workflow_call`` 调用
-     - 在 KVM runner 上执行完整的 ROCm 客户机回归
+     - 验证、构建或复用指定配方并发布镜像；可选使用本地镜像执行 ROCm 回归
    * - ``assigner.yml``
      - ``pull_request_target`` 与 issue 标签事件
      - 按 ``MAINTAINERS.yml`` 添加标签、请求审查并分配负责人
@@ -50,7 +47,7 @@ CI 与回归
 
 - ``Rust Topology and Runtime``：运行 ``just check-cosim``、
   ``just test-cosim-integration`` 与 ``just test-cosim-memory``。
-- ``ROCm regression runner tests``：运行 ``python3 -m unittest discover
+- ``CI helper tests``：运行 ``python3 -m unittest discover
   -s scripts/ci -p 'test_*.py' -v``。
 - ``Checkpatch``：对拉取请求使用基准提交、对 push 使用推送前提交运行
   ``just check-patch``；没有可用的前置提交时回退到 ``HEAD^``。
@@ -71,24 +68,29 @@ CI 与回归
 ``build.yml`` 先比较 PR 与目标分支，或 push 前后的完整变更列表：
 
 - 仅修改 ``docs/`` 或中英文 README：跳过重型构建与回归。
-- 仅修改已有配方目录及文档：每个受影响配方单独运行 ``image.yml``，跳过 gem5
-  和完整 ROCm 回归。
-- 公共文件、工作流、无法归类的路径、删除或移动配方：检查所有现有配方并保留
-  完整回归。Ubuntu 基线镜像由完整回归的生产任务提供，不再重复构建。
+- 仅修改已有配方目录及文档：选择受影响的配方，每个配方都准备镜像并执行 HIP 回归。
+- 公共文件、工作流、无法归类的路径、删除或移动配方：选择全部现有配方，每个只运行一次。
 
-配方列表使用现有目录中的 ``recipe.toml``；完整回归的基线取自 ``justfile`` 的
-``rocm_recipe``。首次 push 没有可比较的前置提交时运行完整流程；比较失败则检查失败。
-手动触发时，填写 ``recipe`` 只检查该配方，留空则运行完整流程。
+配方列表来自现有目录中的 ``recipe.toml``。每个被选中的配方还必须提供
+``regression.toml``；缺少配置时选择任务直接失败，不会静默跳过 GPU 测试。
+首次 push 没有可比较的前置提交时检查所有配方；比较失败则检查失败。
+手动触发时，填写 ``recipe`` 只准备和测试该配方，留空则测试全部配方。
+两种路径都准备 gem5，并要求 HIP 工作负载通过。
 
-镜像任务不依赖 gem5。它验证真实的 Packer/Ansible 配置，构建或校验镜像，并验证
-产物完整性和复用隔离。Packer 构建时会启动临时 QEMU 并安装软件；这不等于验证
-产物按仿真拓扑再次启动或完成 GPU 工作负载。任务当前在 Ubuntu x86_64 runner 上运行，
-配方仍需具备匹配的 QEMU、固件及加速条件；新平台的环境准备随平台支持补充。
+每个配方 job 校验真实的 Packer/Ansible 配置，准备经过验证的镜像，检查产物完整性
+和复用隔离，再执行 GPU 工作负载。Packer 构建时成功启动虚拟机，并不能证明
+最终镜像能按仿真拓扑完成 GPU 测试。任务当前在 Ubuntu x86_64 runner 上运行，
+配方仍需匹配的 QEMU、固件、加速条件和回归配置；新平台补充对应的环境准备与回归配方。
 
 构建缓存与产物
 --------------
 
-完整回归复用 ``image.yml`` 中的镜像生产流程：
+Ubuntu 测试镜像配方在安装软件包前关闭周期性 APT 操作，停止并屏蔽更新定时器，
+屏蔽对应服务，并等待已经启动的更新自然结束，不强制终止软件包操作。
+生成的镜像保持关闭自动更新，软件包变更通过重新构建配方完成。最后的缓存清理
+仍在出错时终止构建。
+
+所有选中的配方都使用 ``image.yml`` 中的镜像准备与 GPU 回归流程：
 
 - ``Build gem5 (VEGA_X86)`` 只编译一次 gem5。缓存键由 ``just ci-gem5-key``
   计算，覆盖 gem5 输入、相关 just 配方与配置、构建任务、辅助脚本和 Dockerfile。
@@ -99,14 +101,14 @@ CI 与回归
   环境。产物包含二进制、模型测试需要的 ``libvfio-user.a``、开发容器镜像和
   SHA-256 清单，通过 ``just ci-reuse-gem5`` 发布为本轮工作流的固定 artifact，
   并由 ``just test-runtime-artifact`` 校验完整性与来源。
-- ``Image`` 任务校验所选配方的真实 Packer 构建器与 provisioner，然后查找
-  同一源分支下经过验证的保留镜像。镜像键覆盖源码版本、配方内容、QEMU 版本、镜像
-  构建程序与磁盘格式；复用时校验输入标识和全部产物
+- ``Image preparation and GPU regression`` 校验所选配方的真实 Packer 构建器与 provisioner，然后查找
+  同一源分支下经过验证的保留镜像。镜像键覆盖相关文件摘要、配方内容、QEMU 工具链、
+  镜像构建程序与磁盘格式；复用时校验输入标识和全部产物
   摘要。把 ``COSIM_ROCM_IMAGE_EPOCH`` 从默认值 ``1`` 改为新值，可以重新解析
   软件包依赖。完成的镜像记录配方声明的软件版本信息，以及
   ``manifest.json`` 中的 SHA-256。
-- ``ROCm regression`` 调用 ``integration.yml``，传入 gem5 产物 ID、
-  客户机镜像产物 ID 和镜像输入键。
+- ``Recipe (<recipe>)`` 为每个选中的配方调用一次 ``image.yml``，与 gem5 并行准备
+  镜像，并在 GPU 测试前同步。主机侧辅助脚本检查独立显示为 ``CI helper tests``。
 - ``ROCm regression gate`` 始终运行，任一任务失败或取消都不能通过；按选择条件
   跳过的任务不阻塞检查。在分支保护中将它设置为必需检查。
 
@@ -115,32 +117,61 @@ CI 与回归
 再次运行完整流程，或通过 ``recipe`` 输入只验证一个配方。镜像 artifact 名称含
 配方标识的摘要，以便同一轮运行保存多个配方的产物。
 
+镜像也能跨同一源分支的多次 CI 运行复用。输入键不包含项目提交号和 CI run ID，
+CModel 源码也不属于镜像输入；仅修改 CModel 时，可以复用前一次运行生成的匹配镜像。
+新的 runner 仍需下载 bundle 并校验其输入标识与全部文件摘要。找不到产物、产物过期
+或镜像输入变化时才重新构建，不会因此跳过 HIP 测试。当前镜像保留期仍为两天，
+来源仍限制为同一分支。
+
 ROCm 回归
 ---------
 
-``integration.yml`` 使用 ``build.yml`` 返回的固定 artifact ID，而不是重新
-构建：
+每个镜像与其回归在同一个 job 内运行，让校验后的磁盘和内核保留在 runner 本地。
+GitHub-hosted 的每个 job 都使用独立环境，详见
+`runner 选择说明 <https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job>`_。
+相同的 ``runs-on`` 标签和 ``needs`` 依赖不保证两个 job 在同一台机器上运行。
+自建持久 runner 可以通过唯一标签固定到一台机器，但文件保留和清理由项目自行管理。
 
-1. 检查 runner 为 x86_64 且 ``/dev/kvm`` 可用，初始化子模块。
-2. 下载 gem5 产物，通过 ``just ci-restore-gem5`` 恢复经过验证的 gem5 与开发
-   容器镜像。
-3. 运行 ``just test-cosim-memory`` 验证并发会话的内存预留，再运行
-   ``just test-gem5-mi300x`` 测试恢复后的 MI300X 模型。
-4. 下载客户机镜像产物，通过 ``just ci-adopt-rocm-artifact`` 核对镜像输入键并
-   接管磁盘、内核与软件包清单。
-5. 构建 QEMU 与 Rust launcher，运行 ``just test-cosim-vfio-user`` 验证
-   vfio-user 的 option ROM 暴露，再运行
-   ``just test-rocm-regression`` 执行回归程序。
+镜像准备与独立的 gem5 job 并行。镜像 job 不设置对 gem5 的 ``needs`` 依赖，
+而是在本地镜像准备完成后执行 ``just ci-wait-gem5``。它查询本次 workflow run 中截至当前 attempt 的最新 gem5 生产任务；
+失败或取消则停止，最多等待两小时，确认成功后选择对应的固定 artifact，再下载和
+恢复 gem5。仅重跑失败任务时，可复用同一 run 中此前已成功且未被重跑的生产任务。
+GitHub 可能把它的成功记录复制到新 attempt，而不重新执行。开始与完成时间均相同的记录
+对应原来的执行，产物名称保留原 attempt 编号。无需额外启动后台步骤，因为准备镜像时 gem5 已经在
+并行运行。最终回归 gate 仍要求所有相关任务通过。
 
-``just test-rocm-regression <output> <assets>`` 使用 Rust launcher 和示例
-host/device 模板，并为每个用例创建独立的磁盘 overlay。默认使用 4 GiB Linux 内存、
+这样既保留并行准备，也省掉把系统盘传给第二台 runner 的开销。作为本次调整依据的
+运行中，gem5 产物下载约一分钟，客户机镜像下载约五十分钟；这是实测耗时，不是传输
+速度保证。镜像仍会发布，供后续 CI 运行复用；跨次复用仍校验准确的输入键和全部
+产物摘要。每个配方 job 都为镜像准备和回归预留五小时。
+
+配方通过 ``recipe.toml`` 旁的 ``regression.toml`` 接入完整 GPU 回归，引用
+``resources/machines`` 下的 machine YAML 和本配方目录中的客户机准备脚本。
+启动参数归 machine/vHost 模板管理；回归入口根据镜像配方架构选择 QEMU 并校验
+对应产物，不再从 Ubuntu 或编译 Host 推断启动配置。Ubuntu 准备初始化服务和 ROM，
+openRuyi 准备本地编译器环境并加载 amdgpu。两个配方均提供 root 串口访问。
+通用的 ``tests/rocm_regression.sh`` 通过只读 9p 共享，统一执行 GPU 检查、编译和测试。
+
+合并后的 job 按以下顺序运行：
+
+1. 准备源码构建的 QEMU 和镜像工具；校验 Packer，构建镜像或接管保留镜像，并检查
+   完整性、复用与来源隔离。
+2. 发布镜像供后续运行使用，同时保留本地磁盘与内核。
+3. 等待本轮 gem5 生产任务成功，下载对应的固定运行时产物，恢复经过验证的二进制
+   和开发容器镜像。
+4. 执行会话内存、MI300X 模型和 vfio-user ROM 检查，并构建 Rust launcher。
+5. 将本地镜像目录与配方标识传给 ``just test-rocm-regression``；失败时也保留诊断，
+   各配方使用独立的 artifact 名称。
+
+``just test-rocm-regression <output> <assets> <recipe>`` 使用 Rust launcher 和配方
+引用的 machine 配置，并为每个用例创建独立的磁盘 overlay。默认使用 4 GiB Linux 内存、
 4 GiB VRAM 和两个虚拟 CPU；8 GiB 共享内存池能够放入托管 runner 的共享内存容量，
 并为模拟器保留内存。通过 ``--memory``、``--vram`` 和 ``--cpus`` 参数
 可以修改这些设置。
 
 回归程序为 ``vector_add``、``gemm``、``reduction``、
-``transpose``、``prefix_scan`` 和 ``histogram``。每个客户机检查初始化
-服务、amdgpu、KFD、render 设备以及 ``rocminfo`` 报告的 gfx942 agent，然后在
+``transpose``、``prefix_scan`` 和 ``histogram``。每个客户机执行配方准备脚本并检查
+amdgpu、KFD、render 设备以及 ``rocminfo`` 报告的 gfx942 agent，然后在
 ``HSA_ENABLE_INTERRUPT=0`` 环境下编译并执行指定的 HIP 程序。通过条件包括数值
 校验输出 PASS、程序以零状态退出、launcher 成功清理资源；程序打印 PASS 后发生超时
 仍然判定失败。执行在首个失败处停止，只有全部指定程序通过时整体结果才为 PASS。
@@ -163,7 +194,7 @@ host/device 模板，并为每个用例创建独立的磁盘 overlay。默认使
    # ROCm 镜像与回归
    just build-rocm-assets
    just test-rocm-assets
-   just test-rocm-regression <output> <assets>
+   just test-rocm-regression <output> <assets> <recipe>
 
 相关页面
 --------

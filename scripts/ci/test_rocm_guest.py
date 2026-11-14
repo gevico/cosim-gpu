@@ -5,7 +5,7 @@ import unittest
 
 import yaml
 
-from run_rocm import PROGRAMS, VHOST_REGRESSION_SCRIPT
+from run_rocm import PROGRAMS
 from runtime_artifact import ROOT
 from resources.images.recipe import load_recipe
 
@@ -17,10 +17,7 @@ def recipe_tasks(recipe):
 
 class GuestBuildTargetTests(unittest.TestCase):
     def test_guest_build_directory_matches_the_makefile_targets(self):
-        script = (
-            ROOT / "resources/images/recipes/ubuntu/24.04/x86_64/"
-            "rocm/7.0/files/cosim_rocm_regression.sh"
-        ).read_text()
+        script = (ROOT / "tests/rocm_regression.sh").read_text()
         self.assertIn('make -j1 "BUILDDIR=build" "build/$program"', script)
         for program in PROGRAMS:
             with self.subTest(program=program):
@@ -51,7 +48,6 @@ class GuestBuildTargetTests(unittest.TestCase):
         }
         expected = {
             "cosim_gpu_initialize.sh": "/usr/local/bin/cosim-gpu-initialize.sh",
-            "cosim_rocm_regression.sh": VHOST_REGRESSION_SCRIPT,
         }
         for filename, destination in expected.items():
             with self.subTest(filename=filename):

@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import io
+import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -12,8 +14,9 @@ from unittest.mock import patch
 import image_artifact
 import verify_rocm_assets
 from image_artifact import (
-    image_bundle_root, image_manifest_member, verify_image,
+    Scope, find_image, image_bundle_root, image_manifest_member, verify_image,
 )
+from ci_lifecycle import Lifecycle
 from resources.images.bundle import write_manifest
 from resources.images.errors import ImageError
 from resources.images.fingerprint import digest_json, sha256_file
@@ -23,6 +26,55 @@ from resources.images.recipe import load_recipe
 BUILD_IMAGE_ROOT = "build/images/ubuntu/24.04/x86_64/rocm/7.0"
 IMAGE_ROOT = "images/ubuntu/24.04/x86_64/rocm/7.0"
 RECIPE_ID = "ubuntu/24.04/x86_64/rocm/7.0"
+
+
+class HistoricalImageReuseTests(unittest.TestCase):
+    def records(self, **scope_changes):
+        scope = {"id": 10, "head_repository_id": 7, "head_branch": "topic",
+                 **scope_changes}
+        return [
+            {"id": 31, "name": "rocm-guest-tag-10-1", "expired": False,
+             "workflow_run": scope},
+            {"id": 32, "name": "rocm-image-logs-tag-10-1", "expired": False,
+             "size_in_bytes": 1024, "workflow_run": scope},
+        ]
+
+    def test_later_ci_run_selects_the_earlier_matching_image(self):
+        inputs = {"recipe": RECIPE_ID, "files": {"provision.yml": "fixture"}}
+        key = digest_json(inputs)
+        content = io.BytesIO()
+        with zipfile.ZipFile(content, "w") as archive:
+            archive.writestr("manifest.json", json.dumps({
+                "schema": 1, "recipe": RECIPE_ID, "inputs": inputs,
+                "input_key": key,
+            }))
+        with patch.dict(os.environ, GITHUB_RUN_ID="11"), patch.object(
+            image_artifact, "github", side_effect=[
+                json.dumps([{"artifacts": self.records()}]).encode(),
+                content.getvalue(),
+            ],
+        ):
+            result = find_image(key, Scope("owner/repo", 7, "topic"),
+                                Lifecycle(), RECIPE_ID)
+        self.assertIsNotNone(result)
+        self.assertEqual(result.run_id, 10)
+        self.assertEqual(result.artifact_id, 31)
+
+    def test_history_lookup_preserves_source_and_expiry_isolation(self):
+        for records in (self.records(head_branch="another"),
+                        self.records(head_repository_id=8), [
+                            {**record, "expired": True}
+                            for record in self.records()
+                        ]):
+            with self.subTest(records=records), patch.object(
+                image_artifact, "github",
+                return_value=json.dumps([{"artifacts": records}]).encode(),
+            ) as api:
+                self.assertIsNone(find_image(
+                    "unused-key", Scope("owner/repo", 7, "topic"),
+                    Lifecycle(), RECIPE_ID,
+                ))
+                self.assertEqual(api.call_count, 1)
 
 
 class ImageManifestMemberTests(unittest.TestCase):

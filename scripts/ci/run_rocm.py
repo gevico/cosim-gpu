@@ -14,21 +14,25 @@ import socket
 import subprocess
 import sys
 import time
+import tomllib
 import uuid
 
 import pexpect
 from pexpect.fdpexpect import fdspawn
 import yaml
 
-from guest_console import GuestConsole
-from ci_lifecycle import Lifecycle
-from runtime_artifact import ROOT, sha256
+from scripts.ci.guest_console import GuestConsole
+from scripts.ci.ci_lifecycle import Lifecycle
+from scripts.ci.runtime_artifact import ROOT, sha256
+from resources.images.bundle import verify_bundle
+from resources.images.recipe import load_recipe
+from resources.images.toolchain import qemu_binary
 
 
 PROGRAMS = (
     "vector_add", "gemm", "reduction", "transpose", "prefix_scan", "histogram"
 )
-VHOST_REGRESSION_SCRIPT = "/usr/local/bin/cosim-rocm-regression.sh"
+VHOST_REGRESSION_SCRIPT = "/mnt/cosim-ci/rocm_regression.sh"
 
 
 @dataclass(frozen=True)
@@ -38,6 +42,7 @@ class Inputs:
     launcher: Path
     gem5: Path
     qemu: Path
+    recipe: str
     boot_timeout: int
     test_timeout: int
     memory: str = "4G"
@@ -57,19 +62,47 @@ def write_json(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 
 
+def load_regression(identifier: str):
+    recipe = load_recipe(ROOT, identifier)
+    profile = tomllib.loads(
+        (recipe.directory / "regression.toml").read_text(encoding="utf-8")
+    )
+    if set(profile) != {"machine", "prepare"}:
+        raise ValueError("regression profile requires machine and prepare")
+    machine = (ROOT / profile["machine"]).resolve()
+    prepare = (recipe.directory / profile["prepare"]).resolve()
+    if not machine.is_relative_to(ROOT / "resources/machines"):
+        raise ValueError("regression machine must stay in resources/machines")
+    if not prepare.is_relative_to(recipe.directory):
+        raise ValueError("guest preparation must stay in its image recipe")
+    if not machine.is_file() or not prepare.is_file():
+        raise ValueError("regression machine or preparation script is missing")
+    return recipe, machine, prepare
+
+
 def prepare(inputs: Inputs) -> dict:
-    if platform.system() != "Linux" or platform.machine() != "x86_64":
-        raise RuntimeError("the ROCm vHost requires Linux x86_64 with KVM")
-    with Path("/dev/kvm").open("rb+"):
-        pass
-    metadata = json.loads((inputs.assets / "manifest.json").read_text())
-    for name in ("kernel", "disk"):
-        if sha256(inputs.assets / name) != metadata["files"][name]["sha256"]:
-            raise ValueError(f"vHost asset checksum mismatch: {name}")
+    recipe, machine, guest_prepare = load_regression(inputs.recipe)
+    if platform.system() != "Linux":
+        raise RuntimeError("the ROCm regression runner requires Linux")
+    if recipe.accelerator == "kvm":
+        if platform.machine() != recipe.architecture:
+            raise RuntimeError(
+                "KVM requires matching Host and vHost architectures"
+            )
+        with Path("/dev/kvm").open("rb+"):
+            pass
+    metadata = verify_bundle(ROOT, recipe, inputs.assets)
     for path in (inputs.launcher, inputs.gem5, inputs.qemu):
         if not path.is_file() or not os.access(path, os.X_OK):
             raise ValueError(f"missing executable: {path}")
     provenance = {"assets": metadata, "binaries": {}, "sources": {}}
+    provenance["regression"] = {
+        "recipe": inputs.recipe,
+        "files": {str(path): sha256(path) for path in (
+            recipe.directory / "regression.toml", machine, guest_prepare,
+            ROOT / "tests/rocm_regression.sh",
+        )},
+    }
     for path in (inputs.launcher, inputs.gem5, inputs.qemu):
         provenance["binaries"][str(path)] = sha256(path)
     rom = (
@@ -117,29 +150,40 @@ def prepare(inputs: Inputs) -> dict:
 
 
 def topology(inputs: Inputs, share: Path) -> dict:
-    return {
-        "version": 1,
-        "imports": [str(ROOT / "resources" / path) for path in (
-            "vhosts/qemu.yaml", "devices/gpu/mi300x/gem5.yaml"
-        )],
-        "machines": [{
-            "id": "m0",
-            "vhost": {
-                "use": "vhost-x86-rocm",
-                "runtime": {"binary": str(inputs.qemu)},
-                "memory": inputs.memory, "cpus": inputs.cpus,
-                "args": [
-                    "-virtfs", "local,path=" + str(share).replace(",", ",,")
-                    + ",mount_tag=cosimci,security_model=none,readonly=on",
-                ],
-            },
-            "devices": [{"id": "gpu", "use": "mi300x",
-                         "runtime": {"binary": str(inputs.gem5)},
-                         "memory_regions": [{
-                             "name": "vram", "size": inputs.vram, "align": "2M",
-                         }]}],
+    _, source, _ = load_regression(inputs.recipe)
+    document = yaml.safe_load(source.read_text())
+    imports = []
+    for name in document.get("imports", []):
+        path = source.parent / name
+        if not path.exists():
+            path = ROOT / "resources" / name
+        imports.append(str(path.resolve()))
+    document["imports"] = imports
+    if len(document["machines"]) != 1:
+        raise ValueError("GPU regression requires one machine per session")
+    machine = document["machines"][0]
+    machine["id"] = "m0"
+    vhost = machine.setdefault("vhost", {})
+    # Console readiness belongs to the runner, not a template login marker.
+    vhost.pop("serial", None)
+    vhost.update({
+        "image": inputs.recipe, "memory": inputs.memory, "cpus": inputs.cpus,
+        "runtime": {"binary": str(inputs.qemu)},
+    })
+    vhost.setdefault("args", []).extend([
+        "-virtfs", "local,path=" + str(share).replace(",", ",,")
+        + ",mount_tag=cosimci,security_model=none,readonly=on",
+    ])
+    devices = machine.setdefault("devices", [{"use": "mi300x"}])
+    if len(devices) != 1:
+        raise ValueError("GPU regression requires one device per session")
+    devices[0].update({
+        "id": "gpu", "runtime": {"binary": str(inputs.gem5)},
+        "memory_regions": [{
+            "name": "vram", "size": inputs.vram, "align": "2M",
         }],
-    }
+    })
+    return document
 
 
 def connect(
@@ -226,6 +270,8 @@ def run_case(inputs: Inputs, program: str, lifecycle: Lifecycle) -> Result:
     for name in ("kernels", "common"):
         shutil.copytree(ROOT / "tests" / name, share / name)
     shutil.copy2(ROOT / "tests/Makefile", share / "Makefile")
+    shutil.copy2(ROOT / "tests/rocm_regression.sh", share)
+    shutil.copy2(load_regression(inputs.recipe)[2], share / "prepare.sh")
     source = ROOT / "tests/kernels" / f"{program}.cpp"
     config = row / "topology.yaml"
     config.write_text(yaml.safe_dump(topology(inputs, share)))
@@ -244,6 +290,7 @@ def run_case(inputs: Inputs, program: str, lifecycle: Lifecycle) -> Result:
         "gem5_binary": str(inputs.gem5),
         "vhost_script": VHOST_REGRESSION_SCRIPT,
         "runner_argument": program,
+        "recipe": inputs.recipe,
     })
     try:
         with (row / "launcher.log").open("wb") as log:
@@ -286,20 +333,26 @@ def execute(lifecycle: Lifecycle) -> int:
     ) / "release/cosim"
     parser.add_argument("--launcher", type=Path, default=launcher_default)
     parser.add_argument("--gem5", type=Path, required=True)
-    parser.add_argument("--qemu", type=Path, required=True)
+    parser.add_argument("--qemu", type=Path)
+    parser.add_argument("--recipe", required=True)
     parser.add_argument("--boot-timeout", type=int, default=300)
     parser.add_argument("--test-timeout", type=int, default=300)
     parser.add_argument("--memory", default=Inputs.memory)
     parser.add_argument("--vram", default=Inputs.vram)
     parser.add_argument("--cpus", type=int, default=Inputs.cpus)
     args = parser.parse_args()
-    inputs = Inputs(*(getattr(args, name).resolve() for name in
-                      ("output", "assets", "launcher", "gem5", "qemu")),
-                    args.boot_timeout, args.test_timeout,
-                    args.memory, args.vram, args.cpus)
-    inputs.output.mkdir(parents=True, exist_ok=False)
+    args.output = args.output.resolve()
+    args.output.mkdir(parents=True, exist_ok=False)
     results = []
     try:
+        recipe, _, _ = load_regression(args.recipe)
+        args.qemu = args.qemu or qemu_binary(ROOT, recipe.architecture)
+        if args.qemu is None:
+            raise ValueError("matching QEMU is missing; run just ci-build-qemu")
+        inputs = Inputs(*(getattr(args, name).resolve() for name in
+                          ("output", "assets", "launcher", "gem5", "qemu")),
+                        args.recipe, args.boot_timeout, args.test_timeout,
+                        args.memory, args.vram, args.cpus)
         if inputs.boot_timeout <= 0 or inputs.test_timeout <= 0:
             raise ValueError("timeouts must be positive")
         if inputs.cpus <= 0:
@@ -332,7 +385,7 @@ def execute(lifecycle: Lifecycle) -> int:
     except (
         OSError, ValueError, RuntimeError, subprocess.CalledProcessError
     ) as error:
-        write_json(inputs.output / "verdict.json", {
+        write_json(args.output / "verdict.json", {
             "status": "FAIL", "reason": str(error),
         })
         print(str(error), flush=True)
