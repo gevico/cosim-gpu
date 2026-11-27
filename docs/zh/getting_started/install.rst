@@ -18,8 +18,8 @@
    cd cosim-gpu
    just dev-submodules
 
-``just dev-submodules`` 初始化 ``qemu``、``gem5`` 和 ``gem5-resources`` 三个
-子模块。QEMU 与 gem5 的源码分别由各自子模块提供，联合仿真不额外打补丁。
+``just dev-submodules`` 初始化 ``qemu``、``gem5``、``gem5-resources`` 和
+``rocm-systems`` 子模块。QEMU 与 gem5 的源码分别由各自子模块提供，联合仿真不额外打补丁。
 
 选择构建环境
 ------------
@@ -41,7 +41,7 @@
 
    just build-all
 
-``just build-all`` 依次执行下列 recipe：
+``just build-all`` 默认选择 gem5 后端，依次执行下列 recipe：
 
 .. list-table::
    :header-rows: 1
@@ -60,6 +60,9 @@
      - Rust ``cosim`` launcher
 
 客户机镜像构建需要 QEMU，GPU 应用构建在独立的 GPU 容器中进行。
+
+使用 ``just build-all --backend rocjitsu`` 构建 MI455X 后端及其 vHost 镜像。
+源码目录与构建要求见 :ref:`ref-simulator-device-recipes`。
 
 分步构建
 --------

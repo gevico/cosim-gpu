@@ -33,6 +33,8 @@ PROGRAMS = (
     "vector_add", "gemm", "reduction", "transpose", "prefix_scan", "histogram"
 )
 VHOST_REGRESSION_SCRIPT = "/mnt/cosim-ci/rocm_regression.sh"
+MI455X_RECIPE = "ubuntu/24.04/x86_64/rocm/10.3"
+MI455X_REGRESSION_SCRIPT = ROOT / "scripts/ci/run_rocm_mi455x.sh"
 
 
 @dataclass(frozen=True)
@@ -40,7 +42,7 @@ class Inputs:
     output: Path
     assets: Path
     launcher: Path
-    gem5: Path
+    simulator: Path
     qemu: Path
     recipe: str
     boot_timeout: int
@@ -48,6 +50,7 @@ class Inputs:
     memory: str = "4G"
     vram: str = "4G"
     cpus: int = 2
+    backend: str = "gem5"
 
 
 @dataclass
@@ -92,32 +95,47 @@ def prepare(inputs: Inputs) -> dict:
         with Path("/dev/kvm").open("rb+"):
             pass
     metadata = verify_bundle(ROOT, recipe, inputs.assets)
-    for path in (inputs.launcher, inputs.gem5, inputs.qemu):
+    for path in (inputs.launcher, inputs.simulator, inputs.qemu):
         if not path.is_file() or not os.access(path, os.X_OK):
             raise ValueError(f"missing executable: {path}")
+    if inputs.backend == "rocjitsu":
+        device = ROOT / "resources/devices/gpu/mi455x/device.toml"
+        with device.open("rb") as file:
+            rom = ROOT / tomllib.load(file)["pci"]["rom"]
+    else:
+        rom = (
+            ROOT
+            / "third_party/gem5-resources/src/x86-ubuntu-gpu-ml/files/mi300.rom"
+        )
     provenance = {"assets": metadata, "binaries": {}, "sources": {}}
     provenance["regression"] = {
         "recipe": inputs.recipe,
         "files": {str(path): sha256(path) for path in (
             recipe.directory / "regression.toml", machine, guest_prepare,
-            ROOT / "tests/rocm_regression.sh",
+            (MI455X_REGRESSION_SCRIPT if inputs.backend == "rocjitsu"
+             else ROOT / "tests/rocm_regression.sh"),
         )},
     }
-    for path in (inputs.launcher, inputs.gem5, inputs.qemu):
+    for path in (inputs.launcher, inputs.simulator, inputs.qemu):
         provenance["binaries"][str(path)] = sha256(path)
-    rom = (
-        ROOT
-        / "third_party/gem5-resources/src/x86-ubuntu-gpu-ml/files/mi300.rom"
-    )
     provenance["firmware"] = {str(rom): sha256(rom)}
     patch_dir = inputs.output / "patch"
     patch_dir.mkdir()
-    repositories = (
-        ("project", ROOT),
-        ("gem5", ROOT / "third_party/gem5"),
-        ("qemu", ROOT / "third_party/qemu"),
-        ("gem5-resources", ROOT / "third_party/gem5-resources"),
-    )
+    repositories = [("project", ROOT)]
+    qemu_source = ROOT / "third_party/qemu"
+    if inputs.backend == "gem5" or (qemu_source / ".git").exists():
+        repositories.append(("qemu", qemu_source))
+    else:
+        gitlink = subprocess.check_output(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD:third_party/qemu"],
+            text=True,
+        ).strip()
+        provenance["sources"]["qemu"] = {"gitlink_commit": gitlink}
+    if inputs.backend == "gem5":
+        repositories.extend((
+            ("gem5", ROOT / "third_party/gem5"),
+            ("gem5-resources", ROOT / "third_party/gem5-resources"),
+        ))
     for name, directory in repositories:
         revision = subprocess.check_output(
             ["git", "-C", str(directory), "rev-parse", "HEAD"], text=True
@@ -149,7 +167,36 @@ def prepare(inputs: Inputs) -> dict:
     return metadata
 
 
-def topology(inputs: Inputs, share: Path) -> dict:
+def topology(inputs: Inputs, share: Path, disk_format: str = "qcow2") -> dict:
+    if inputs.backend == "rocjitsu":
+        vhost = {
+            "runtime": {"binary": str(inputs.qemu)},
+            "memory": inputs.memory, "cpus": inputs.cpus,
+            "args": [
+                "-virtfs", "local,path=" + str(share).replace(",", ",,")
+                + ",mount_tag=cosimci,security_model=none,readonly=on",
+            ],
+        }
+        device = {"id": "gpu"}
+        machine = {"id": "m0", "vhost": vhost, "devices": [device]}
+        imports = ("machines/ubuntu-mi455x.yaml",)
+        machine["use"] = "ubuntu-mi455x"
+        vhost.update({
+            "image": None,
+            "disks": [{
+                "id": "root", "backing": str(inputs.assets / "disk"),
+                "format": disk_format, "bus": "virtio", "boot": True,
+            }],
+        })
+        device.update({
+            "use": "mi455x",
+            "runtime": {"env": {"ROCJITSU_BINARY": str(inputs.simulator)}},
+        })
+        return {
+            "version": 1,
+            "imports": [str(ROOT / "resources" / path) for path in imports],
+            "machines": [machine],
+        }
     _, source, _ = load_regression(inputs.recipe)
     document = yaml.safe_load(source.read_text())
     imports = []
@@ -178,7 +225,7 @@ def topology(inputs: Inputs, share: Path) -> dict:
     if len(devices) != 1:
         raise ValueError("GPU regression requires one device per session")
     devices[0].update({
-        "id": "gpu", "runtime": {"binary": str(inputs.gem5)},
+        "id": "gpu", "runtime": {"binary": str(inputs.simulator)},
         "memory_regions": [{
             "name": "vram", "size": inputs.vram, "align": "2M",
         }],
@@ -234,7 +281,8 @@ def archive(session: Path, output: Path) -> None:
 
 
 def exercise_vhost(
-    stream: socket.socket, row: Path, inputs: Inputs, program: str
+    stream: socket.socket, row: Path, inputs: Inputs, program: str,
+    vhost_script: str,
 ) -> None:
     transport = fdspawn(stream, timeout=inputs.boot_timeout)
     with (row / "console.log").open("wb") as console_log:
@@ -249,7 +297,7 @@ def exercise_vhost(
             "-o trans=virtio,version=9p2000.L,ro cosimci /mnt/cosim-ci", 30
         ).require_success()
         outcome = console.run(
-            f"bash {shlex.quote(VHOST_REGRESSION_SCRIPT)} "
+            f"bash {shlex.quote(vhost_script)} "
             f"{shlex.quote(program)} {inputs.test_timeout}",
             inputs.test_timeout + 600,
         )
@@ -257,9 +305,27 @@ def exercise_vhost(
         outcome.require_workload(name)
         if b"[COSIM_ENV] HSA_ENABLE_INTERRUPT=0" not in outcome.output:
             raise RuntimeError("vHost environment was not confirmed")
+        if inputs.backend == "rocjitsu":
+            if b"[COSIM_ENV] HSA_ENABLE_SDMA=unset" not in outcome.output:
+                raise RuntimeError("vHost SDMA environment was not confirmed")
+            transport.sendline(b"systemctl poweroff")
+            transport.expect(pexpect.EOF, timeout=60)
 
 
-def run_case(inputs: Inputs, program: str, lifecycle: Lifecycle) -> Result:
+def verify_cleanup(session: Path) -> None:
+    manifest = json.loads((session / "manifest.json").read_text())
+    paths = [
+        *manifest["endpoints"], *manifest["pools"], *manifest["overlays"],
+        manifest["layout"]["pool_dir"],
+    ]
+    remaining = [path for path in paths if os.path.lexists(path)]
+    if remaining:
+        raise RuntimeError(f"session resources remain: {remaining}")
+
+
+def run_case(
+    inputs: Inputs, program: str, lifecycle: Lifecycle, disk_format: str
+) -> Result:
     started = time.monotonic()
     row = inputs.output / program
     row.mkdir()
@@ -273,8 +339,14 @@ def run_case(inputs: Inputs, program: str, lifecycle: Lifecycle) -> Result:
     shutil.copy2(ROOT / "tests/rocm_regression.sh", share)
     shutil.copy2(load_regression(inputs.recipe)[2], share / "prepare.sh")
     source = ROOT / "tests/kernels" / f"{program}.cpp"
+    vhost_script = VHOST_REGRESSION_SCRIPT
+    vhost_environment = {"HSA_ENABLE_INTERRUPT": "0"}
+    if inputs.backend == "rocjitsu":
+        vhost_environment["HSA_ENABLE_SDMA"] = None
+        shutil.copy2(MI455X_REGRESSION_SCRIPT, share)
+        vhost_script = f"/mnt/cosim-ci/{MI455X_REGRESSION_SCRIPT.name}"
     config = row / "topology.yaml"
-    config.write_text(yaml.safe_dump(topology(inputs, share)))
+    config.write_text(yaml.safe_dump(topology(inputs, share, disk_format)))
     command = [
         str(inputs.launcher), "run", str(config),
         "--run-dir", str(session),
@@ -283,12 +355,12 @@ def run_case(inputs: Inputs, program: str, lifecycle: Lifecycle) -> Result:
     write_json(row / "run-manifest.json", {
         "program": str(source.relative_to(ROOT)),
         "source_sha256": sha256(source), "mode": "pure_test", "repeat": 1,
-        "vhost_environment": {"HSA_ENABLE_INTERRUPT": "0"},
+        "vhost_environment": vhost_environment,
         "boot_timeout": inputs.boot_timeout,
         "test_timeout": inputs.test_timeout,
         "artifact_dir": str(row), "command": command,
-        "gem5_binary": str(inputs.gem5),
-        "vhost_script": VHOST_REGRESSION_SCRIPT,
+        f"{inputs.backend}_binary": str(inputs.simulator),
+        "vhost_script": vhost_script,
         "runner_argument": program,
         "recipe": inputs.recipe,
     })
@@ -304,10 +376,21 @@ def run_case(inputs: Inputs, program: str, lifecycle: Lifecycle) -> Result:
                         session / "m0/serial.sock", process,
                         inputs.boot_timeout, lifecycle,
                     ) as stream:
-                        exercise_vhost(stream, row, inputs, program)
+                        exercise_vhost(
+                            stream, row, inputs, program, vhost_script
+                        )
+                    if inputs.backend == "rocjitsu":
+                        try:
+                            process.wait(timeout=60)
+                        except subprocess.TimeoutExpired as error:
+                            raise RuntimeError(
+                                "vHost poweroff timed out"
+                            ) from error
                     lifecycle.check()
                 finally:
                     stop(process, session)
+        if inputs.backend == "rocjitsu":
+            verify_cleanup(session)
         result.status = "PASS"
         result.reason = "numerical result and exit status verified"
     except (
@@ -332,7 +415,11 @@ def execute(lifecycle: Lifecycle) -> int:
         os.environ.get("CARGO_TARGET_DIR", "build/cargo/host")
     ) / "release/cosim"
     parser.add_argument("--launcher", type=Path, default=launcher_default)
-    parser.add_argument("--gem5", type=Path, required=True)
+    parser.add_argument(
+        "--backend", choices=("gem5", "rocjitsu"), default="gem5"
+    )
+    parser.add_argument("--gem5", type=Path)
+    parser.add_argument("--rocjitsu", type=Path)
     parser.add_argument("--qemu", type=Path)
     parser.add_argument("--recipe", required=True)
     parser.add_argument("--boot-timeout", type=int, default=300)
@@ -341,6 +428,18 @@ def execute(lifecycle: Lifecycle) -> int:
     parser.add_argument("--vram", default=Inputs.vram)
     parser.add_argument("--cpus", type=int, default=Inputs.cpus)
     args = parser.parse_args()
+    if args.backend == "gem5":
+        if args.gem5 is None:
+            parser.error("--gem5 is required with the gem5 backend")
+        if args.rocjitsu is not None:
+            parser.error("--rocjitsu requires --backend rocjitsu")
+        simulator = args.gem5
+    else:
+        simulator = (
+            args.rocjitsu or ROOT / "build/rocjitsu/x86_64/Release/rocjitsu"
+        )
+    if args.backend == "rocjitsu" and args.recipe != MI455X_RECIPE:
+        parser.error("rocjitsu requires the MI455X image recipe")
     args.output = args.output.resolve()
     args.output.mkdir(parents=True, exist_ok=False)
     results = []
@@ -349,15 +448,20 @@ def execute(lifecycle: Lifecycle) -> int:
         args.qemu = args.qemu or qemu_binary(ROOT, recipe.architecture)
         if args.qemu is None:
             raise ValueError("matching QEMU is missing; run just ci-build-qemu")
-        inputs = Inputs(*(getattr(args, name).resolve() for name in
-                          ("output", "assets", "launcher", "gem5", "qemu")),
-                        args.recipe, args.boot_timeout, args.test_timeout,
-                        args.memory, args.vram, args.cpus)
+        inputs = Inputs(
+            output=args.output, assets=args.assets.resolve(),
+            launcher=args.launcher.resolve(), simulator=simulator.resolve(),
+            qemu=args.qemu.resolve(), recipe=args.recipe,
+            boot_timeout=args.boot_timeout, test_timeout=args.test_timeout,
+            memory=args.memory, vram=args.vram, cpus=args.cpus,
+            backend=args.backend,
+        )
         if inputs.boot_timeout <= 0 or inputs.test_timeout <= 0:
             raise ValueError("timeouts must be positive")
         if inputs.cpus <= 0:
             raise ValueError("cpus must be positive")
-        prepare(inputs)
+        metadata = prepare(inputs)
+        disk_format = metadata.get("disk_format", "qcow2")
         lifecycle.check()
         with (inputs.output / "matrix.tsv").open("w", newline="") as stream:
             writer = csv.DictWriter(
@@ -366,7 +470,7 @@ def execute(lifecycle: Lifecycle) -> int:
             writer.writeheader()
             for program in PROGRAMS:
                 lifecycle.check()
-                result = run_case(inputs, program, lifecycle)
+                result = run_case(inputs, program, lifecycle, disk_format)
                 results.append(result)
                 writer.writerow(asdict(result))
                 stream.flush()

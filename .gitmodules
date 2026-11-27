@@ -10,3 +10,7 @@
 	path = third_party/qemu
 	url = git@github.com:gevico/qemu.git
 	branch = gevico/cosim-gpu
+[submodule "rocm-systems"]
+	path = third_party/rocm-systems
+	url = https://github.com/ROCm/rocm-systems.git
+	shallow = true

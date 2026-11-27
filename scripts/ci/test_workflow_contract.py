@@ -5,6 +5,7 @@ from contextlib import redirect_stdout
 import io
 import json
 import os
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -24,6 +25,7 @@ def workflow(name):
 
 class ImageRegressionWorkflowTests(unittest.TestCase):
     ubuntu = "ubuntu/24.04/x86_64/rocm/7.0"
+    mi455x = "ubuntu/24.04/x86_64/rocm/10.3"
     openruyi = "openruyi/2026.09/riscv64/rocm/7.2.4"
 
     def plan(self, paths=(), requested="", base="base"):
@@ -42,7 +44,7 @@ class ImageRegressionWorkflowTests(unittest.TestCase):
         return json.loads(result["regression"]), json.loads(result["recipes"])
 
     def test_recipe_changes_require_hip_for_the_selected_recipe(self):
-        for recipe in (self.ubuntu, self.openruyi):
+        for recipe in (self.ubuntu, self.openruyi, self.mi455x):
             with self.subTest(recipe=recipe):
                 required, selected = self.plan([
                     f"resources/images/recipes/{recipe}/recipe.toml",
@@ -52,7 +54,7 @@ class ImageRegressionWorkflowTests(unittest.TestCase):
                 self.assertEqual(selected, [recipe])
 
     def test_manual_recipe_selection_requires_hip(self):
-        for recipe in (self.ubuntu, self.openruyi):
+        for recipe in (self.ubuntu, self.openruyi, self.mi455x):
             with self.subTest(recipe=recipe):
                 required, selected = self.plan(requested=recipe)
                 self.assertTrue(required)
@@ -66,7 +68,9 @@ class ImageRegressionWorkflowTests(unittest.TestCase):
             with self.subTest(path=path):
                 required, selected = self.plan([path])
                 self.assertTrue(required)
-                self.assertEqual(selected, sorted([self.ubuntu, self.openruyi]))
+                self.assertEqual(
+                    selected, sorted([self.ubuntu, self.openruyi, self.mi455x])
+                )
 
     def test_documentation_changes_skip_heavy_checks(self):
         self.assertEqual(
@@ -75,7 +79,7 @@ class ImageRegressionWorkflowTests(unittest.TestCase):
 
     def test_manual_full_run_checks_every_recipe_once(self):
         self.assertEqual(self.plan(base=""), (
-            True, sorted([self.ubuntu, self.openruyi]),
+            True, sorted([self.ubuntu, self.openruyi, self.mi455x]),
         ))
 
     def test_multiple_recipe_paths_do_not_duplicate_regression_jobs(self):
@@ -98,6 +102,30 @@ class ImageRegressionWorkflowTests(unittest.TestCase):
     def test_unknown_manual_recipe_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "unknown recipe"):
             self.plan(requested="unknown/1/riscv64/rocm/1")
+
+    def test_mi455x_builds_and_selects_rocjitsu(self):
+        steps = workflow("image.yml")["jobs"]["image"]["steps"]
+        build = next(step for step in steps
+                     if "build-rocjitsu" in step.get("run", ""))
+        self.assertEqual(build["if"], f"inputs.recipe == '{self.mi455x}'")
+        self.assertIn("third_party/rocm-systems", build["run"])
+        regression = next(step for step in steps
+                          if "just test-rocm-regression" in step.get("run", ""))
+        for recipe, backend in ((self.ubuntu, "gem5"),
+                                (self.openruyi, "gem5"),
+                                (self.mi455x, "rocjitsu")):
+            with self.subTest(recipe=recipe):
+                command = regression["run"].replace("just test-rocm-regression",
+                                                     "printf '%s\\n'")
+                result = subprocess.check_output(
+                    ["bash", "-eu", "-c", command], text=True,
+                    env={**os.environ, "RECIPE": recipe,
+                         "IMAGE_DIRECTORY": "/verified image"},
+                ).splitlines()
+                self.assertEqual(result, [
+                    "artifacts/rocm-regression/guest", "/verified image",
+                    recipe, "--backend", backend,
+                ])
 
     def test_image_preparation_can_start_while_gem5_builds(self):
         jobs = workflow("build.yml")["jobs"]

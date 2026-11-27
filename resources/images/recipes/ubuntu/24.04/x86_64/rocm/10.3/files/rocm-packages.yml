@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+
+rocm_packages:
+  - name: amdrocm-base10.3
+    sha256: f77800364fc3189d04b8900abda530a40b6736155ff565602f80c3e42c2582c8
+  - name: amdrocm-blas-dev10.3
+    sha256: e6613dda5dbee6c008b01d2862a0da339d467ad46708b994b326d66762f8842d
+  - name: amdrocm-blas-host10.3
+    sha256: 0a05d81b8bc728501bfd8c432af8c6fc3b868b624b6e9c895a9fee20ae216ed7
+  - name: amdrocm-blas10.3-gfx1250
+    sha256: 88341cacd8b46317069618b7c35a7f0929468f5b6f8aec67b8af22bced54ad01
+  - name: amdrocm-hipblas-common-dev10.3
+    sha256: 224b7419dde9d489376571d85bb75cf27dbf0ef12e9ee318d40894dae4eb46e9
+  - name: amdrocm-llvm-dev10.3
+    sha256: 836f28e7d1427fa9e76a08713a02dcddf19013776964da19efd6415d568266c6
+  - name: amdrocm-llvm10.3
+    sha256: 11373f2c57bef72097fdabe2839b21b6a748f892034f470cadaf54857bbe8506
+  - name: amdrocm-math-common10.3
+    sha256: 2b89a5fdd4616bf530458168a89e3182f689ad2a460f25af9897d1b53cac4b36
+  - name: amdrocm-profiler-base10.3
+    sha256: c87df811958a29089e9c61e94646825a6744e68f2891eccab0f209c87d54aea4
+  - name: amdrocm-runtime-dev10.3
+    sha256: 211785c0fd045f223d45f7efa58c078c4eddfa430c1f50144dc0d860d21b58ef
+  - name: amdrocm-runtime10.3
+    sha256: 921eaf5b9da846e059785dae242b4e2b9652f9936fcbb018d221912a3f7821fd
+  - name: amdrocm-solver-host10.3
+    sha256: f9e1fe099a9876b000551bbaae4702b2f8c9f087be28243a184ce15570a38608
+  - name: amdrocm-solver10.3-gfx1250
+    sha256: 99ff1d763cc40cf9d5376d76b96b128faac0622ca092119ab9b00d4c345999f9
+  - name: amdrocm-sparse-host10.3
+    sha256: 305b9c79181aaf00361c8afc31e9292d76fa144509fd8118c2b38c5d385b084e
+  - name: amdrocm-sparse10.3-gfx1250
+    sha256: 26d13b64dbf5af3fd4c5de021b99c44a3475156220c439b53b13192b680c0e22
+  - name: amdrocm-sysdeps10.3
+    sha256: 96c364f5eb025cd8c65eafbb749c2d2b1b49e0ceb9b80f5190458305d6246236

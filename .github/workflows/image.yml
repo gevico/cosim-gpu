@@ -102,6 +102,22 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 2
+      # disk is qcow2 with AMDGPU and ROCm; manifest.json records SHA-256 hashes.
+      - name: Preserve the downloadable openRuyi riscv64 guest bundle
+        if: inputs.recipe == 'openruyi/2026.09/riscv64/rocm/7.2.4'
+        uses: actions/upload-artifact@v4
+        with:
+          name: openruyi-2026.09-riscv64-rocm-7.2.4-guest-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ steps.recipe.outputs.directory }}/disk
+            ${{ steps.recipe.outputs.directory }}/kernel
+            ${{ steps.recipe.outputs.directory }}/manifest.json
+            ${{ steps.recipe.outputs.directory }}/os-release
+            ${{ steps.recipe.outputs.directory }}/image-packages.tsv
+            ${{ steps.recipe.outputs.directory }}/hipcc-version.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
       - name: Collect image diagnostics without copying the disk or kernel
         if: always()
         run: |
@@ -161,6 +177,14 @@ jobs:
           merge-multiple: true
       - name: Restore verified gem5 and development image
         run: just ci-restore-gem5 build/ci-build
+      - name: Build rocjitsu for the MI455X recipe
+        if: inputs.recipe == 'ubuntu/24.04/x86_64/rocm/10.3'
+        run: |
+          git submodule update --init --depth 1 third_party/rocm-systems
+          install -m 755 "$(command -v just)" build/ci-build/just
+          just --command scripts/host/dev.sh build/ci-build/just build-rocjitsu
+        env:
+          COSIM_ENV: container
       - name: Verify session memory, MI300X model and vfio-user ROM
         env:
           COSIM_ENV: container
@@ -173,7 +197,13 @@ jobs:
         env:
           COSIM_ENV: container
           IMAGE_DIRECTORY: ${{ steps.recipe.outputs.directory }}
-        run: just test-rocm-regression artifacts/rocm-regression/guest "$IMAGE_DIRECTORY" "$RECIPE"
+        run: |
+          backend=gem5
+          if [ "$RECIPE" = ubuntu/24.04/x86_64/rocm/10.3 ]; then
+            backend=rocjitsu
+          fi
+          just test-rocm-regression artifacts/rocm-regression/guest \
+            "$IMAGE_DIRECTORY" "$RECIPE" --backend "$backend"
       - name: Upload complete regression evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
