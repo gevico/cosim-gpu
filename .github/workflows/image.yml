@@ -102,6 +102,22 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 2
+      # disk is qcow2 with AMDGPU and ROCm; manifest.json records SHA-256 hashes.
+      - name: Preserve the downloadable openRuyi riscv64 guest bundle
+        if: inputs.recipe == 'openruyi/2026.09/riscv64/rocm/7.2.4'
+        uses: actions/upload-artifact@v4
+        with:
+          name: openruyi-2026.09-riscv64-rocm-7.2.4-guest-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ steps.recipe.outputs.directory }}/disk
+            ${{ steps.recipe.outputs.directory }}/kernel
+            ${{ steps.recipe.outputs.directory }}/manifest.json
+            ${{ steps.recipe.outputs.directory }}/os-release
+            ${{ steps.recipe.outputs.directory }}/image-packages.tsv
+            ${{ steps.recipe.outputs.directory }}/hipcc-version.txt
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
       - name: Collect image diagnostics without copying the disk or kernel
         if: always()
         run: |
