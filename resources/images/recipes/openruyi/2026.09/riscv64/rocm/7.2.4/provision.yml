@@ -11,6 +11,26 @@
       ansible.builtin.command: grep -qi openruyi /etc/os-release
       changed_when: false
 
+    - name: Allow direct kernel boot without a required EFI mount
+      ansible.builtin.replace:
+        path: /etc/fstab
+        regexp: '^(\s*[^#\s]\S*\s+/boot/efi\s+\S+\s+)(?!\S*\bnofail\b)(\S+)'
+        replace: '\1\2,nofail'
+
+    - name: Create the systemd manager configuration directory
+      ansible.builtin.file:
+        path: /etc/systemd/system.conf.d
+        state: directory
+        mode: "0755"
+
+    - name: Allow bounded device discovery under TCG
+      ansible.builtin.copy:
+        dest: /etc/systemd/system.conf.d/90-cosim-tcg.conf
+        mode: "0644"
+        content: |
+          [Manager]
+          DefaultDeviceTimeoutSec=180s
+
     - name: Install native ROCm and HIP development packages
       ansible.builtin.command:
         argv:
@@ -18,6 +38,7 @@
           - install
           - -y
           - --setopt=install_weak_deps=False
+          - make
           - gcc16
           - hipcc-7.2.4
           - rocm-hip-devel-7.2.4
@@ -76,6 +97,21 @@
         src: libdrm_amdgpu.so.1
         dest: /usr/lib64/libdrm_amdgpu.so
         state: link
+
+    - name: Create the regression serial console override directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/serial-getty@ttyS0.service.d
+        state: directory
+        mode: "0755"
+
+    - name: Enable root autologin on the regression serial console
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/serial-getty@ttyS0.service.d/override.conf
+        mode: "0644"
+        content: |
+          [Service]
+          ExecStart=
+          ExecStart=-/sbin/agetty --autologin root --keep-baud 115200,38400,9600 %I $TERM
 
     - name: Record installed package versions
       ansible.builtin.shell: >-

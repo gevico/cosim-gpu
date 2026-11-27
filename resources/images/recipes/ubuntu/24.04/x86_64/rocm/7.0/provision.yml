@@ -11,6 +11,37 @@
           - ansible_distribution_version == "24.04"
         fail_msg: "This recipe requires Ubuntu 24.04."
 
+    - name: Disable periodic APT actions in the test image
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/99cosim-no-periodic-updates
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          APT::Periodic::Enable "0";
+
+    - name: Disable and stop automatic update timers
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        enabled: false
+        masked: true
+        state: stopped
+      loop:
+        - apt-daily.timer
+        - apt-daily-upgrade.timer
+
+    - name: Block new automatic updates and wait for existing updates to finish
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        masked: true
+      register: periodic_apt
+      until: periodic_apt.status.ActiveState in ['inactive', 'failed']
+      retries: 180
+      delay: 5
+      loop:
+        - apt-daily.service
+        - apt-daily-upgrade.service
+
     - name: Create the cosim build user
       ansible.builtin.user:
         name: gem5
@@ -173,7 +204,6 @@
           mode: "0644"
         - {source: "{{ playbook_dir }}/files/cosim-gpu-initialize.service", destination: /lib/systemd/system/cosim-gpu-initialize.service, mode: "0644"}
         - {source: "{{ playbook_dir }}/files/cosim_gpu_initialize.sh", destination: /usr/local/bin/cosim-gpu-initialize.sh, mode: "0755"}
-        - {source: "{{ playbook_dir }}/files/cosim_rocm_regression.sh", destination: /usr/local/bin/cosim-rocm-regression.sh, mode: "0755"}
 
     - name: Create firmware directories
       ansible.builtin.file:
